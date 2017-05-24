@@ -1,2 +1,2 @@
 # Blits
-Blits - Biolayer Interferometry Trace Scritinizer
+Blits - Biolayer Interferometry Trace Scrutinizer
