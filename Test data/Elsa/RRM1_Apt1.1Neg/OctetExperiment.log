@@ -1,0 +1,62 @@
+2017/05/12 11:48:28	Instrument is busy
+2017/05/12 11:48:29	Instrument is finished
+2017/05/12 11:48:29	Ready
+2017/05/12 11:48:32	Experiment started
+2017/05/12 11:48:32	Sample Plate temperature = 25 C
+2017/05/12 11:48:32	Starting new step
+2017/05/12 11:48:32	Waiting to pick up sensor location A1
+2017/05/12 11:48:32	Picking sensors location A1
+2017/05/12 11:48:41	Checking sensors location A1
+2017/05/12 11:48:42	Sensor 1: Integration Time = 2.5 ms
+2017/05/12 11:48:42	Sensor 2: Integration Time = 2.9 ms
+2017/05/12 11:48:42	Sensor 3: Integration Time = 2.2 ms
+2017/05/12 11:48:42	Sensor 4: Integration Time = 2.1 ms
+2017/05/12 11:48:42	Sensor 5: Integration Time = 2.3 ms
+2017/05/12 11:48:42	Sensor 6: Integration Time = 2.6 ms
+2017/05/12 11:48:42	Sensor 7: Integration Time = 2.4 ms
+2017/05/12 11:48:42	Sensor 8: Integration Time = 2.1 ms
+2017/05/12 11:48:49	Picking sensors completed location A1
+2017/05/12 11:48:49	Sample Plate temperature = 25 C
+2017/05/12 11:48:49	Ready to move to sample location A1
+2017/05/12 11:48:49	Moving to sample location A1
+2017/05/12 11:48:54	Arrived at sample location A1
+2017/05/12 11:48:54	Waiting to start sample location A1
+2017/05/12 11:48:54	Processing sample location A1
+2017/05/12 11:49:54	Sample completed location A1
+2017/05/12 11:49:54	Waiting to start new step
+2017/05/12 11:49:54	Starting new step
+2017/05/12 11:49:55	Ready to move to sample location A8
+2017/05/12 11:49:55	Moving to sample location A8
+2017/05/12 11:50:02	Arrived at sample location A8
+2017/05/12 11:50:02	Waiting to start sample location A8
+2017/05/12 11:50:02	Processing sample location A8
+2017/05/12 11:51:42	Sample completed location A8
+2017/05/12 11:51:42	Waiting to start new step
+2017/05/12 11:51:42	Starting new step
+2017/05/12 11:51:43	Ready to move to sample location A1
+2017/05/12 11:51:43	Moving to sample location A1
+2017/05/12 11:51:50	Arrived at sample location A1
+2017/05/12 11:51:50	Waiting to start sample location A1
+2017/05/12 11:51:50	Processing sample location A1
+2017/05/12 11:52:50	Sample completed location A1
+2017/05/12 11:52:50	Waiting to start new step
+2017/05/12 11:52:50	Starting new step
+2017/05/12 11:52:51	Ready to move to sample location A6
+2017/05/12 11:52:51	Moving to sample location A6
+2017/05/12 11:52:57	Arrived at sample location A6
+2017/05/12 11:52:57	Waiting to start sample location A6
+2017/05/12 11:52:57	Processing sample location A6
+2017/05/12 11:56:17	Sample completed location A6
+2017/05/12 11:56:17	Waiting to start new step
+2017/05/12 11:56:17	Starting new step
+2017/05/12 11:56:18	Ready to move to sample location A2
+2017/05/12 11:56:18	Moving to sample location A2
+2017/05/12 11:56:24	Arrived at sample location A2
+2017/05/12 11:56:24	Waiting to start sample location A2
+2017/05/12 11:56:25	Processing sample location A2
+2017/05/12 11:57:24	Sample completed location A2
+2017/05/12 11:57:24	Waiting for ejection start location A1
+2017/05/12 11:57:25	Ejecting sensor location A1
+2017/05/12 11:57:58	Ejecting completed location A1
+2017/05/12 11:57:58	Experiment finished
+2017/05/12 11:57:58	Ready
