@@ -130,11 +130,8 @@ class BlitsData():
             p_est = self.get_initial_estimates(self.fit_func_id, x, y)
             params = None
             try:
-                #params, covar = curve_fit(func, x, y, p0=p_est) #, method='trf')
                 cf_out = curve_fit(func, x, y, p0=p_est)
                 params = cf_out[0]
-#                params, covar, infodict, errmsg, ier = curve_fit(func, 
-#                    x, y, p_est, full_output=1)
                 self.results['association'][trace] = params[0]
                 self.results['success'][trace] = 1.0
                 for i in range(len(pnames)):
