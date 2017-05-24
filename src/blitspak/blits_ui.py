@@ -1,11 +1,6 @@
-'''
-Created on 23 May 2017
-
-@author: schilsm
-'''
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'blitspak.ui'
+# Form implementation generated from reading ui file 'blits.ui'
 #
 # Created by: PyQt5 UI code generator 5.6
 #
@@ -18,7 +13,7 @@ class Ui_MainWindow(object):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1161, 916)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(":/Resources/Resources/Blimp.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(":/Resources/TraceScrutinizer.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
         MainWindow.setProperty(".\\Resources", "")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -51,13 +46,12 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tabPlots, "")
         self.tabResults = QtWidgets.QWidget()
         self.tabResults.setObjectName("tabResults")
-        self.horizontalLayoutWidget = QtWidgets.QWidget(self.tabResults)
-        self.horizontalLayoutWidget.setGeometry(QtCore.QRect(0, 0, 1131, 771))
-        self.horizontalLayoutWidget.setObjectName("horizontalLayoutWidget")
-        self.horizontalLayout = QtWidgets.QHBoxLayout(self.horizontalLayoutWidget)
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.tabResults)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.tblResults = QtWidgets.QTableWidget(self.horizontalLayoutWidget)
+        self.tblResults = QtWidgets.QTableWidget(self.tabResults)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -70,7 +64,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.tblResults)
         self.verticalLayout_3 = QtWidgets.QVBoxLayout()
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.tblFitParams = QtWidgets.QTableWidget(self.horizontalLayoutWidget)
+        self.tblFitParams = QtWidgets.QTableWidget(self.tabResults)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -81,7 +75,7 @@ class Ui_MainWindow(object):
         self.tblFitParams.setColumnCount(0)
         self.tblFitParams.setRowCount(0)
         self.verticalLayout_3.addWidget(self.tblFitParams)
-        self.tblFittedCurve = QtWidgets.QTableWidget(self.horizontalLayoutWidget)
+        self.tblFittedCurve = QtWidgets.QTableWidget(self.tabResults)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -92,6 +86,7 @@ class Ui_MainWindow(object):
         self.tblFittedCurve.setRowCount(0)
         self.verticalLayout_3.addWidget(self.tblFittedCurve)
         self.horizontalLayout.addLayout(self.verticalLayout_3)
+        self.verticalLayout.addLayout(self.horizontalLayout)
         self.tabWidget.addTab(self.tabResults, "")
         self.horizontalLayout_2.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -112,13 +107,13 @@ class Ui_MainWindow(object):
         MainWindow.addToolBar(QtCore.Qt.TopToolBarArea, self.toolBar)
         self.action_open = QtWidgets.QAction(MainWindow)
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap(":/Resources/Resources/mjs-open-data.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon1.addPixmap(QtGui.QPixmap(":/mjs-open-data.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.action_open.setIcon(icon1)
         self.action_open.setObjectName("action_open")
         self.action_save = QtWidgets.QAction(MainWindow)
         self.action_save.setEnabled(False)
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap(":/Resources/Resources/mjs-save-data.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon2.addPixmap(QtGui.QPixmap(":/mjs-save-data.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.action_save.setIcon(icon2)
         self.action_save.setObjectName("action_save")
         self.action_quit = QtWidgets.QAction(MainWindow)
@@ -128,24 +123,27 @@ class Ui_MainWindow(object):
         self.action_get_base.setCheckable(True)
         self.action_get_base.setEnabled(False)
         icon3 = QtGui.QIcon()
-        icon3.addPixmap(QtGui.QPixmap(":/Resources/Resources/baseline.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon3.addPixmap(QtGui.QPixmap(":/baseline.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.action_get_base.setIcon(icon3)
         self.action_get_base.setObjectName("action_get_base")
         self.action_get_loads = QtWidgets.QAction(MainWindow)
         self.action_get_loads.setCheckable(True)
         self.action_get_loads.setEnabled(False)
         icon4 = QtGui.QIcon()
-        icon4.addPixmap(QtGui.QPixmap(":/Resources/Resources/loaded.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon4.addPixmap(QtGui.QPixmap(":/loaded.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.action_get_loads.setIcon(icon4)
         self.action_get_loads.setObjectName("action_get_loads")
         self.action_get_association = QtWidgets.QAction(MainWindow)
         self.action_get_association.setCheckable(True)
         self.action_get_association.setEnabled(False)
         icon5 = QtGui.QIcon()
-        icon5.addPixmap(QtGui.QPixmap(":/Resources/Resources/association.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon5.addPixmap(QtGui.QPixmap(":/association.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.action_get_association.setIcon(icon5)
         self.action_get_association.setObjectName("action_get_association")
         self.action_phase_boundaries = QtWidgets.QAction(MainWindow)
+        icon6 = QtGui.QIcon()
+        icon6.addPixmap(QtGui.QPixmap(":/dissociation.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.action_phase_boundaries.setIcon(icon6)
         self.action_phase_boundaries.setObjectName("action_phase_boundaries")
         self.action_association_model = QtWidgets.QAction(MainWindow)
         self.action_association_model.setObjectName("action_association_model")
@@ -156,6 +154,11 @@ class Ui_MainWindow(object):
         self.action_reduce_n.setObjectName("action_reduce_n")
         self.action_close = QtWidgets.QAction(MainWindow)
         self.action_close.setObjectName("action_close")
+        self.action_get_dissociation = QtWidgets.QAction(MainWindow)
+        self.action_get_dissociation.setCheckable(True)
+        self.action_get_dissociation.setEnabled(False)
+        self.action_get_dissociation.setIcon(icon6)
+        self.action_get_dissociation.setObjectName("action_get_dissociation")
         self.menu_File.addAction(self.action_open)
         self.menu_File.addAction(self.action_save)
         self.menu_File.addSeparator()
@@ -163,6 +166,7 @@ class Ui_MainWindow(object):
         self.menu_Analysis.addAction(self.action_get_base)
         self.menu_Analysis.addAction(self.action_get_loads)
         self.menu_Analysis.addAction(self.action_get_association)
+        self.menu_Analysis.addAction(self.action_get_dissociation)
         self.menuSettings.addAction(self.action_association_model)
         self.menuSettings.addAction(self.action_saturation_model)
         self.menuSettings.addSeparator()
@@ -181,6 +185,8 @@ class Ui_MainWindow(object):
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.action_get_association)
         self.toolBar.addSeparator()
+        self.toolBar.addAction(self.action_get_dissociation)
+        self.toolBar.addSeparator()
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
@@ -188,7 +194,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Blits"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Blits - BLI Trace Scrutinizer"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabPlots), _translate("MainWindow", "Plots"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabResults), _translate("MainWindow", "Results"))
         self.menu_File.setTitle(_translate("MainWindow", "File"))
@@ -207,5 +213,6 @@ class Ui_MainWindow(object):
         self.action_reduce_n.setText(_translate("MainWindow", "Reduce number of data points"))
         self.action_close.setText(_translate("MainWindow", "Close"))
         self.action_close.setToolTip(_translate("MainWindow", "Close data"))
+        self.action_get_dissociation.setText(_translate("MainWindow", "Dissociation"))
 
-#import blits_rc
+import blits_rc
