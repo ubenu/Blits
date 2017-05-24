@@ -4,6 +4,27 @@ Created on 24 May 2017
 @author: SchilsM
 '''
 
+import numpy as np
+import scipy.optimize
+
+# Parameters can be 1) fixed, 2) variable, shared, 3) variable, not shared
+# Fixed parameters should be fed to the fitting function separately, 
+# eg in a make_func function, such as this one:
+#
+# def make_calc_scatter(self, constants):
+#     p = constants['power']
+#     def calc_scatter(x, *variables):
+#         a0, c = variables
+#         return a0 + np.power(c / x, p)
+#     return calc_scatter
+
+def generic_func(func, x, *p):
+    return func(x, *p)
+
+def err_func(func, x, y, *p):
+    y_calc = generic_func(func, x, *p)
+    return(y_calc - y)
+
 
 
 # def get_scatter_params(self, x_lo, x_hi, constants, params0):
@@ -18,12 +39,7 @@ Created on 24 May 2017
 #         
 #     return params
 # 
-# def make_calc_scatter(self, constants):
-#     p = constants['power']
-#     def calc_scatter(x, *variables):
-#         a0, c = variables
-#         return a0 + np.power(c / x, p)
-#     return calc_scatter
+
 
 
 """
@@ -34,15 +50,21 @@ Next message: [SciPy-User] Nonlinear fit to multiple data sets with a shared par
 Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
 Troels,
 
-    Glad to see another NMR jockey using Python.  I put together a quick and dirty script showing how to do a global fit using Scipy's leastsq function.  Here I am fitting two decaying exponentials, first independently, and then using a global fit where we require that the both trajectories have the same decay rate.  You'll need to abstract this to n-trajectories, but the idea is the same.  If you need to add simple box limit you can use leastsqbound (https://github.com/jjhelmus/leastsqbound-scipy) for Scipy like syntax or Matt's lmfit for more advanced contains and parameter controls.  Also you might be interested in nmrglue (nmrglue.com) for working with NMR spectral data.
+    Glad to see another NMR jockey using Python.  
+    I put together a quick and dirty script showing how to do a global fit using Scipy's leastsq function.  
+    Here I am fitting two decaying exponentials, first independently, 
+    and then using a global fit where we require that the both trajectories have the same decay rate.  
+    You'll need to abstract this to n-trajectories, but the idea is the same.  
+    If you need to add simple box limit you can use leastsqbound (https://github.com/jjhelmus/leastsqbound-scipy) 
+    for Scipy like syntax or Matt's lmfit for more advanced contains and parameter controls.  
+    Also you might be interested in nmrglue (nmrglue.com) for working with NMR spectral data.
 
 Cheers,
 
     - Jonathan Helmus
 """
 
-import numpy as np
-import scipy.optimize
+
 
 def sim(x, p):
     a, b, c  = p
@@ -61,21 +83,12 @@ data_y2 = sim(data_x, p2)
 ndata_y1 = data_y1 + np.random.normal(size=len(data_y1), scale=0.01)
 ndata_y2 = data_y2 + np.random.normal(size=len(data_y2), scale=0.01)
 
-for d in zip(data_x, data_y1, data_y2):
-    print(d)
-
-try:
 # independent fitting of the two trajectories
-    print ("Independent fitting")
-    p_best, ier = scipy.optimize.leastsq(err, p1, args=(data_x, ndata_y1))
-    print(p_best, ier)
-    print ("Best fit parameter for first trajectory: " + str(p_best))
-except Exception as e:
-    print(e)
+print ("Independent fitting")
+p_best, ier = scipy.optimize.leastsq(err, p1, args=(data_x, ndata_y1))
+print ("Best fit parameter for first trajectory: " + str(p_best))
 
 p_best, ier = scipy.optimize.leastsq(err, p2, args=(data_x, ndata_y2))
-print(p_best, ier)
-
 print ("Best fit parameter for second trajectory: " + str(p_best))
 
 # global fit
