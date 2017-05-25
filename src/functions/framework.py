@@ -6,6 +6,29 @@ Created on 24 May 2017
 
 import numpy as np
 import scipy.optimize
+import functions.function_defs
+
+def fn_1exp(self, x, *p):
+    a0, a1, k1 = p
+    return (a0 + a1*np.exp(-x*k1))
+
+
+def make_func(fn, x, y, params):
+    c, v = [], []
+    for p in params:
+        if params[p][0]:
+            c.append((p, params[p][1]))
+        else:
+            v.append((p, params[p][1]))
+    return c, v
+
+
+ps = {'a0':(False, 10.), 'a1':(True, 1.0), 'k1':(False, 1.5)}
+func = fn_1exp
+print(make_func(func, 0, 0, ps))
+
+
+    
 
 # Parameters can be 1) fixed, 2) variable, shared, 3) variable, not shared
 # Fixed parameters should be fed to the fitting function separately, 
@@ -18,12 +41,24 @@ import scipy.optimize
 #         return a0 + np.power(c / x, p)
 #     return calc_scatter
 
-def generic_func(func, x, *p):
-    return func(x, *p)
+# Example fn:
+# def fn_3exp(self, x, *p):
+#     a0, a1, k1, a2, k2, a3, k3 = p
+#     return (a0 + a1*np.exp(-x*k1) + a2*np.exp(-x*k2) + a3*np.exp(-x*k3))
+#
+# *p needs to be decomposed into *c (list of constants) and *v (list of variables)
 
-def err_func(func, x, y, *p):
-    y_calc = generic_func(func, x, *p)
-    return(y_calc - y)
+# Suppose p[0], p[2] and p[3] (defined via UI) are constant
+# 
+#
+#
+
+# def generic_func(func, x, *p):
+#     return func(x, *p)
+# 
+# def err_func(func, x, y, *p):
+#     y_calc = generic_func(func, x, *p)
+#     return(y_calc - y)
 
 
 
@@ -62,7 +97,7 @@ Troels,
 Cheers,
 
     - Jonathan Helmus
-"""
+
 
 
 
@@ -112,3 +147,4 @@ p_best_2 = p_best[3], p_best[1], p_best[4]
 print ("Global fit results")
 print ("Best fit parameters for first trajectory: " + str(p_best_1))
 print ("Best fit parameters for second trajectory: " + str(p_best_2))
+"""
