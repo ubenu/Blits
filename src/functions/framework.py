@@ -5,27 +5,88 @@ Created on 24 May 2017
 '''
 
 import numpy as np
-import scipy.optimize
-import functions.function_defs
+from scipy.optimize import curve_fit
+import functions.function_defs as fdefs
+from functions import function_defs
 
-def fn_1exp(self, x, *p):
-    a0, a1, k1 = p
-    return (a0 + a1*np.exp(-x*k1))
+def make_func(fn, x, params, const):
+    """
+    @params is the full input array for fn
+    @const is a disctionary with the indices and values of the papameters
+    that need to be kept constant
+    """
+    mask = np.ones((len(params),), dtype=bool)
+    for index in const:
+        params[index] = const[index]
+        mask[index] = False
+    def func(x, *v):
+        params[mask] = v 
+        return fn(x, params)
+    return func
+
+def global_fit(fn, x, y, params, links):
+    pass
+    
+def test_global():
+    import matplotlib.pyplot as plt
+    n_curves = 5
+    n_points = 10
+    x_start, x_end = 2.5, 50
+    std = 0.02
+    fn = fdefs.fn_mich_ment
+    d_shape = (n_curves, n_points)
+    x = np.linspace(x_start, x_end, n_points)
+    y = np.ones(d_shape)
+    kms = np.array([1.5, 3.8, 5.7, 7.2, 9.1])
+    vs = np.ones((n_curves)) * 30.0
+    count = 0
+    for curve in y:
+        params = np.array([kms[count], vs[count]])
+        y[count] = curve * fn(x, params)
+        count += 1 
+    noisy_y = y + np.random.normal(0.0, std * y.max(), y.shape)
+    
+    fit_y = np.zeros(d_shape)
+    count = 0
+    for curve in noisy_y:
+        p = np.ones((2,))
+        c = {}
+        m = [not (i in c) for i in range(p.shape[0])]
+        p_est = np.ones(p[m].shape[0], dtype=float)
+        curve_fit(make_func(function_defs.fn_mich_ment, x, p, c), x, curve, p0=p_est)
+        fit = fn(x, p)
+        fit_y[count] = fit
+        count += 1
+    
+    # Lineweaver-Burke
+    plt.plot(1/x, 1/noisy_y.transpose(),'ro', 1/x, 1/fit_y.transpose(), 'k-')
+    plt.show()
+        
+    
+def test():   
+    import matplotlib.pyplot as plt
+    
+    x = np.arange(0, 1, 0.001)
+    f = fdefs.fn_3exp
+    p = np.array([1.0, 0.5, 10.0, 0.25, 1.0, 0.0, 1.0])
+    c = {5: 0.0, 6: 1.0}
+    m = [not (i in c) for i in range(len(p))]
+    p_est = np.ones(len(p[m]), dtype=float)
+    data = f(x, p)
+    ndata = data + np.random.normal(0.0, 0.02*data, len(data))
+    
+    curve_fit(make_func(f, x, p, c), x, ndata, p0=p_est)
+    # as p is a reference, variable params gets changed by curve_fit; no need to 
+    # replace anything in p
+    
+    print(p)
+    plt.plot(x, ndata, 'ro', x, f(x, p), 'k-')
+    plt.show()
+
+if __name__ == '__main__':
+    test_global()
 
 
-def make_func(fn, x, y, params):
-    c, v = [], []
-    for p in params:
-        if params[p][0]:
-            c.append((p, params[p][1]))
-        else:
-            v.append((p, params[p][1]))
-    return c, v
-
-
-ps = {'a0':(False, 10.), 'a1':(True, 1.0), 'k1':(False, 1.5)}
-func = fn_1exp
-print(make_func(func, 0, 0, ps))
 
 
     
