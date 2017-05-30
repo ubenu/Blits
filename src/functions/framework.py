@@ -7,7 +7,8 @@ Created on 24 May 2017
 import numpy as np
 from scipy.optimize import curve_fit
 import functions.function_defs as fdefs
-from functions import function_defs
+#from functions import function_defs
+#from statsmodels.nonparametric.kernels import d_gaussian
 
 def make_func(fn, x, params, const):
     """
@@ -24,44 +25,111 @@ def make_func(fn, x, params, const):
         return fn(x, params)
     return func
 
-def global_fit(fn, x, y, params, links):
-    pass
+def make_func_global(fn, x, links):
+    """
+    @x is a 2 or higher dimensional array of shape (n_curves, n_x^+) 
+    (^+ indicates, there must be one or more such dimension)
+    @links is a 2D array of shape (n_curves, n_params_for_fn) that contains
+    the index of its associated (unique) parameter in v 
+    """
+    p_shape = links.shape
+    links = links.flatten()
+    def func(x, *v):
+        params = np.zeros(p_shape, dtype=float).flatten()
+        for i in range(params.shape[0]):
+            params[i] = v[links[i]]
+        params = params.reshape(p_shape)
+        y = np.zeros(x.shape, dtype=float)
+        for i in range(x.shape[0]):
+            y[i] = fn(x[i], params[i])
+        y_out = y.flatten()
+        return y_out
+    return func      
     
 def test_global():
     import matplotlib.pyplot as plt
+    # Make the independent axes
+    n_x0, n_x1 = 7, 4 
+    x0 = np.ones((n_x1, n_x0))
+    x0_template = np.array([1,2,4,6,10,15,20], dtype=float)
+    x0 = (x0 * x0_template).flatten()
+    x1 = np.ones((n_x0, n_x1))
+    x1_template = np.array([0,5,10,20], dtype=float)
+    x1 = (x1 * x1_template).transpose().flatten()
+    x = np.vstack((x0, x1))
+    x = x.reshape((x.shape[0], n_x1, n_x0))
+    for x_i in x:
+        print(x_i)
+    km = 2.0
+    ki = 5.0
+    vm = 100.
+     
+    
+    
     n_curves = 5
-    n_points = 10
+    n_points = 8
+    x_dim = 2
+    x0_template = np.array([1,2,4,6,10,15,20], dtype=float)
+    x0 = np.ones((n_curves))
     x_start, x_end = 2.5, 50
     std = 0.02
     fn = fdefs.fn_mich_ment
-    d_shape = (n_curves, n_points)
+    d_shape = (n_curves, x_dim, n_points)
     x = np.linspace(x_start, x_end, n_points)
     y = np.ones(d_shape)
-    kms = np.array([1.5, 3.8, 5.7, 7.2, 9.1])
-    vs = np.ones((n_curves)) * 30.0
+    km = np.ones((n_curves)) * 2.5
+    ki = np.array([1.5, 3.8, 5.7, 7.2, 9.1])
+    vm = np.ones((n_curves)) * 30.0
     count = 0
     for curve in y:
-        params = np.array([kms[count], vs[count]])
+        params = np.array([km[count], ki[count], vm[count]])
         y[count] = curve * fn(x, params)
         count += 1 
     noisy_y = y + np.random.normal(0.0, std * y.max(), y.shape)
     
-    fit_y = np.zeros(d_shape)
-    count = 0
-    for curve in noisy_y:
-        p = np.ones((2,))
-        c = {}
-        m = [not (i in c) for i in range(p.shape[0])]
-        p_est = np.ones(p[m].shape[0], dtype=float)
-        curve_fit(make_func(function_defs.fn_mich_ment, x, p, c), x, curve, p0=p_est)
-        fit = fn(x, p)
-        fit_y[count] = fit
-        count += 1
+#     # non-global fit (potentially with constants)
+#     fit_y = np.zeros(d_shape)
+#     count = 0
+#     for curve in noisy_y:
+#         p = np.ones((2,))
+#         c = {}
+#         m = [not (i in c) for i in range(p.shape[0])]
+#         p_est = np.ones(p[m].shape[0], dtype=float)
+#         curve_fit(make_func(function_defs.fn_mich_ment, x, p, c), x, curve, p0=p_est)
+#         fit = fn(x, p)
+#         fit_y[count] = fit
+#         count += 1
+#     
     
-    # Lineweaver-Burke
-    plt.plot(1/x, 1/noisy_y.transpose(),'ro', 1/x, 1/fit_y.transpose(), 'k-')
-    plt.show()
+    # global fit
+    gfit_x = (np.ones(d_shape) * x)
+    n_params = 2 # we're using fn_mich_ment
+    glinks = np.array([0, 1, 2, 1, 3, 1, 4, 1, 5, 1])
+    glinks = glinks.reshape((n_curves, n_params))
+    p_est = np.zeros(np.unique(glinks).shape)
+    
+    out = curve_fit(make_func_global(fn, x, glinks), gfit_x, noisy_y.flatten(), p0=p_est)
+    print(out[0])
+    p_shape = glinks.shape
+    glinks = glinks.flatten()
+    params = np.zeros(p_shape).flatten()
+    fv = out[0]
+    for i in range(params.shape[0]):
+        params[i] = fv[glinks[i]]
+    params = params.reshape(p_shape)
+    print(params)
+    count = 0
+    gfit_y = np.zeros_like(gfit_x)
+    for x_i in gfit_x:
+        p_i = params[count]
+        gfit_y[count] = fn(x_i, p_i)
+        count += 1
         
+    # Lineweaver-Burke
+    plt.plot(gfit_x.transpose(), noisy_y.transpose(),'ro', gfit_x.transpose(), gfit_y.transpose(), 'k-')
+    plt.show()
+         
+    
     
 def test():   
     import matplotlib.pyplot as plt

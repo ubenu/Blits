@@ -11,19 +11,30 @@ def fn_straight_line(x, p):
 
 def fn_1exp(x, p):
     a0, a1, k1 = p
-    return (a0 + a1*np.exp(-x*k1))
+    t = x[0]
+    return a0 + a1*np.exp(-t*k1)
     
 def fn_2exp(x, p):
     a0, a1, k1, a2, k2 = p
-    return (a0 + a1*np.exp(-x*k1) + a2*np.exp(-x*k2))
+    t = x[0]
+    return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2)
     
 def fn_3exp(x, p):
     a0, a1, k1, a2, k2, a3, k3 = p
-    return (a0 + a1*np.exp(-x*k1) + a2*np.exp(-x*k2) + a3*np.exp(-x*k3))
+    t = x[0]
+    return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + a3*np.exp(-t*k3)
 
 def fn_mich_ment(x, p):
     km, vmax = p
-    return vmax * x / (km + x)
+    s = x[0]
+    return vmax * s / (km + s)
+
+def fn_comp_inhibition(x, p):
+    km, ki, vmax = p
+    s = x[0]
+    i = x[1]
+    return vmax * s / (km * (1.0 + i / ki) + s)
+    
     
 def fn_hill(x, p):
     ymax, xhalf, h = p
