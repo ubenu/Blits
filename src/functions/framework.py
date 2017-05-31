@@ -10,11 +10,13 @@ import functions.function_defs as fdefs
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
-def make_func(fn, x, params, const):
+def make_func(fn, params, const={}):
     """
-    @params is the full input array for fn
-    @const is a disctionary with the indices and values of the papameters
-    that need to be kept constant
+    @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+    @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+    @params is the full input array for fn; same length as p (fn argument)
+    @const is a dictionary with the indices (keys) and values (values) of the parameters
+    that must be kept constant
     """
     mask = np.ones((len(params),), dtype=bool)
     for index in const:
@@ -25,109 +27,128 @@ def make_func(fn, x, params, const):
         return fn(x, params)
     return func
 
-def make_func_global(fn, x, links):
+
+def make_func_global(fn, x_splits, links, consts={}):
     """
-    @x is a 2 or higher dimensional array of shape (n_curves, n_x^+) 
-    (^+ indicates, there must be one or more such dimension)
-    @links is a 2D array of shape (n_curves, n_params_for_fn) that contains
-    the index of its associated (unique) parameter in v 
+    @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+    @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+    @links is an array of shape (#curves, #params_for_fn) that contains
+    the index of its associated (unique) parameter used to construct v
+    @consts is a dictionary with the indices (keys) and values (values) of the parameters
+    that must be kept constant
     """
-    p_shape = links.shape
+    n_curves = links.shape[0]
+    n_params = links.shape[1]
     links = links.flatten()
     def func(x, *v):
-        params = np.zeros(p_shape, dtype=float).flatten()
-        for i in range(params.shape[0]):
-            params[i] = v[links[i]]
-        params = params.reshape(p_shape)
-        y = np.zeros(x.shape, dtype=float)
-        for i in range(x.shape[0]):
-            y[i] = fn(x[i], params[i])
-        y_out = y.flatten()
+        split_x = np.split(x, x_splits, axis=1)
+        if len(split_x) != n_curves:
+            print("Error: incorrect x split in make_func_global")
+        params = np.zeros_like(links, dtype=float)
+        u = np.zeros_like(np.unique(links), dtype=float) 
+        # u is the array that will contain the values of all unique params
+        # v is the array of variable params
+        mask = np.ones_like(u, dtype=bool)
+        for i in consts:
+            u[i] = consts[i]
+            mask[i] = False
+        u[mask] = v #np.array(v)[mask]
+        for i in range(links.shape[0]):
+            params[i] = u[links[i]] # fill in the parameter values
+        params = params.reshape((n_curves, n_params))
+        y_out = []
+        for i in range(n_curves):
+            y_out.extend(fn(split_x[i], params[i]))
         return y_out
     return func      
     
 def test_global():
     import matplotlib.pyplot as plt
-    # Make the independent axes
-    n_x0, n_x1 = 7, 4 
-    x0 = np.ones((n_x1, n_x0))
-    x0_template = np.array([1,2,4,6,10,15,20], dtype=float)
-    x0 = (x0 * x0_template).flatten()
-    x1 = np.ones((n_x0, n_x1))
-    x1_template = np.array([0,5,10,20], dtype=float)
-    x1 = (x1 * x1_template).transpose().flatten()
-    x = np.vstack((x0, x1))
-    x = x.reshape((x.shape[0], n_x1, n_x0))
-    for x_i in x:
-        print(x_i)
+    # Create the independent (x)
+    fn = fdefs.fn_comp_inhibition # has 3 params: km, ki, vm, in that order  
     km = 2.0
     ki = 5.0
     vm = 100.
-     
+    p = np.array([km, ki, vm])
     
-    
-    n_curves = 5
-    n_points = 8
-    x_dim = 2
+    n_points, n_curves = 7, 4 
+    x0 = np.ones((n_curves, n_points))
     x0_template = np.array([1,2,4,6,10,15,20], dtype=float)
-    x0 = np.ones((n_curves))
-    x_start, x_end = 2.5, 50
+    x0 = (x0 * x0_template).flatten()
+    x1 = np.ones((n_points, n_curves))
+    x1_template = np.array([0,5,10,20], dtype=float)
+    x1 = (x1 * x1_template).transpose().flatten()
+    x = np.vstack((x0, x1)).transpose()
+    xs = np.split(x, np.arange(n_points, n_points*n_curves, n_points), axis=0)
+    x = []
+    for x_i in xs:
+        x.append(x_i.transpose())
+    
+    # Create the dependent 
     std = 0.02
-    fn = fdefs.fn_mich_ment
-    d_shape = (n_curves, x_dim, n_points)
-    x = np.linspace(x_start, x_end, n_points)
-    y = np.ones(d_shape)
-    km = np.ones((n_curves)) * 2.5
-    ki = np.array([1.5, 3.8, 5.7, 7.2, 9.1])
-    vm = np.ones((n_curves)) * 30.0
-    count = 0
-    for curve in y:
-        params = np.array([km[count], ki[count], vm[count]])
-        y[count] = curve * fn(x, params)
-        count += 1 
-    noisy_y = y + np.random.normal(0.0, std * y.max(), y.shape)
-    
-#     # non-global fit (potentially with constants)
-#     fit_y = np.zeros(d_shape)
-#     count = 0
-#     for curve in noisy_y:
-#         p = np.ones((2,))
-#         c = {}
-#         m = [not (i in c) for i in range(p.shape[0])]
-#         p_est = np.ones(p[m].shape[0], dtype=float)
-#         curve_fit(make_func(function_defs.fn_mich_ment, x, p, c), x, curve, p0=p_est)
-#         fit = fn(x, p)
-#         fit_y[count] = fit
-#         count += 1
-#     
-    
-    # global fit
-    gfit_x = (np.ones(d_shape) * x)
-    n_params = 2 # we're using fn_mich_ment
-    glinks = np.array([0, 1, 2, 1, 3, 1, 4, 1, 5, 1])
-    glinks = glinks.reshape((n_curves, n_params))
-    p_est = np.zeros(np.unique(glinks).shape)
-    
-    out = curve_fit(make_func_global(fn, x, glinks), gfit_x, noisy_y.flatten(), p0=p_est)
-    print(out[0])
-    p_shape = glinks.shape
-    glinks = glinks.flatten()
-    params = np.zeros(p_shape).flatten()
-    fv = out[0]
-    for i in range(params.shape[0]):
-        params[i] = fv[glinks[i]]
-    params = params.reshape(p_shape)
-    print(params)
-    count = 0
-    gfit_y = np.zeros_like(gfit_x)
-    for x_i in gfit_x:
-        p_i = params[count]
-        gfit_y[count] = fn(x_i, p_i)
-        count += 1
+    y = []
+    for x_i in x:
+        y_i = fn(x_i, p) # compute the value
+        y_i = y_i + np.random.normal(0.0, std * y_i.max(), y_i.shape) # add some noise
+        y.append(y_i)
+    ay = np.array(y)
+
+    # Do a fit to the individual curves using a different model
+    ffn = fdefs.fn_comp_inhibition #fdefs.fn_mich_ment
+    npars = 3
+    fit_y, fit_p = [], []
+    fp_in = np.ones((npars,))
+    for i in range(len(x)):
+        fp0 = np.ones_like(fp_in)
+        c={1:5.0}
+        m = [not (i in c) for i in range(fp0.shape[0])]
+        p_est = np.ones(fp0[m].shape, dtype=float)
+        curve_fit(make_func(ffn, fp_in, const=c), x[i], y[i], p0=p_est)
+        fit_y.append(ffn(x[i], fp_in))
+        fit_p.append(fp_in.copy())
+    print(np.array(fit_p))
+    afit_y = np.array(fit_y)
         
-    # Lineweaver-Burke
-    plt.plot(gfit_x.transpose(), noisy_y.transpose(),'ro', gfit_x.transpose(), gfit_y.transpose(), 'k-')
-    plt.show()
+    # Do a global fit
+    l_shape = (n_curves, npars)
+    links = np.zeros(l_shape, dtype=int)
+    links[:,1] += 1
+    links[:,2] += 2 # all 3 params are linked in all curves (here)
+#    links = np.array([0,1,2,1,3,1,4,1]).reshape(l_shape)
+    #links = np.arange(n_curves * fp0.shape[0]).reshape(l_shape) # all params independent
+    splits = np.arange(n_points, n_curves * n_points, n_points)
+    
+    flat_x = x[0]
+    for x_i in x[1:]:
+        flat_x = np.hstack((flat_x, x_i))
+    flat_y = y[0]
+    for y_i in y[1:]:
+        flat_y = np.concatenate((flat_y, y_i))
+    ups = np.unique(links)
+    c = {1:5.}
+    m = [not (i in c) for i in ups]
+    p0 = np.ones_like(ups, dtype=float)[m]
+    out = curve_fit(make_func_global(ffn, splits, links, consts=c), flat_x, flat_y, p0=p0)
+    p_fin = np.zeros_like(ups, dtype=float)
+    p_fin[m] = out[0]
+    for i in c:
+        p_fin[i] = c[i]
+    print(p_fin)
+    p_shape = links.shape
+    flinks = links.flatten()
+    fparams = np.zeros_like(flinks, dtype=float)
+    for i in range(fparams.shape[0]):
+        fparams[i] = p_fin[flinks[i]]
+    fparams = fparams.reshape(p_shape)
+    gfit_y = []
+    for i in range(len(x)):
+        gfit_y.append(ffn(x[i], fparams[i]))
+    agfit_y = np.array(gfit_y)
+
+    plt.plot(x[0][0], ay.transpose(), 'bo', x[0][0], afit_y.transpose(), 'k-', x[0][0], agfit_y.transpose(), 'r-') 
+    plt.show()    
+   
+
          
     
     
