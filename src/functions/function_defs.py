@@ -7,7 +7,7 @@ import numpy as np
 
 def fn_straight_line(x, p):
     a, b = p
-    return (a + b*x)
+    return a + b*x
 
 def fn_1exp(x, p):
     a0, a1, k1 = p

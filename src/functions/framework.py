@@ -6,10 +6,27 @@ Created on 24 May 2017
 
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy.stats.distributions import  t
 import functions.function_defs as fdefs
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
+def confidence_intervals(n, params, covar, conf_level):
+    """
+    @n is the number of data points used for the estimation of params and covar
+    @params is a 1D numpy array of best-fit parameter values
+    @covar is the best fit covariance matrix
+    @conf_level is the required confidence level, eg 0.95 for 95% confidence intervals
+    Returns a 1D numpy array of the size of params with the confidence intervals
+    on params (report (eg) p +/- d or p (d/p*100 %), where p is a parameter value
+    and d is its associated relative confidence interval.
+    """
+    alpha = 1.0 - conf_level
+    dof = max(0, n - params.shape[0]) # number of degrees of freedom
+    tval = t.ppf(1.0 - alpha / 2., dof) # student-t value for the dof and confidence level
+    sigma = np.power(np.diag(covar), 0.5) # standard error
+    return sigma * tval
+        
 def make_func(fn, params, const={}):
     """
     @fn is a function with signature fn(x, p), where p is a 1D array of parameters
@@ -96,20 +113,26 @@ def test_global():
     # Do a fit to the individual curves using a different model
     ffn = fdefs.fn_comp_inhibition #fdefs.fn_mich_ment
     npars = 3
-    fit_y, fit_p = [], []
+    fit_y, fit_p, conf_ints = [], [], []
     fp_in = np.ones((npars,))
+    c = {}
     for i in range(len(x)):
         fp0 = np.ones_like(fp_in)
         c={1:5.0}
         m = [not (i in c) for i in range(fp0.shape[0])]
         p_est = np.ones(fp0[m].shape, dtype=float)
-        curve_fit(make_func(ffn, fp_in, const=c), x[i], y[i], p0=p_est)
+        pvar, pcov = curve_fit(make_func(ffn, fp_in, const=c), x[i], y[i], p0=p_est)
+        cis = confidence_intervals(x[i].shape[1], pvar, pcov, 0.95)
         fit_y.append(ffn(x[i], fp_in))
         fit_p.append(fp_in.copy())
+        conf_ints.append(cis)
     print(np.array(fit_p))
+    print(np.array(conf_ints))
     afit_y = np.array(fit_y)
         
     # Do a global fit
+    c = {}
+    n_data, n_free_params = 0, 0
     l_shape = (n_curves, npars)
     links = np.zeros(l_shape, dtype=int)
     links[:,1] += 1
@@ -129,6 +152,9 @@ def test_global():
     m = [not (i in c) for i in ups]
     p0 = np.ones_like(ups, dtype=float)[m]
     out = curve_fit(make_func_global(ffn, splits, links, consts=c), flat_x, flat_y, p0=p0)
+    cis = confidence_intervals(flat_y.shape[0], out[0], out[1], 0.95)
+    print(out[0])
+    print(cis)
     p_fin = np.zeros_like(ups, dtype=float)
     p_fin[m] = out[0]
     for i in c:
@@ -149,27 +175,27 @@ def test_global():
     plt.show()    
    
 
-         
-    
-    
-def test():   
+def test_func():   
     import matplotlib.pyplot as plt
     
     x = np.arange(0, 1, 0.001)
+    x = x.reshape((1, x.shape[0]))
     f = fdefs.fn_3exp
     p = np.array([1.0, 0.5, 10.0, 0.25, 1.0, 0.0, 1.0])
     c = {5: 0.0, 6: 1.0}
-    m = [not (i in c) for i in range(len(p))]
-    p_est = np.ones(len(p[m]), dtype=float)
+    m = [not (i in c) for i in range(p.shape[0])] # mask only showing variable params
+    n_free_params = len(p[m])
+    p_est = np.ones(n_free_params, dtype=float)
     data = f(x, p)
-    ndata = data + np.random.normal(0.0, 0.02*data, len(data))
+    npoints = data.shape[0]
+    ndata = data + np.random.normal(0.0, 0.02*data, npoints)
     
-    curve_fit(make_func(f, x, p, c), x, ndata, p0=p_est)
-    # as p is a reference, variable params gets changed by curve_fit; no need to 
-    # replace anything in p
+    pvar, pcov = curve_fit(make_func(f, p, c), x, ndata, p0=p_est)
     
-    print(p)
-    plt.plot(x, ndata, 'ro', x, f(x, p), 'k-')
+    cis = confidence_intervals(npoints, pvar, pcov, 0.95)
+    print(cis)
+    
+    plt.plot(x[0], ndata, 'ro', x[0], f(x, p), 'k-')
     plt.show()
 
 if __name__ == '__main__':
@@ -177,53 +203,6 @@ if __name__ == '__main__':
 
 
 
-
-    
-
-# Parameters can be 1) fixed, 2) variable, shared, 3) variable, not shared
-# Fixed parameters should be fed to the fitting function separately, 
-# eg in a make_func function, such as this one:
-#
-# def make_calc_scatter(self, constants):
-#     p = constants['power']
-#     def calc_scatter(x, *variables):
-#         a0, c = variables
-#         return a0 + np.power(c / x, p)
-#     return calc_scatter
-
-# Example fn:
-# def fn_3exp(self, x, *p):
-#     a0, a1, k1, a2, k2, a3, k3 = p
-#     return (a0 + a1*np.exp(-x*k1) + a2*np.exp(-x*k2) + a3*np.exp(-x*k3))
-#
-# *p needs to be decomposed into *c (list of constants) and *v (list of variables)
-
-# Suppose p[0], p[2] and p[3] (defined via UI) are constant
-# 
-#
-#
-
-# def generic_func(func, x, *p):
-#     return func(x, *p)
-# 
-# def err_func(func, x, y, *p):
-#     y_calc = generic_func(func, x, *p)
-#     return(y_calc - y)
-
-
-
-# def get_scatter_params(self, x_lo, x_hi, constants, params0):
-#     d = copy.deepcopy(self.working_data[['X','Y1']])
-#     dl = d[d['X'] >= x_lo]
-#     d = dl[dl['X'] <= x_hi]
-#     try:
-#         params, covar = curve_fit(self.make_calc_scatter(constants), 
-#                                   d['X'], d['Y1'], p0=params0)
-#     except Exception as e:
-#         print(e)
-#         
-#     return params
-# 
 
 
 
