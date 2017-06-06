@@ -48,9 +48,7 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.action_close.triggered.connect(self.on_close)
         self.action_quit.triggered.connect(self.close)
         
-        self.action_get_base.triggered.connect(self.on_get_base)
-        self.action_get_loads.triggered.connect(self.on_get_loads)
-        self.action_get_association.triggered.connect(self.on_get_association)
+        self.action_get_base.triggered.connect(self.on_scrutinize_phase)
 
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -59,17 +57,14 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.span.set_active(False)
 
         self._data_open = False
-        self._getting_base = False
-        self._getting_loads = False
-        self._getting_association = False
+        self._scrutinizing_phase = False
         
         self.action_open.setEnabled(True)
         self.action_save.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
         self.action_get_base.setEnabled(False)
-        self.action_get_loads.setEnabled(False)
-        self.action_get_association.setEnabled(False)
+
                 
     def on_open(self):
         file_path = widgets.QFileDialog.getOpenFileName(self, 
@@ -86,17 +81,13 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
             self.action_get_base.setEnabled(True)
             self.canvas.draw_data(x, y)
             self._data_open = True
-            self._getting_base = False
-            self._getting_loads = False
-            self._getting_association = False
+            self._scrutinizing_phase = False
             
             self.action_open.setEnabled(True)
             self.action_save.setEnabled(False)
             self.action_close.setEnabled(True)
             self.action_quit.setEnabled(True)
             self.action_get_base.setEnabled(True)
-            self.action_get_loads.setEnabled(False)
-            self.action_get_association.setEnabled(False)
             
     def on_save(self):
         file_path = widgets.QFileDialog.getSaveFileName(self, 
@@ -108,132 +99,33 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.blits_data = BlitsData()
         self.canvas.clear_figure()
         self._data_open = False
-        self._getting_base = False
-        self._getting_loads = False
-        self._getting_association = False
+        self._scrutinizing_phase = False
         
         self.action_open.setEnabled(True)
         self.action_save.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
         self.action_get_base.setEnabled(False)
-        self.action_get_loads.setEnabled(False)
-        self.action_get_association.setEnabled(False)
         
-    def on_get_base(self):
+    def on_scrutinize_phase(self):
         if self.action_get_base.isChecked():
-            if self.action_get_loads.isEnabled() and self.action_get_loads.isChecked():
-                self.action_get_loads.setChecked(False)
-            if self.action_get_association.isEnabled() and self.action_get_association.isChecked():
-                self.action_get_association.setChecked(False)            
             self.plot_toolbar.switch_off_pan_zoom()
-            self._getting_base = True
-            self._getting_loads = False
-            self._getting_association = False
+            self._scrutinizing_phase = True
             self.span.set_active(True)   
         else:
-            self._getting_base = False
-            self._getting_loads = False
-            self._getting_association = False
+            self._scrutinizing_phase = False
             self.span.set_active(False)   
             
         
-    def on_get_loads(self):
-        if self.action_get_loads.isChecked():
-            if self.action_get_base.isEnabled() and self.action_get_base.isChecked():
-                self.action_get_base.setChecked(False)
-            if self.action_get_association.isEnabled() and self.action_get_association.isChecked():
-                self.action_get_association.setChecked(False)            
-            self.plot_toolbar.switch_off_pan_zoom()
-            self._getting_base = False
-            self._getting_loads = True
-            self._getting_association = False
-            self.span.set_active(True)
-        else:
-            self._getting_base = False
-            self._getting_loads = False
-            self._getting_association = False
-            self.span.set_active(False)
-            
-    def on_get_association(self):
-        if self.action_get_association.isChecked():
-            if self.action_get_base.isEnabled() and self.action_get_base.isChecked():
-                self.action_get_base.setChecked(False)
-            if self.action_get_loads.isEnabled() and self.action_get_loads.isChecked():
-                self.action_get_loads.setChecked(False)
-            self.plot_toolbar.switch_off_pan_zoom()
-            self._getting_base = False
-            self._getting_loads = False
-            self._getting_association = True
-            self.span.set_active(True)    
-        else:
-            self._getting_base = False
-            self._getting_loads = False
-            self._getting_association = False
-            self.span.set_active(False)    
-        
-    def on_association_model(self):
-        t = "Apologies"
-        m = "Association model not yet implemented"
-        mb = widgets.QMessageBox()
-        mb.setText(m)
-        mb.setWindowTitle(t)
-        mb.setIcon(widgets.QMessageBox.Information)
-        mb.exec_()
-        
-    def on_saturation_model(self):
-        t = "Apologies"
-        m = "Saturation model not yet implemented"
-        mb = widgets.QMessageBox()
-        mb.setText(m)
-        mb.setWindowTitle(t)
-        mb.setIcon(widgets.QMessageBox.Information)
-        mb.exec_()
-        
-    def on_phase_boundaries(self):
-        t = "Apologies"
-        m = "Phase boundary maniputation not yet implemented"
-        mb = widgets.QMessageBox()
-        mb.setText(m)
-        mb.setWindowTitle(t)
-        mb.setIcon(widgets.QMessageBox.Information)
-        mb.exec_()
-        
-    def on_reduce_n(self):
-        t = "Apologies"
-        m = "Reduction of number of points not yet implemented"
-        mb = widgets.QMessageBox()
-        mb.setText(m)
-        mb.setWindowTitle(t)
-        mb.setIcon(widgets.QMessageBox.Information)
-        mb.exec_()
-        
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
-        if self._getting_base:
+        if self._scrutinizing_phase:
             self.blits_data.set_baseline_measurements(xmin, xmax)
             self._draw_results()
             self._draw_analysis()
             self._write_results()
-            self.action_get_loads.setEnabled(True)
             self.action_get_base.setChecked(False)
-            self._getting_base = False
-        if self._getting_loads:
-            self.blits_data.set_loads_measurements(xmin, xmax)
-            self._draw_results()
-            self._write_results()
-            self._draw_analysis()
-            self.action_get_association.setEnabled(True)
-            self.action_get_loads.setChecked(False)
-            self._getting_loads = False
-        if self._getting_association:
-            self.blits_data.set_association_measurements(xmin, xmax)
-            self._draw_results()
-            self._write_results()
-            self._draw_analysis()
-            self.action_save.setEnabled(True)
-            self.action_get_association.setChecked(False)
-            self._getting_association = False
+            self._scrutinizing_phase = False
             
     def _draw_results(self):
         x = self.blits_data.get_data_x()

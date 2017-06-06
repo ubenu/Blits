@@ -13,7 +13,7 @@ class Ui_MainWindow(object):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1161, 916)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(":/Resources/TraceScrutinizer.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(":/TraceScrutinizer.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
         MainWindow.setProperty(".\\Resources", "")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
