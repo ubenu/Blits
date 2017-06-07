@@ -1,12 +1,8 @@
 <RCC>
   <qresource>
-    <file>association.png</file>
-    <file>baseline.png</file>
-    <file>dissociation.png</file>
-    <file>loaded.png</file>
     <file>mjs-open-data.png</file>
     <file>mjs-save-data.png</file>
     <file>TraceScrutinizer.png</file>
-    <file>TraceScrutinizer.png</file>
+    <file>Scrutinize.png</file>
   </qresource>
 </RCC>

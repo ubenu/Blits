@@ -11,73 +11,113 @@ import functions.function_defs as fdefs
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
-def confidence_intervals(n, params, covar, conf_level):
-    """
-    @n is the number of data points used for the estimation of params and covar
-    @params is a 1D numpy array of best-fit parameter values
-    @covar is the best fit covariance matrix
-    @conf_level is the required confidence level, eg 0.95 for 95% confidence intervals
-    Returns a 1D numpy array of the size of params with the confidence intervals
-    on params (report (eg) p +/- d or p (d/p*100 %), where p is a parameter value
-    and d is its associated relative confidence interval.
-    """
-    alpha = 1.0 - conf_level
-    dof = max(0, n - params.shape[0]) # number of degrees of freedom
-    tval = t.ppf(1.0 - alpha / 2., dof) # student-t value for the dof and confidence level
-    sigma = np.power(np.diag(covar), 0.5) # standard error
-    return sigma * tval
+class ModellingFunction():
+    
+    def __init__(self, name, fn_ref, param_names, fn_str):
+        self.id = id
+        self.name = name
+        self.fn_ref = fn_ref
+        self.param_names = param_names
+        self.fn_str = fn_str
+    
+    def __str__(self):
+        return self.fn_str
+    
+
+class FunctionsFramework():
+
+    defined_functions = range(8)
+    (fn_average,
+     fn_straight_line, 
+     fn_1exp, 
+     fn_2exp, 
+     fn_3exp, 
+     fn_mich_ment, 
+     fn_comp_inhibition, 
+     fn_hill,
+     ) = defined_functions
+    fn_dictionary = {"Average": fn_average,
+                     "Straight line": fn_straight_line, 
+                     "Single exponential": fn_1exp,
+                     "Double exponential": fn_2exp, 
+                     "Triple exponential": fn_3exp,
+                     "Michaelis-Menten equation": fn_mich_ment,
+                     "Competitive inhibition equation": fn_comp_inhibition, 
+                     "Hill equation": fn_hill,
+                     }
+     
+                  
+    def __init__(self):
+        pass
+
         
-def make_func(fn, params, const={}):
-    """
-    @fn is a function with signature fn(x, p), where p is a 1D array of parameters
-    @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-    @params is the full input array for fn; same length as p (fn argument)
-    @const is a dictionary with the indices (keys) and values (values) of the parameters
-    that must be kept constant
-    """
-    mask = np.ones((len(params),), dtype=bool)
-    for index in const:
-        params[index] = const[index]
-        mask[index] = False
-    def func(x, *v):
-        params[mask] = v 
-        return fn(x, params)
-    return func
-
-
-def make_func_global(fn, x_splits, links, consts={}):
-    """
-    @fn is a function with signature fn(x, p), where p is a 1D array of parameters
-    @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-    @links is an array of shape (#curves, #params_for_fn) that contains
-    the index of its associated (unique) parameter used to construct v
-    @consts is a dictionary with the indices (keys) and values (values) of the parameters
-    that must be kept constant
-    """
-    n_curves = links.shape[0]
-    n_params = links.shape[1]
-    links = links.flatten()
-    def func(x, *v):
-        split_x = np.split(x, x_splits, axis=1)
-        if len(split_x) != n_curves:
-            print("Error: incorrect x split in make_func_global")
-        params = np.zeros_like(links, dtype=float)
-        u = np.zeros_like(np.unique(links), dtype=float) 
-        # u is the array that will contain the values of all unique params
-        # v is the array of variable params
-        mask = np.ones_like(u, dtype=bool)
-        for i in consts:
-            u[i] = consts[i]
-            mask[i] = False
-        u[mask] = v #np.array(v)[mask]
-        for i in range(links.shape[0]):
-            params[i] = u[links[i]] # fill in the parameter values
-        params = params.reshape((n_curves, n_params))
-        y_out = []
-        for i in range(n_curves):
-            y_out.extend(fn(split_x[i], params[i]))
-        return y_out
-    return func      
+    def confidence_intervals(self, n, params, covar, conf_level):
+        """
+        @n is the number of data points used for the estimation of params and covar
+        @params is a 1D numpy array of best-fit parameter values
+        @covar is the best fit covariance matrix
+        @conf_level is the required confidence level, eg 0.95 for 95% confidence intervals
+        Returns a 1D numpy array of the size of params with the confidence intervals
+        on params (report (eg) p +/- d or p (d/p*100 %), where p is a parameter value
+        and d is its associated relative confidence interval.
+        """
+        alpha = 1.0 - conf_level
+        dof = max(0, n - params.shape[0]) # number of degrees of freedom
+        tval = t.ppf(1.0 - alpha / 2., dof) # student-t value for the dof and confidence level
+        sigma = np.power(np.diag(covar), 0.5) # standard error
+        return sigma * tval
+            
+    def make_func(self, fn, params, const={}):
+        """
+        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+        @params is the full input array for fn; same length as p (fn argument)
+        @const is a dictionary with the indices (keys) and values (values) of the parameters
+        that must be kept constant
+        """
+        mask = np.ones((len(params),), dtype=bool)
+        for index in const:
+            params[index] = const[index]
+            mask[index] = False
+        def func(x, *v):
+            params[mask] = v 
+            return fn(x, params)
+        return func
+    
+    
+    def make_func_global(self, fn, x_splits, links, consts={}):
+        """
+        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+        @links is an array of shape (#curves, #params_for_fn) that contains
+        the index of its associated (unique) parameter used to construct v
+        @consts is a dictionary with the indices (keys) and values (values) of the parameters
+        that must be kept constant
+        """
+        n_curves = links.shape[0]
+        n_params = links.shape[1]
+        links = links.flatten()
+        def func(x, *v):
+            split_x = np.split(x, x_splits, axis=1)
+            if len(split_x) != n_curves:
+                print("Error: incorrect x split in make_func_global")
+            params = np.zeros_like(links, dtype=float)
+            u = np.zeros_like(np.unique(links), dtype=float) 
+            # u is the array that will contain the values of all unique params
+            # v is the array of variable params
+            mask = np.ones_like(u, dtype=bool)
+            for i in consts:
+                u[i] = consts[i]
+                mask[i] = False
+            u[mask] = v #np.array(v)[mask]
+            for i in range(links.shape[0]):
+                params[i] = u[links[i]] # fill in the parameter values
+            params = params.reshape((n_curves, n_params))
+            y_out = []
+            for i in range(n_curves):
+                y_out.extend(fn(split_x[i], params[i]))
+            return y_out
+        return func      
     
 def test_global():
     import matplotlib.pyplot as plt
@@ -121,8 +161,8 @@ def test_global():
         c={1:5.0}
         m = [not (i in c) for i in range(fp0.shape[0])]
         p_est = np.ones(fp0[m].shape, dtype=float)
-        pvar, pcov = curve_fit(make_func(ffn, fp_in, const=c), x[i], y[i], p0=p_est)
-        cis = confidence_intervals(x[i].shape[1], pvar, pcov, 0.95)
+        pvar, pcov = curve_fit(FunctionsFramework.make_func(FunctionsFramework, fn=ffn, params=fp_in, const=c), x[i], y[i], p0=p_est)
+        cis = FunctionsFramework.confidence_intervals(FunctionsFramework, x[i].shape[1], pvar, pcov, 0.95)
         fit_y.append(ffn(x[i], fp_in))
         fit_p.append(fp_in.copy())
         conf_ints.append(cis)
@@ -132,7 +172,6 @@ def test_global():
         
     # Do a global fit
     c = {}
-    n_data, n_free_params = 0, 0
     l_shape = (n_curves, npars)
     links = np.zeros(l_shape, dtype=int)
     links[:,1] += 1
@@ -151,8 +190,8 @@ def test_global():
     c = {1:5.}
     m = [not (i in c) for i in ups]
     p0 = np.ones_like(ups, dtype=float)[m]
-    out = curve_fit(make_func_global(ffn, splits, links, consts=c), flat_x, flat_y, p0=p0)
-    cis = confidence_intervals(flat_y.shape[0], out[0], out[1], 0.95)
+    out = curve_fit(FunctionsFramework.make_func_global(FunctionsFramework, ffn, splits, links, consts=c), flat_x, flat_y, p0=p0)
+    cis = FunctionsFramework.confidence_intervals(FunctionsFramework, flat_y.shape[0], out[0], out[1], 0.95)
     print(out[0])
     print(cis)
     p_fin = np.zeros_like(ups, dtype=float)
@@ -190,9 +229,9 @@ def test_func():
     npoints = data.shape[0]
     ndata = data + np.random.normal(0.0, 0.02*data, npoints)
     
-    pvar, pcov = curve_fit(make_func(f, p, c), x, ndata, p0=p_est)
+    pvar, pcov = curve_fit(FunctionsFramework.make_func(FunctionsFramework, f, p, c), x, ndata, p0=p_est)
     
-    cis = confidence_intervals(npoints, pvar, pcov, 0.95)
+    cis = FunctionsFramework.confidence_intervals(FunctionsFramework, npoints, pvar, pcov, 0.95)
     print(cis)
     
     plt.plot(x[0], ndata, 'ro', x[0], f(x, p), 'k-')

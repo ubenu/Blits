@@ -1,1 +1,1 @@
-from functions import framework
+from functions import framework, function_defs

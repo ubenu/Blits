@@ -68,6 +68,10 @@ class BlitsData():
             file.write(p)
             file.write('\n')
             file.write(f)
+            
+    def get_selection(self, start, stop):
+        indmin, indmax = self._get_span_indices(start, stop)
+        return self.working_data[indmin:indmax]
         
     def set_baseline_measurements(self, start, stop):
         if self.results is None:

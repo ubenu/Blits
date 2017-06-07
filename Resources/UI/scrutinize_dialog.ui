@@ -11,12 +11,12 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Analyze phase</string>
+   <string>Analyze traces</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_4">
    <item>
-    <widget class="QWidget" name="plot_window" native="true">
-     <layout class="QVBoxLayout" name="verticalLayout"/>
+    <widget class="QWidget" name="mpl_window" native="true">
+     <layout class="QVBoxLayout" name="mpl_layout"/>
     </widget>
    </item>
    <item>
@@ -24,10 +24,17 @@
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QComboBox" name="cmb_fit_function"/>
+        <widget class="QComboBox" name="cmb_fit_function">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
        </item>
        <item>
-        <widget class="QTextEdit" name="txt_function"/>
+        <widget class="QLineEdit" name="txt_function"/>
        </item>
       </layout>
      </item>
@@ -88,7 +95,7 @@
           <string>Best fit results</string>
          </property>
          <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="2">
+          <item row="0" column="4">
            <widget class="QLabel" name="label_7">
             <property name="text">
              <string>Series</string>
@@ -112,6 +119,13 @@
             </property>
             <property name="text">
              <string>Best fit value</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Confidence interval (95%)</string>
             </property>
            </widget>
           </item>

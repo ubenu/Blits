@@ -5,6 +5,10 @@ Created on 24 May 2017
 '''
 import numpy as np
 
+def fn_average(x, p):
+    a, = p
+    return a
+
 def fn_straight_line(x, p):
     a, b = p
     return a + b*x
@@ -34,7 +38,6 @@ def fn_comp_inhibition(x, p):
     s = x[0]
     i = x[1]
     return vmax * s / (km * (1.0 + i / ki) + s)
-    
     
 def fn_hill(x, p):
     ymax, xhalf, h = p

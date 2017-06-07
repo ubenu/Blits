@@ -128,10 +128,7 @@
     <property name="title">
      <string>&amp;Analysis</string>
     </property>
-    <addaction name="action_get_base"/>
-    <addaction name="action_get_loads"/>
-    <addaction name="action_get_association"/>
-    <addaction name="action_get_dissociation"/>
+    <addaction name="action_scrutinize"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="enabled">
@@ -140,12 +137,8 @@
     <property name="title">
      <string>Settings</string>
     </property>
-    <addaction name="action_association_model"/>
-    <addaction name="action_saturation_model"/>
     <addaction name="separator"/>
-    <addaction name="action_phase_boundaries"/>
     <addaction name="separator"/>
-    <addaction name="action_reduce_n"/>
    </widget>
    <addaction name="menu_File"/>
    <addaction name="menu_Analysis"/>
@@ -167,13 +160,7 @@
    <addaction name="action_open"/>
    <addaction name="action_save"/>
    <addaction name="separator"/>
-   <addaction name="action_get_base"/>
-   <addaction name="separator"/>
-   <addaction name="action_get_loads"/>
-   <addaction name="separator"/>
-   <addaction name="action_get_association"/>
-   <addaction name="separator"/>
-   <addaction name="action_get_dissociation"/>
+   <addaction name="action_scrutinize"/>
    <addaction name="separator"/>
   </widget>
   <action name="action_open">
@@ -205,7 +192,7 @@
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="action_get_base">
+  <action name="action_scrutinize">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -214,67 +201,13 @@
    </property>
    <property name="icon">
     <iconset resource="blits.qrc">
-     <normaloff>:/baseline.png</normaloff>:/baseline.png</iconset>
+     <normaloff>:/Scrutinize.png</normaloff>:/Scrutinize.png</iconset>
    </property>
    <property name="text">
-    <string>Baseline</string>
+    <string>Analyze traces</string>
    </property>
-  </action>
-  <action name="action_get_loads">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/loaded.png</normaloff>:/loaded.png</iconset>
-   </property>
-   <property name="text">
-    <string>Loaded</string>
-   </property>
-  </action>
-  <action name="action_get_association">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/association.png</normaloff>:/association.png</iconset>
-   </property>
-   <property name="text">
-    <string>Association</string>
-   </property>
-  </action>
-  <action name="action_phase_boundaries">
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/dissociation.png</normaloff>:/dissociation.png</iconset>
-   </property>
-   <property name="text">
-    <string>Set phase boundaries</string>
-   </property>
-  </action>
-  <action name="action_association_model">
-   <property name="text">
-    <string>Set association model</string>
-   </property>
-  </action>
-  <action name="action_saturation_model">
-   <property name="text">
-    <string>Set saturation model</string>
-   </property>
-  </action>
-  <action name="action_reduce_n">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Reduce number of data points</string>
+   <property name="toolTip">
+    <string>Analyze traces</string>
    </property>
   </action>
   <action name="action_close">
@@ -283,21 +216,6 @@
    </property>
    <property name="toolTip">
     <string>Close data</string>
-   </property>
-  </action>
-  <action name="action_get_dissociation">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/dissociation.png</normaloff>:/dissociation.png</iconset>
-   </property>
-   <property name="text">
-    <string>Dissociation</string>
    </property>
   </action>
  </widget>

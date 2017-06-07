@@ -15,10 +15,12 @@ from PyQt5 import QtWidgets as widgets
 from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
-import blitspak.blits_ui as ui
+from blitspak.scrutinize_dialog import ScrutinizeDialog
+#import blitspak.blits_ui as ui
+from PyQt5.uic import loadUiType
+Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 # Original:
-#Ui_MainWindow, QMainWindow = loadUiType('blits.ui')
 # To avoid using .ui file (from QtDesigner) and loadUIType, 
 # created a python-version of the .ui file using pyuic5 from command line
 # Here: pyuic5 blits.ui -o blits_ui.py
@@ -29,11 +31,13 @@ import blitspak.blits_ui as ui
 
 
 
-class Main(widgets.QMainWindow, ui.Ui_MainWindow):
+class Main(QMainWindow, Ui_MainWindow):
     def __init__(self, ):
         super(Main, self).__init__()
         self.setupUi(self)
 
+        self.scrutinize_dialog = None
+        
         self.canvas = MplCanvas(self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
@@ -46,9 +50,8 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.action_open.triggered.connect(self.on_open)
         self.action_save.triggered.connect(self.on_save)
         self.action_close.triggered.connect(self.on_close)
-        self.action_quit.triggered.connect(self.close)
-        
-        self.action_get_base.triggered.connect(self.on_scrutinize_phase)
+        self.action_quit.triggered.connect(self.close)     
+        self.action_scrutinize.triggered.connect(self.on_scrutinize)
 
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -57,13 +60,13 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.span.set_active(False)
 
         self._data_open = False
-        self._scrutinizing_phase = False
+        self._scrutinizing = False
         
         self.action_open.setEnabled(True)
         self.action_save.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
-        self.action_get_base.setEnabled(False)
+        self.action_scrutinize.setEnabled(False)
 
                 
     def on_open(self):
@@ -78,16 +81,16 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
             self.blits_data.import_data(file_path)
             x = self.blits_data.get_data_x()
             y = self.blits_data.get_data_y()
-            self.action_get_base.setEnabled(True)
+            self.action_scrutinize.setEnabled(True)
             self.canvas.draw_data(x, y)
             self._data_open = True
-            self._scrutinizing_phase = False
+            self._scrutinizing = False
             
             self.action_open.setEnabled(True)
             self.action_save.setEnabled(False)
             self.action_close.setEnabled(True)
             self.action_quit.setEnabled(True)
-            self.action_get_base.setEnabled(True)
+            self.action_scrutinize.setEnabled(True)
             
     def on_save(self):
         file_path = widgets.QFileDialog.getSaveFileName(self, 
@@ -99,48 +102,51 @@ class Main(widgets.QMainWindow, ui.Ui_MainWindow):
         self.blits_data = BlitsData()
         self.canvas.clear_figure()
         self._data_open = False
-        self._scrutinizing_phase = False
+        self._scrutinizing = False
         
         self.action_open.setEnabled(True)
         self.action_save.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
-        self.action_get_base.setEnabled(False)
+        self.action_scrutinize.setEnabled(False)
         
-    def on_scrutinize_phase(self):
-        if self.action_get_base.isChecked():
+    def on_scrutinize(self):
+        if self.action_scrutinize.isChecked():
             self.plot_toolbar.switch_off_pan_zoom()
-            self._scrutinizing_phase = True
+            self._scrutinizing = True
             self.span.set_active(True)   
         else:
-            self._scrutinizing_phase = False
-            self.span.set_active(False)   
-            
+            self._scrutinizing = False
+            self.span.set_active(False)             
         
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
-        if self._scrutinizing_phase:
-            self.blits_data.set_baseline_measurements(xmin, xmax)
-            self._draw_results()
-            self._draw_analysis()
-            self._write_results()
-            self.action_get_base.setChecked(False)
-            self._scrutinizing_phase = False
+        if self._scrutinizing:  
+            if (xmin != xmax):
+                selection = self.blits_data.get_selection(xmin, xmax)        
+                self.scrutinize_dialog = ScrutinizeDialog(main, selection)  
+                self.scrutinize_dialog.exec()
+#                 self.blits_data.set_baseline_measurements(xmin, xmax)
+#                 self._draw_results()
+#                 self._draw_analysis()
+#                 self._write_results()
+#                 self.action_scrutinize.setChecked(False)
+#                 self._scrutinizing = False
             
     def _draw_results(self):
         x = self.blits_data.get_data_x()
         y = self.blits_data.get_data_y()
         self.canvas.draw_data(x, y)
-        for phase in self.blits_data.fitted:
-            if not self.blits_data.fitted[phase] is None:
-                x=self.blits_data.fitted[phase]['time']
-                y=self.blits_data.fitted[phase][self.blits_data.trace_ids]
-                self.canvas.draw_fitted_data(x, y) 
-        for phase in self.blits_data.fitted:
-            if not self.blits_data.residuals[phase] is None:
-                x=self.blits_data.residuals[phase]['time']
-                y=self.blits_data.residuals[phase][self.blits_data.trace_ids]
-                self.canvas.draw_residuals(x, y) 
+#         for phase in self.blits_data.fitted:
+#             if not self.blits_data.fitted[phase] is None:
+#                 x=self.blits_data.fitted[phase]['time']
+#                 y=self.blits_data.fitted[phase][self.blits_data.trace_ids]
+#                 self.canvas.draw_fitted_data(x, y) 
+#         for phase in self.blits_data.fitted:
+#             if not self.blits_data.residuals[phase] is None:
+#                 x=self.blits_data.residuals[phase]['time']
+#                 y=self.blits_data.residuals[phase][self.blits_data.trace_ids]
+#                 self.canvas.draw_residuals(x, y) 
                                 
     def _draw_analysis(self):
         if self.blits_data.results_acquired['baseline']:
