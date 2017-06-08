@@ -11,6 +11,7 @@ Created on Tue Oct 25 13:11:32 2016
 
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
+from PyQt5 import QtGui as gui
 
 from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
@@ -126,12 +127,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 selection = self.blits_data.get_selection(xmin, xmax)        
                 self.scrutinize_dialog = ScrutinizeDialog(main, selection)  
                 self.scrutinize_dialog.exec()
-#                 self.blits_data.set_baseline_measurements(xmin, xmax)
-#                 self._draw_results()
-#                 self._draw_analysis()
-#                 self._write_results()
-#                 self.action_scrutinize.setChecked(False)
-#                 self._scrutinizing = False
+
             
     def _draw_results(self):
         x = self.blits_data.get_data_x()
@@ -196,7 +192,11 @@ class Main(QMainWindow, Ui_MainWindow):
                 for j in range(len(f.columns)):
                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))
             
-        
+    def line_icon(self, color):
+        pixmap = gui.QPixmap(50,10)
+        pixmap.fill(gui.QColor(color))
+        icon = gui.QIcon(pixmap)
+        return icon        
         
 # Standard main loop code
 if __name__ == '__main__':

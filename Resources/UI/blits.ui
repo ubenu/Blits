@@ -201,7 +201,7 @@
    </property>
    <property name="icon">
     <iconset resource="blits.qrc">
-     <normaloff>:/Scrutinize.png</normaloff>:/Scrutinize.png</iconset>
+     <normaloff>:/TraceScrutinizer.png</normaloff>:/TraceScrutinizer.png</iconset>
    </property>
    <property name="text">
     <string>Analyze traces</string>
