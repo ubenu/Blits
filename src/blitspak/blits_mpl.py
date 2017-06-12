@@ -42,9 +42,8 @@ class MplCanvas(FigureCanvas):
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Expanding, widgets.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self) 
-        self.l_cursor = Cursor(self.data_plot, horizOn=False, useblit=True, color='red', linewidth=2)
+        #self.l_cursor = Cursor(self.data_plot, horizOn=False, useblit=True, color='red', linewidth=2)
         
-
         self.curve_colours = {}
         
     def on_move(self):

@@ -3,9 +3,14 @@ Created on 6 Jun 2017
 
 @author: SchilsM
 '''
+import numpy as np
+import copy as cp
+from scipy.optimize import curve_fit
+
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
+from blitspak.blits_data import BlitsData as bld
 
 import functions.framework as ff
 import functions.function_defs as fd
@@ -26,6 +31,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 f_ex3: "Triple exponential",
                 }
 
+    fd_fields = range(3)
+    d_func, d_pnames, d_expr = fd_fields
     fn_dictionary = {"Average": (fd.fn_average, 
                                  ('a',), 
                                  "average(trace)"),
@@ -67,15 +74,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                              hr_advice: "",
                              }
 
-    def __init__(self, parent, trace_segments):
+    def __init__(self, parent, start, stop):
         '''
         Constructor
         '''
         super(widgets.QDialog, self).__init__(parent)
         self.setupUi(self)
-
+        
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
+        self.btn_calc.clicked.connect(self.on_calc)
         
         self.library = {}
         self.fill_library()
@@ -84,16 +92,43 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.cmb_fit_function.setSizeAdjustPolicy(widgets.QComboBox.AdjustToContents)
         self.populate_lib_combo()
         self.cmb_fit_function.setCurrentIndex(0)
-        
+        self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+  
         self.canvas = MplCanvas(self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.plot_toolbar)
         
-        self.data = trace_segments
+        indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
+        self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
         self.trace_ids = self.data.columns[self.data.columns != 'time']
+        
         self.draw_data()
-        self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+                
+    def on_calc(self):
+        nfunc = self.cmb_fit_function.currentText()
+        f = self.fn_dictionary[nfunc][self.d_func]
+        npar = len(self.fn_dictionary[nfunc][self.d_pnames]) 
+        selection = self.data    
+        for trace in self.trace_ids:
+            p = np.ones((npar,))
+            t = selection['time']
+            x = t - t.iloc[0]
+            y = selection[trace]
+            try:
+                f_out = curve_fit(f, x, y, p0=p)
+                print(f_out[0])
+                print(f_out[1])
+                self.current_message = "OK"
+#             except ValueError as e:
+#                 self.current_message = "Value Error:" + str(e)
+#             except RuntimeError as e:  
+#                 self.current_message = "Runtime Error:" + str(e)
+            except Error as e:
+                self.current_message = e.message
+            
+            print(self.current_message)   
+        
         
     def on_current_index_changed(self, index):
         self.txt_function.clear()
@@ -106,7 +141,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         col, row = item.column(), item.row()
         if row == 0 and (col - 1) % 3 == 2:
             cs = item.checkState()
-            print(cs)
             for irow in range(1,self.tbl_params.rowCount()):
                 w = self.tbl_params.item(irow, col)
                 if not w is None:
@@ -152,7 +186,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     self.tbl_params.setItem(irow, icol, w)
                     
     def on_check_state_changed(self):
-        print("Hello")
+        pass
                 
     def populate_lib_combo(self):
         for i in self.available_functions:

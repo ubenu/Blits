@@ -73,43 +73,44 @@ class BlitsData():
         indmin, indmax = self._get_span_indices(start, stop)
         return self.working_data[indmin:indmax]
         
-    def set_baseline_measurements(self, start, stop):
-        if self.results is None:
-            self.results = self._create_results_template(self.trace_ids) 
-        indmin, indmax = self._get_span_indices(start, stop)
-        selection = self.working_data[indmin:indmax]
-        sel_ones = selection.copy()
-        sel_ones[self.trace_ids] = 1.0
-        t = selection['time']
-        means = selection[self.trace_ids].mean()
-        self.results['baseline'] = means
-        self.results_acquired['baseline'] = True
-        self.set_measurements()
-        res = selection[self.trace_ids] - means
-        res['time'] = t
-        fit = sel_ones.copy() * means
-        fit['time'] = t
-        self.residuals['baseline'] = res
-        self.fitted['baseline'] = fit
-            
-    def set_loads_measurements(self, start, stop):
-        if self.results is None:
-            self.results = self._create_results_template(self.trace_ids)            
-        indmin, indmax = self._get_span_indices(start, stop)
-        selection = self.working_data[indmin:indmax]
-        sel_ones = selection.copy()
-        sel_ones[self.trace_ids] = 1.0
-        t = selection['time']
-        means = selection[self.trace_ids].mean()
-        self.results['loaded'] = means
-        self.results_acquired['loaded'] = True
-        self.set_measurements()
-        res = selection[self.trace_ids] - means
-        res['time'] = t
-        fit = sel_ones.copy() * means
-        fit['time'] = t
-        self.residuals['loaded'] = res
-        self.fitted['loaded'] = fit
+#     def set_baseline_measurements(self, start, stop):
+#         if self.results is None:
+#             self.results = self._create_results_template(self.trace_ids) 
+#         indmin, indmax = self._get_span_indices(start, stop)
+#         selection = self.working_data[indmin:indmax]
+#         sel_ones = selection.copy()
+#         sel_ones[self.trace_ids] = 1.0
+#         t = selection['time']
+#         means = selection[self.trace_ids].mean()
+#         self.results['baseline'] = means
+#         self.results_acquired['baseline'] = True
+#         self.set_measurements()
+#         res = selection[self.trace_ids] - means
+#         res['time'] = t
+#         fit = sel_ones.copy() * means
+#         fit['time'] = t
+#         self.residuals['baseline'] = res
+#         self.fitted['baseline'] = fit
+#             
+#     def set_loads_measurements(self, start, stop):
+#         if self.results is None:
+#             self.results = self._create_results_template(self.trace_ids)            
+#         indmin, indmax = self._get_span_indices(start, stop)
+#         selection = self.working_data[indmin:indmax]
+#         sel_ones = selection.copy()
+#         sel_ones[self.trace_ids] = 1.0
+#         t = selection['time']
+#         means = selection[self.trace_ids].mean()
+#         self.results['loaded'] = means
+#         self.results_acquired['loaded'] = True
+#         self.set_measurements()
+#         res = selection[self.trace_ids] - means
+#         res['time'] = t
+#         fit = sel_ones.copy() * means
+#         fit['time'] = t
+#         self.residuals['loaded'] = res
+#         self.fitted['loaded'] = fit
+        
 
     def set_association_measurements(self, start, stop):
         indmin, indmax = self._get_span_indices(start, stop)
@@ -155,14 +156,14 @@ class BlitsData():
             self.results_acquired['association'] = True
             self.set_measurements()
         
-    def set_measurements(self):
-        if self.results_acquired['baseline'] and self.results_acquired['loaded']:
-            sl = (self.results['loaded'] - self.results['baseline'])
-            self.results['Sugar loading'][self.trace_ids] = sl
-            if self.results_acquired['association']:
-                amp = (self.results['loaded'] - self.results['association'])
-                self.results['Amplitude (obs)'][self.trace_ids] = amp
-                self.set_fractional_saturation_results()
+#     def set_measurements(self):
+#         if self.results_acquired['baseline'] and self.results_acquired['loaded']:
+#             sl = (self.results['loaded'] - self.results['baseline'])
+#             self.results['Sugar loading'][self.trace_ids] = sl
+#             if self.results_acquired['association']:
+#                 amp = (self.results['loaded'] - self.results['association'])
+#                 self.results['Amplitude (obs)'][self.trace_ids] = amp
+#                 self.set_fractional_saturation_results()
 
     def set_fractional_saturation_results(self):
         if (self.results_acquired['baseline'] and
@@ -200,30 +201,30 @@ class BlitsData():
                 self.results['Amplitude (calc)'][self.trace_ids] = y_calc
                 self.results_acquired['fractional saturation'] = True
 
-    def get_fractional_saturation_params_dataframe(self):
-        p = self.fractional_saturation_params
-        df = pd.DataFrame(np.zeros((1,3)))
-        df.index = [self.file_name]
-        df.columns = ['y-max', 'x-half-sat', 'h']
-        df['y-max'] = [p['ymax']]
-        df['x-half-sat'] = [p['xhalf']]
-        df['h'] = [p['h']]
-        return df
-
-                    
-    def get_fractional_saturation_curve(self, size=3.5, step=0.005):
-        max_x = max(size * self.fractional_saturation_params['xhalf'], 
-                    self.results['Sugar loading'].max())
-        data = pd.DataFrame()
-        func = self.functions[self.frac_sat_func_id]
-        ym = self.fractional_saturation_params['ymax']
-        xh = self.fractional_saturation_params['xhalf']
-        h = self.fractional_saturation_params['h']
-        p = (ym, xh, h)
-        data['x'] = np.arange(0.0, max_x, step) 
-        y = func(data['x'], *p)
-        data['y'] = y
-        return data 
+#     def get_fractional_saturation_params_dataframe(self):
+#         p = self.fractional_saturation_params
+#         df = pd.DataFrame(np.zeros((1,3)))
+#         df.index = [self.file_name]
+#         df.columns = ['y-max', 'x-half-sat', 'h']
+#         df['y-max'] = [p['ymax']]
+#         df['x-half-sat'] = [p['xhalf']]
+#         df['h'] = [p['h']]
+#         return df
+# 
+#                     
+#     def get_fractional_saturation_curve(self, size=3.5, step=0.005):
+#         max_x = max(size * self.fractional_saturation_params['xhalf'], 
+#                     self.results['Sugar loading'].max())
+#         data = pd.DataFrame()
+#         func = self.functions[self.frac_sat_func_id]
+#         ym = self.fractional_saturation_params['ymax']
+#         xh = self.fractional_saturation_params['xhalf']
+#         h = self.fractional_saturation_params['h']
+#         p = (ym, xh, h)
+#         data['x'] = np.arange(0.0, max_x, step) 
+#         y = func(data['x'], *p)
+#         data['y'] = y
+#         return data 
 
     def get_fractional_saturation_residuals(self, params):
         x = self.results['Sugar loading']

@@ -117,7 +117,24 @@ class FunctionsFramework():
             for i in range(n_curves):
                 y_out.extend(fn(split_x[i], params[i]))
             return y_out
-        return func      
+        return func 
+    
+def do_global_fit(data, func, param_info):  
+    """
+    Perform a non-linear least-squares global fit of data
+    @data is a list of pandas dataframes, each with shape (k+1, m), where m
+    is the number of data points (rows), and k is the number of independent axes. 
+    The k+1-th column contains the data.
+    @func is the name of the function definition in function_defs
+    @param_info is pandas dataframe of shape (n, 2c+3), where n is the number of parameters
+    in func, and c is the number of curves in data. 
+    Column 0 holds the indices for the parameters (as they occur in the 
+    input *p for func); Col 1 holds the names for the parameters (must be unique), 
+    Col 2 holds the initial estimate (or constant value) for each parameter. 
+    Cols range(3, 3+c) hold Booleans indicating that param i is constant for curve j,
+    and Cols range(3+c, 3+2c) hold Booleans indicating that param i is linked in curves j
+    """ 
+    pass  
     
 def test_global():
     import matplotlib.pyplot as plt

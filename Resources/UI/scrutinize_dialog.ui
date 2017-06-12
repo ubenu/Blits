@@ -81,7 +81,7 @@
              </font>
             </property>
             <property name="text">
-             <string>Fit selected traces</string>
+             <string>Fit traces</string>
             </property>
            </widget>
           </item>
