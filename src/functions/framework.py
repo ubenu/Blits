@@ -50,6 +50,13 @@ class FunctionsFramework():
     def __init__(self):
         pass
 
+    def display_curve(self, fn, x, params):
+        """
+        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+        @paramsis the full input array for fn; same length as p (fn argument)
+        """
+        return fn(x, params)
         
     def confidence_intervals(self, n, params, covar, conf_level):
         """
@@ -255,7 +262,7 @@ def test_func():
     plt.show()
 
 if __name__ == '__main__':
-    test_global()
+    test_func()
 
 
 

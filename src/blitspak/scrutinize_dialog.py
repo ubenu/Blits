@@ -3,6 +3,8 @@ Created on 6 Jun 2017
 
 @author: SchilsM
 '''
+
+import sys
 import numpy as np
 import copy as cp
 from scipy.optimize import curve_fit
@@ -13,11 +15,12 @@ from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData as bld
 
 import functions.framework as ff
-import functions.function_defs as fd
+import functions.function_defs as fdefs
 
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
+from functions.framework import FunctionsFramework
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
 class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
@@ -33,28 +36,28 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 
     fd_fields = range(3)
     d_func, d_pnames, d_expr = fd_fields
-    fn_dictionary = {"Average": (fd.fn_average, 
+    fn_dictionary = {"Average": (fdefs.fn_average, 
                                  ('a',), 
                                  "average(trace)"),
-                     "Straight line": (fd.fn_straight_line, 
+                     "Straight line": (fdefs.fn_straight_line, 
                                        ('a', 'b'), 
                                        "a + b.x"), 
-                     "Single exponential": (fd.fn_1exp, 
+                     "Single exponential": (fdefs.fn_1exp, 
                                             ('a0', 'a1', 'k1'), 
                                             "a0 + a1.exp(-x.k1)"),
-                     "Double exponential": (fd.fn_2exp, 
+                     "Double exponential": (fdefs.fn_2exp, 
                                             ('a0', 'a1', 'k1', 'a2', 'k2'), 
                                             "a0 + a1.exp(-x.k1) + a2..exp(-x.k2)"), 
-                     "Triple exponential": (fd.fn_3exp, 
+                     "Triple exponential": (fdefs.fn_3exp, 
                                             ('a0', 'a1', 'k1', 'a2', 'k2', 'a3', 'k3'), 
                                             "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + a3.exp(-x.k3)"),
-                     "Michaelis-Menten equation": (fd.fn_mich_ment, 
+                     "Michaelis-Menten equation": (fdefs.fn_mich_ment, 
                                                    ('km', 'vmax'), 
                                                    "vmax . x / (km + x)"),
-                     "Competitive inhibition equation": (fd.fn_comp_inhibition, 
+                     "Competitive inhibition equation": (fdefs.fn_comp_inhibition, 
                                                          ('km', 'ki', 'vmax'), 
                                                          "vmax . x[0] / (km . (1.0 + x[1] / ki) + x[0])"), 
-                     "Hill equation": (fd.fn_hill, 
+                     "Hill equation": (fdefs.fn_hill, 
                                        ('ymax', 'xhalf', 'h'), 
                                        "ymax / ((xhalf/x)^h + 1 )"),
                      }
@@ -93,6 +96,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.populate_lib_combo()
         self.cmb_fit_function.setCurrentIndex(0)
         self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+        self.fnfrw = ff.FunctionsFramework()
   
         self.canvas = MplCanvas(self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
@@ -103,32 +107,40 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
         self.trace_ids = self.data.columns[self.data.columns != 'time']
         
+        self.display_curves = None
+        
         self.draw_data()
                 
     def on_calc(self):
         nfunc = self.cmb_fit_function.currentText()
         f = self.fn_dictionary[nfunc][self.d_func]
         npar = len(self.fn_dictionary[nfunc][self.d_pnames]) 
-        selection = self.data    
+        selection = self.data 
+        self.display_curves = cp.deepcopy(selection)
+        self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
         for trace in self.trace_ids:
-            p = np.ones((npar,))
+            p = np.ones((npar), dtype=float)
             t = selection['time']
             x = t - t.iloc[0]
             y = selection[trace]
             try:
-                f_out = curve_fit(f, x, y, p0=p)
-                print(f_out[0])
-                print(f_out[1])
-                self.current_message = "OK"
-#             except ValueError as e:
-#                 self.current_message = "Value Error:" + str(e)
-#             except RuntimeError as e:  
-#                 self.current_message = "Runtime Error:" + str(e)
-            except Error as e:
-                self.current_message = e.message
-            
-            print(self.current_message)   
-        
+                f_out = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
+#                conf_intvs = self.fnfrw.confidence_intervals(y.shape[0], f_out[0], f_out[1], 0.95)
+                self.display_curves[trace] = self.fnfrw.display_curve(f, x, f_out[0])
+                self.current_message = 'OK'
+            except ValueError as e:
+                self.current_message = "Value Error:" + str(e)
+            except RuntimeError as e:  
+                self.current_message = "Runtime Error:" + str(e)
+            except TypeError as e:
+                self.current_message = "TypeError Error:" + str(e)               
+            except KeyError as e:
+                self.current_message = "KeyError Error:" + str(e)               
+            except:
+                e = sys.exc_info()[0]
+                self.current_message = "Other Error:" + str(e)
+#            print(self.current_message)
+        self.draw_data()
         
     def on_current_index_changed(self, index):
         self.txt_function.clear()
@@ -198,6 +210,11 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             x = self.data['time']
             y = self.data[self.trace_ids]
             self.canvas.draw_data(x, y)
+        if not self.display_curves is None:
+            xd = self.display_curves['time']
+            yd = self.display_curves[self.trace_ids]
+            self.canvas.draw_fitted_data(xd, yd)
+            
 
     def fill_library(self):                
         for name in self.fn_dictionary:
