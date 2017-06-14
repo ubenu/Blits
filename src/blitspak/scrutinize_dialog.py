@@ -106,6 +106,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.library = {}
         self.fill_library()
         self.current_function = ""
+        self.pfits, self.pconfs, self.prelcs = {}, {}, {}
         # Prepare the UI
         self.cmb_fit_function.setSizeAdjustPolicy(widgets.QComboBox.AdjustToContents)
         for i in self.available_functions:
@@ -153,7 +154,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 e = sys.exc_info()[0]
                 print(e)
         self.draw_data()
-    self.prepare_results_table()   
+        self.prepare_results_table()   
          
     def on_current_index_changed(self, index):
         self.pfits, self.pconfs, self.prelcs = {}, {}, {}
@@ -195,14 +196,17 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         for irow in range(self.tbl_results.rowCount()):
             cid = self.tbl_results.verticalHeaderItem(irow).text()
             for icol in range(self.tbl_results.columnCount()):
+                w = widgets.QTableWidgetItem()
+                self.tbl_results.setItem(irow, icol, w) 
                 if icol == 0: # curve colour icon in col 0
-                    w = widgets.QTableWidgetItem()
                     col = self.canvas.curve_colours[cid]
                     ic = self.parent().line_icon(col)
-                    w.setIcon(ic)
-                    self.tbl_results.setItem(irow, icol, w)   
-                elif icol % 4 in (0, 1, 2):
-                    pass
+                    w.setIcon(ic)                     
+                elif (icol - 1) % 3 == 0:
+                    if cid in self.pfits:
+                        np = (icol - 1) // 3
+                        w.setText('{:.2g}'.format(self.pfits[cid][np]))
+#        self.tbl_results.adjustToContents() # probably doesn't work, too late to try today
                                 
     def prepare_params_table(self):
         self.tbl_params.clear()
