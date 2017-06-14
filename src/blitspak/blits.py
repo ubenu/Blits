@@ -124,10 +124,11 @@ class Main(QMainWindow, Ui_MainWindow):
         self.span.set_active(False)
         if self._scrutinizing:  
             if (xmin != xmax):
-#                selection = self.blits_data.get_selection()        
                 self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax)  
-                self.scrutinize_dialog.exec()
-
+                if self.scrutinize_dialog.exec() == widgets.QDialog.Accepted:
+                    pass
+                self.action_scrutinize.setChecked(False)
+                self.on_scrutinize()
             
     def _draw_results(self):
         x = self.blits_data.get_data_x()

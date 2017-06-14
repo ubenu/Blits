@@ -13,10 +13,11 @@ import functions.function_defs as fdefs
 
 class ModellingFunction():
     
-    def __init__(self, name, fn_ref, param_names, fn_str):
+    def __init__(self, name, fn_ref, p0_fn_ref, param_names, fn_str):
         self.id = id
         self.name = name
         self.fn_ref = fn_ref
+        self.p0_fn_ref = p0_fn_ref
         self.param_names = param_names
         self.fn_str = fn_str
     
