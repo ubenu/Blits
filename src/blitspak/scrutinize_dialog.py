@@ -81,7 +81,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     hr_trac, hr_pfit, hr_conf, hr_advice = results_table_columns
     results_table_headers = {hr_trac: "Trace",
                              hr_pfit: "Value",
-                             hr_conf: "Confidence\ninterval",
+                             hr_conf: "Error\n(relative)",
                              hr_advice: "",
                              }
 
@@ -106,7 +106,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.library = {}
         self.fill_library()
         self.current_function = ""
-        self.pfits, self.pconfs, self.prelcs = {}, {}, {}
+        self.param_values_fit, self.conf_intervals_fit = {}, {}
         # Prepare the UI
         self.cmb_fit_function.setSizeAdjustPolicy(widgets.QComboBox.AdjustToContents)
         for i in self.available_functions:
@@ -115,6 +115,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 
         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
+        self.residuals = None
         ## Add the data and draw them
         indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
@@ -130,6 +131,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         selection = self.data 
         self.display_curves = cp.deepcopy(selection)
         self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
+        self.residuals = cp.deepcopy(selection)
+        self.residuals[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
         p0s = self.get_p0s_from_table()
         for trace in self.trace_ids:
             p = p0s[trace]
@@ -139,11 +142,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             try:
                 pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
                 pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
-                prelc = pfit / pconf
-                self.pfits[trace] = pfit
-                self.pconfs[trace] = pfit
-                self.prelcs[trace] = prelc
+                self.param_values_fit[trace] = pfit
+                self.conf_intervals_fit[trace] = pconf
                 self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
+                self.residuals[trace] = self.data[trace] - self.display_curves[trace]
             except ValueError as e:
                 print(e)
             except RuntimeError as e:  
@@ -157,7 +159,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.prepare_results_table()   
          
     def on_current_index_changed(self, index):
-        self.pfits, self.pconfs, self.prelcs = {}, {}, {}
+        self.param_values_fit, self.conf_intervals_fit = {}, {}
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
@@ -202,11 +204,28 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     col = self.canvas.curve_colours[cid]
                     ic = self.parent().line_icon(col)
                     w.setIcon(ic)                     
-                elif (icol - 1) % 3 == 0:
-                    if cid in self.pfits:
-                        np = (icol - 1) // 3
-                        w.setText('{:.2g}'.format(self.pfits[cid][np]))
-#        self.tbl_results.adjustToContents() # probably doesn't work, too late to try today
+                elif (icol - 1) % 3 in (0, 1, 2):
+                    if cid in self.param_values_fit:
+                        nparam = (icol - 1) // 3
+                        ptype = (icol - 1) % 3
+                        if ptype == 0:
+                            w.setText('{:.2g}'.format(self.param_values_fit[cid][nparam]))
+                        if ptype == 1:
+                            pval = self.param_values_fit[cid][nparam]
+                            cintv = self.conf_intervals_fit[cid][nparam]
+                            rintv = int(abs(100*cintv/pval))
+                            rstr = ""
+                            if rintv <= 100:
+                                rstr = '{:.2g} ({:d}%)'.format(cintv, rintv)
+                            else:
+                                rstr = '{:.2g} (> 100%)'.format(cintv)                                       
+                            w.setText(rstr)
+                        if ptype == 2:
+                            col = self.canvas.curve_colours[cid]
+                            cic = self.parent().circle_icon(col)
+                            w.setIcon(cic)
+        self.tbl_results.resizeColumnsToContents()
+        self.tbl_results.resizeRowsToContents()
                                 
     def prepare_params_table(self):
         self.tbl_params.clear()
@@ -280,10 +299,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             x = self.data['time']
             y = self.data[self.trace_ids]
             self.canvas.draw_data(x, y)
-        if not self.display_curves is None:
-            xd = self.display_curves['time']
-            yd = self.display_curves[self.trace_ids]
-            self.canvas.draw_fitted_data(xd, yd)
+            if not self.display_curves is None:
+                xd = self.display_curves['time']
+                yd = self.display_curves[self.trace_ids]
+                ryd = self.residuals[self.trace_ids]
+                self.canvas.draw_fitted_data(xd, yd)
+                self.canvas.draw_residuals(x, ryd)
             
 
     def fill_library(self):                

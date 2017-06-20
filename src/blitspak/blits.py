@@ -197,7 +197,18 @@ class Main(QMainWindow, Ui_MainWindow):
         pixmap = gui.QPixmap(50,10)
         pixmap.fill(gui.QColor(color))
         icon = gui.QIcon(pixmap)
+        return icon  
+    
+    def circle_icon(self, color):
+        pix = gui.QPixmap(30,30)
+        paint = gui.QPainter()
+        paint.begin(pix)
+        paint.setBrush(gui.QColor(100,100,100))
+        paint.drawEllipse(0,0,10,10)
+        paint.end()
+        icon = gui.QIcon(pix)
         return icon        
+      
         
 # Standard main loop code
 if __name__ == '__main__':
