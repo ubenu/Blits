@@ -11,7 +11,9 @@ from scipy.optimize import curve_fit
 
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
-from blitspak.blits_mpl import MplCanvas, NavigationToolbar
+from matplotlib.widgets import SpanSelector
+#from matplotlib.lines import Line2D
+from blitspak.blits_mpl import MplCanvas, NavigationToolbar, DraggableLine
 #from blitspak.blits_data import BlitsData as bld
 
 import functions.framework as ff
@@ -121,14 +123,31 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
         self.trace_ids = self.data.columns[self.data.columns != 'time']
         self.draw_data()
+
+        xlims = self.data['time'].min(), self.data['time'].max()
+        self.dataxlims = cp.deepcopy(self.xlims)
         
+        self.draw_limiters(xlims)
+
         self.ui_ready = True
         self.on_current_index_changed(0)
-                
+        
+        
+    ## HERE: doesn't work as intended
+    def draw_limiters(self, xlimits):
+        print(0)
+        self.line0 = DraggableLine(self.canvas.data_plot.axvline(xlimits[0], lw=1, ls='--', color='k'), self.dataxlims)
+        print(1)
+        self.line1 = DraggableLine(self.canvas.data_plot.axvline(xlimits[1], lw=1, ls='--', color='k'), self.dataxlims)
+        print(2)
+        
+                        
     def on_calc(self):
         nfunc = self.cmb_fit_function.currentText()
         f = self.fn_dictionary[nfunc][self.d_func]
-        selection = self.data 
+        lines_x = self.line0.get_x(), self.line1.get_x()
+        indmin, indmax = np.searchsorted(self.data['time'], lines_x)
+        selection = cp.deepcopy(self.data[indmin:indmax])
         self.display_curves = cp.deepcopy(selection)
         self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
         self.residuals = cp.deepcopy(selection)
@@ -155,7 +174,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             except:
                 e = sys.exc_info()[0]
                 print(e)
+                
+        xlims = self.line0.get_x(), self.line1.get_x() # has to be done before limiters get wiped out in draw_data
         self.draw_data()
+        self.draw_limiters(xlims)
         self.prepare_results_table()   
          
     def on_current_index_changed(self, index):
@@ -203,17 +225,17 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 if icol == 0: # curve colour icon in col 0
                     col = self.canvas.curve_colours[cid]
                     ic = self.parent().line_icon(col)
-                    w.setIcon(ic)                     
-                elif (icol - 1) % 3 in (0, 1, 2):
+                    w.setIcon(ic)  
+                else:                   
                     if cid in self.param_values_fit:
                         nparam = (icol - 1) // 3
                         ptype = (icol - 1) % 3
+                        pval = self.param_values_fit[cid][nparam]
+                        cintv = self.conf_intervals_fit[cid][nparam]
+                        rintv = int(abs(100*cintv/pval))
                         if ptype == 0:
                             w.setText('{:.2g}'.format(self.param_values_fit[cid][nparam]))
                         if ptype == 1:
-                            pval = self.param_values_fit[cid][nparam]
-                            cintv = self.conf_intervals_fit[cid][nparam]
-                            rintv = int(abs(100*cintv/pval))
                             rstr = ""
                             if rintv <= 100:
                                 rstr = '{:.2g} ({:d}%)'.format(cintv, rintv)
@@ -221,8 +243,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                 rstr = '{:.2g} (> 100%)'.format(cintv)                                       
                             w.setText(rstr)
                         if ptype == 2:
+                            if rintv < 20:
+                                trlcol = "green"
+                            elif rintv < 50:
+                                trlcol = "orange"
+                            else:
+                                trlcol = "red"
                             col = self.canvas.curve_colours[cid]
-                            cic = self.parent().circle_icon(col)
+                            cic = self.parent().circle_icon(trlcol)
                             w.setIcon(cic)
         self.tbl_results.resizeColumnsToContents()
         self.tbl_results.resizeRowsToContents()
@@ -302,9 +330,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             if not self.display_curves is None:
                 xd = self.display_curves['time']
                 yd = self.display_curves[self.trace_ids]
-                ryd = self.residuals[self.trace_ids]
                 self.canvas.draw_fitted_data(xd, yd)
-                self.canvas.draw_residuals(x, ryd)
+#                 ryd = self.residuals[self.trace_ids]
+#                 self.canvas.draw_residuals(x, ryd)
             
 
     def fill_library(self):                

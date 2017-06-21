@@ -5,11 +5,11 @@ Created on 23 May 2017
 """
 #from PyQt5 import QtGui as gui
 #from PyQt5 import QtCore as qt
+import numpy as np
 from PyQt5 import QtWidgets as widgets
 
 from matplotlib.figure import Figure
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import Cursor
 from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanvas,
                                                 NavigationToolbar2QT)
 
@@ -42,7 +42,6 @@ class MplCanvas(FigureCanvas):
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Expanding, widgets.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self) 
-        #self.l_cursor = Cursor(self.data_plot, horizOn=False, useblit=True, color='red', linewidth=2)
         
         self.curve_colours = {}
         
@@ -98,3 +97,56 @@ class NavigationToolbar(NavigationToolbar2QT):
             self.pan()
         elif self._active == "ZOOM":
             self.zoom()
+            
+class DraggableLine:
+    """
+    Based on DraggableRectangle exercise in https://matplotlib.org/users/event_handling.html
+    """
+    def __init__(self, line, xlims):
+        self.line = line
+        self.xlims = xlims
+        self.connect()
+        self.press = None
+        
+    def get_x(self):
+        return self.line.get_xdata()[0]
+    
+    def connect(self):
+        'connect to all the events we need'
+        self.cidpress = self.line.figure.canvas.mpl_connect(
+            'button_press_event', self.on_press)
+        self.cidrelease = self.line.figure.canvas.mpl_connect(
+            'button_release_event', self.on_release)
+        self.cidmotion = self.line.figure.canvas.mpl_connect(
+            'motion_notify_event', self.on_motion)
+
+    def on_press(self, event):
+        'on button press we will see if the mouse is over us and store some data'
+        if event.inaxes == self.line.axes: 
+            contained = self.line.contains(event)[0]
+            if contained:
+                self.press = event.xdata 
+        return
+        
+    def on_motion(self, event):
+        'on motion we will move the line if the mouse is over us'
+        if self.press is None: 
+            return
+        if event.inaxes != self.line.axes: 
+            return
+        if event.xdata < self.xlims[0] or event.xdata > self.xlims[1]:
+            return
+        newx = np.ones_like(self.line.get_xdata()) * event.xdata
+        self.line.set_xdata(newx)
+        self.line.figure.canvas.draw()
+
+    def on_release(self, event):
+        'on release we reset the press data'
+        self.press = None
+        self.line.figure.canvas.draw()
+
+    def disconnect(self):
+        'disconnect all the stored connection ids'
+        self.line.figure.canvas.mpl_disconnect(self.cidpress)
+        self.line.figure.canvas.mpl_disconnect(self.cidrelease)
+        self.line.figure.canvas.mpl_disconnect(self.cidmotion)

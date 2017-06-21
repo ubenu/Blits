@@ -134,16 +134,6 @@ class Main(QMainWindow, Ui_MainWindow):
         x = self.blits_data.get_data_x()
         y = self.blits_data.get_data_y()
         self.canvas.draw_data(x, y)
-#         for phase in self.blits_data.fitted:
-#             if not self.blits_data.fitted[phase] is None:
-#                 x=self.blits_data.fitted[phase]['time']
-#                 y=self.blits_data.fitted[phase][self.blits_data.trace_ids]
-#                 self.canvas.draw_fitted_data(x, y) 
-#         for phase in self.blits_data.fitted:
-#             if not self.blits_data.residuals[phase] is None:
-#                 x=self.blits_data.residuals[phase]['time']
-#                 y=self.blits_data.residuals[phase][self.blits_data.trace_ids]
-#                 self.canvas.draw_residuals(x, y) 
                                 
     def _draw_analysis(self):
         if self.blits_data.results_acquired['baseline']:
@@ -201,10 +191,12 @@ class Main(QMainWindow, Ui_MainWindow):
     
     def circle_icon(self, color):
         pix = gui.QPixmap(30,30)
+        pix.fill(gui.QColor("transparent"))
         paint = gui.QPainter()
         paint.begin(pix)
-        paint.setBrush(gui.QColor(100,100,100))
-        paint.drawEllipse(0,0,10,10)
+        paint.setBrush(gui.QColor(color))
+        paint.setPen(gui.QColor("transparent"))
+        paint.drawEllipse(0,0,30,30)
         paint.end()
         icon = gui.QIcon(pix)
         return icon        
