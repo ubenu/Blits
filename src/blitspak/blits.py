@@ -58,6 +58,9 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_data = BlitsData()
         self.file_name = ""
         self.file_path = ""
+        self.phase_number = 0
+        self.phase_name = "Phase"
+        self.phase_list = []
 
         self.span.set_active(False)
 
@@ -125,12 +128,30 @@ class Main(QMainWindow, Ui_MainWindow):
         self.span.set_active(False)
         if self._scrutinizing:  
             if (xmin != xmax):
-                self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax)  
+                phase_id = self.phase_name + '{:0d}'.format(self.phase_number + 1)
+                self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax) 
+                self.scrutinize_dialog.txt_phase_id.setText(phase_id) 
                 if self.scrutinize_dialog.exec() == widgets.QDialog.Accepted:
-                    pass
-                    #tbl_results = cp.deepcopy(self.scrutinize_dialog.tbl_results)
+                    self.phase_number += 1
+                    self.phase_list.append(phase_id)
+                    model = self.scrutinize_dialog.current_function
+                    model_expr = self.scrutinize_dialog.fn_dictionary[model][self.scrutinize_dialog.d_expr]
+                    m_string = model + ': ' + model_expr
+                    tbl_results = self.scrutinize_dialog.tbl_results
+                    self._create_results_tab(phase_id, m_string, tbl_results)
                 self.action_scrutinize.setChecked(False)
                 self.on_scrutinize()
+                
+    def _create_results_tab(self, phase_id, model_string, results_table):
+        new_tab = widgets.QWidget()
+        lo = widgets.QVBoxLayout(new_tab)
+        x = widgets.QLabel(model_string)
+        lo.addWidget(x)
+        lo.addWidget(results_table)
+        new_tab.setLayout(lo)
+        
+        self.tabWidget.addTab(new_tab, phase_id)
+        
             
     def _draw_results(self):
         x = self.blits_data.get_data_x()
