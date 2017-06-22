@@ -8,6 +8,7 @@ Created on Tue Oct 25 13:11:32 2016
 """
 
 #from PyQt5.uic import loadUiType
+import copy as cp
 
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
@@ -127,6 +128,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax)  
                 if self.scrutinize_dialog.exec() == widgets.QDialog.Accepted:
                     pass
+                    #tbl_results = cp.deepcopy(self.scrutinize_dialog.tbl_results)
                 self.action_scrutinize.setChecked(False)
                 self.on_scrutinize()
             

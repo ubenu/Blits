@@ -6,7 +6,7 @@ Created on 24 May 2017
 
 import numpy as np
 from scipy.optimize import curve_fit
-from scipy.stats.distributions import  t
+from scipy.stats import distributions # t
 import functions.function_defs as fdefs
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
@@ -69,9 +69,8 @@ class FunctionsFramework():
         on params (report (eg) p +/- d or p (d/p*100 %), where p is a parameter value
         and d is its associated relative confidence interval.
         """
-        alpha = 1.0 - conf_level
-        dof = max(0, n - params.shape[0]) # number of degrees of freedom
-        tval = t.ppf(1.0 - alpha / 2., dof) # student-t value for the dof and confidence level
+        dof = max(0, n - params.shape[0]) # degrees of freedom
+        tval = distributions.t.ppf(conf_level / 2., dof) # student-t value for the dof and confidence level
         sigma = np.power(np.diag(covar), 0.5) # standard error
         return sigma * tval
             
