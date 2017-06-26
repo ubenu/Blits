@@ -28,12 +28,14 @@ Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dia
 
 class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
-    available_functions = range(5)
-    f_avg, f_lin, f_ex1, f_ex2, f_ex3 = available_functions
+    available_functions = range(7)
+    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3 = available_functions
     fn_names = {f_avg: "Average",
                 f_lin: "Straight line",
                 f_ex1: "Single exponential",
+                f_lex1: "Single exponential and straight line",
                 f_ex2: "Double exponential",
+                f_lex2: "Double exponential and straight line",
                 f_ex3: "Triple exponential",
                 }
 
@@ -51,10 +53,18 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                             fdefs.p0_fn_1exp,
                                             ('a0', 'a1', 'k1'), 
                                             "a0 + a1.exp(-x.k1)"),
+                     "Single exponential and straight line": (fdefs.fn_1exp_strline, 
+                                            fdefs.p0_fn_1exp_strline,
+                                            ('a0', 'a1', 'k1', 'b'), 
+                                            "a0 + a1.exp(-x.k1) + b.x"), 
                      "Double exponential": (fdefs.fn_2exp, 
                                             fdefs.p0_fn_2exp,
                                             ('a0', 'a1', 'k1', 'a2', 'k2'), 
                                             "a0 + a1.exp(-x.k1) + a2..exp(-x.k2)"), 
+                     "Double exponential and straight line": (fdefs.fn_2exp_strline, 
+                                            fdefs.p0_fn_2exp_strline,
+                                            ('a0', 'a1', 'k1', 'a2', 'k2', 'b'), 
+                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + b.x"), 
                      "Triple exponential": (fdefs.fn_3exp, 
                                             fdefs.p0_fn_3exp,
                                             ('a0', 'a1', 'k1', 'a2', 'k2', 'a3', 'k3'), 

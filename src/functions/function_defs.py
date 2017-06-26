@@ -32,6 +32,20 @@ def p0_fn_1exp(x, y):
     k1 = 1.0/(0.1 * x.iloc[-1])
     p0 = np.array([a0, a1, k1])
     return p0
+
+def fn_1exp_strline(x, p):
+    a0, a1, k1, b = p
+    t = x
+    return a0 + a1*np.exp(-t*k1) + b * t
+
+def p0_fn_1exp_strline(x, y):
+    a0 = y.iloc[-1]
+    a1 = y.iloc[0] - a0
+    k1 = 1.0/(0.1 * x.iloc[-1])
+    b = 0.0
+    p0 = np.array([a0, a1, k1, b])
+    return p0
+    
     
 def fn_2exp(x, p):
     a0, a1, k1, a2, k2 = p
@@ -45,6 +59,21 @@ def p0_fn_2exp(x, y):
     a2 = a1/2.0
     k2 = 1.0/(1.0 * x.iloc[-1])
     p0 = np.array([a0, a1, k1, a2, k2])
+    return p0
+    
+def fn_2exp_strline(x, p):
+    a0, a1, k1, a2, k2, b = p
+    t = x
+    return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + b * t
+
+def p0_fn_2exp_strline(x, y):
+    a0 = y.iloc[-1]
+    a1 = y.iloc[0] - a0
+    k1 = 1.0/(0.1 * x.iloc[-1])
+    a2 = a1/2.0
+    k2 = 1.0/(1.0 * x.iloc[-1])
+    b = 0.0
+    p0 = np.array([a0, a1, k1, a2, k2, b])
     return p0
     
 def fn_3exp(x, p):

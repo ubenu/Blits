@@ -27,25 +27,27 @@ class ModellingFunction():
 
 class FunctionsFramework():
 
-    defined_functions = range(8)
-    (fn_average,
-     fn_straight_line, 
-     fn_1exp, 
-     fn_2exp, 
-     fn_3exp, 
-     fn_mich_ment, 
-     fn_comp_inhibition, 
-     fn_hill,
-     ) = defined_functions
-    fn_dictionary = {"Average": fn_average,
-                     "Straight line": fn_straight_line, 
-                     "Single exponential": fn_1exp,
-                     "Double exponential": fn_2exp, 
-                     "Triple exponential": fn_3exp,
-                     "Michaelis-Menten equation": fn_mich_ment,
-                     "Competitive inhibition equation": fn_comp_inhibition, 
-                     "Hill equation": fn_hill,
-                     }
+#     defined_functions = range(9)
+#     (fn_average,
+#      fn_straight_line, 
+#      fn_1exp, 
+#      fn_2exp, 
+#      fn_2exp_strline, 
+#      fn_3exp, 
+#      fn_mich_ment, 
+#      fn_comp_inhibition, 
+#      fn_hill,
+#      ) = defined_functions
+#     fn_dictionary = {"Average": fn_average,
+#                      "Straight line": fn_straight_line, 
+#                      "Single exponential": fn_1exp,
+#                      "Double exponential": fn_2exp, 
+#                      "Double exponential and straight line": fn_2exp_strline, 
+#                      "Triple exponential": fn_3exp,
+#                      "Michaelis-Menten equation": fn_mich_ment,
+#                      "Competitive inhibition equation": fn_comp_inhibition, 
+#                      "Hill equation": fn_hill,
+#                      }
      
                   
     def __init__(self):
