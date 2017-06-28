@@ -4,11 +4,6 @@ Created on 23 May 2017
 @author: schilsm
 '''
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Oct  9 10:31:43 2016
-
-@author: Maria
-"""
 
 import numpy as np
 import pandas as pd
@@ -51,13 +46,6 @@ class BlitsData():
         self.working_data['time'] = self.raw_data.iloc[:,0]
         self.working_data = self.working_data[0:-1:self.data_reduction_factor]
         
-#     def get_selection(self, start, stop):
-#         indmin, indmax = self._get_span_indices(start, stop)
-#         return self.working_data[indmin:indmax]
-#         
-#     def _get_span_indices(self, start, stop):
-#         return np.searchsorted(self.working_data['time'],(start, stop))
-                
     def get_data_x(self):
         try:
             return self.working_data['time']

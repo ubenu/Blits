@@ -25,30 +25,7 @@ class ModellingFunction():
         return self.fn_str
     
 
-class FunctionsFramework():
-
-#     defined_functions = range(9)
-#     (fn_average,
-#      fn_straight_line, 
-#      fn_1exp, 
-#      fn_2exp, 
-#      fn_2exp_strline, 
-#      fn_3exp, 
-#      fn_mich_ment, 
-#      fn_comp_inhibition, 
-#      fn_hill,
-#      ) = defined_functions
-#     fn_dictionary = {"Average": fn_average,
-#                      "Straight line": fn_straight_line, 
-#                      "Single exponential": fn_1exp,
-#                      "Double exponential": fn_2exp, 
-#                      "Double exponential and straight line": fn_2exp_strline, 
-#                      "Triple exponential": fn_3exp,
-#                      "Michaelis-Menten equation": fn_mich_ment,
-#                      "Competitive inhibition equation": fn_comp_inhibition, 
-#                      "Hill equation": fn_hill,
-#                      }
-     
+class FunctionsFramework():     
                   
     def __init__(self):
         pass
@@ -252,19 +229,19 @@ def test_func():
     n_free_params = len(p[m])
     p_est = np.ones(n_free_params, dtype=float)
     data = f(x, p)
-    npoints = data.shape[0]
-    ndata = data + np.random.normal(0.0, 0.02*data, npoints)
+    npoints = data.shape[1]
+    ndata = data + np.random.normal(0.0, 0.02*data[0], npoints)
+    fnc = FunctionsFramework.make_func(FunctionsFramework, f, p, c)
     
-    pvar, pcov = curve_fit(FunctionsFramework.make_func(FunctionsFramework, f, p, c), x, ndata, p0=p_est)
+    pvar, pcov = curve_fit(fnc, x[0], ndata[0], p0=p_est)
     
     cis = FunctionsFramework.confidence_intervals(FunctionsFramework, npoints, pvar, pcov, 0.95)
-    print(cis)
     
-    plt.plot(x[0], ndata, 'ro', x[0], f(x, p), 'k-')
+    plt.plot(x[0], ndata[0], 'ro', x[0], f(x, p)[0], 'k-')
     plt.show()
 
 if __name__ == '__main__':
-    test_func()
+    test_global()
 
 
 
