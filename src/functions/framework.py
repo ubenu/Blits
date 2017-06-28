@@ -73,29 +73,45 @@ class FunctionsFramework():
     
     def make_func_global(self, fn, x_splits, links, consts={}):
         """
-        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
-        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-        @links is an array of shape (#curves, #params_for_fn) that contains
-        the index of its associated (unique) parameter used to construct v
-        @consts is a dictionary with the indices (keys) and values (values) of the parameters
-        that must be kept constant
+        @fn is a function with signature fn(x, p), where @p is 
+        a 1D array of parameters and @x is a (k, m) shaped array, 
+        with k the number of independents and m the total number of 
+        data points (all curves concatenated along the array's 2nd axis)
+        @x_splits is  is a sorted 1-D array of integers, whose entries 
+        indicate where the array's second axis must be split to generate
+        the individual curves.
+        @links is an array of shape (n_curves, n_params) of integers, 
+        containing the indices of the actual parameters to be fitted, 
+        where n_curves is the number of curves and n_params the number of
+        parameters taken by fn (ie len(p)).
+        Example for 4 curves and 3 parameters:
+              p0    p1    p2
+        c0    0     2     3
+        c1    0     2     4
+        c2    1     2     5
+        c3    1     2     6
+        means that parameter p0 is assumed to have the same value in 
+        curves c0 and c1, and in curves c2 and c3 (a different value), 
+        and that the value for p1 is the same in all curves, whereas
+        the value of p2 is different for all curves. In this example, 
+        the total number of parameters to be fitted is 7.
+        @consts is a dictionary with the indices (keys) and values (values) 
+        of the parameters that must be kept constant during the fit. 
         """
         n_curves = links.shape[0]
         n_params = links.shape[1]
-        links = links.flatten()
+        links = links.flatten()        
         def func(x, *v):
             split_x = np.split(x, x_splits, axis=1)
-            if len(split_x) != n_curves:
-                print("Error: incorrect x split in make_func_global")
             params = np.zeros_like(links, dtype=float)
             u = np.zeros_like(np.unique(links), dtype=float) 
-            # u is the array that will contain the values of all unique params
-            # v is the array of variable params
             mask = np.ones_like(u, dtype=bool)
             for i in consts:
                 u[i] = consts[i]
                 mask[i] = False
-            u[mask] = v #np.array(v)[mask]
+            # u contains the values of all parameters
+            # v contains the values of the variable parameters
+            u[mask] = v
             for i in range(links.shape[0]):
                 params[i] = u[links[i]] # fill in the parameter values
             params = params.reshape((n_curves, n_params))
@@ -103,22 +119,29 @@ class FunctionsFramework():
             for i in range(n_curves):
                 y_out.extend(fn(split_x[i], params[i]))
             return y_out
+        
         return func 
     
-def do_global_fit(data, func, param_info):  
+def global_curve_fit(data, splits, func, param_info):  
     """
     Perform a non-linear least-squares global fit of data
-    @data is a list of pandas dataframes, each with shape (k+1, m), where m
-    is the number of data points (rows), and k is the number of independent axes. 
-    The k+1-th column contains the data.
+    @data is a pandas dataframe, each with shape (k+1, m), where m
+    is the number of data points (cols), and k is the number of independent axes. 
+    The k+1-th row contains the dependent data.
+    @splits 
     @func is the name of the function definition in function_defs
-    @param_info is pandas dataframe of shape (n, 2c+3), where n is the number of parameters
+    @param_info is pandas dataframe of shape (n_curves, n_params, 3), 
+    where n_curves is the number of curves in the data
+    and n_params the number of parameters in the model
+    
     in func, and c is the number of curves in data. 
     Column 0 holds the indices for the parameters (as they occur in the 
     input *p for func); Col 1 holds the names for the parameters (must be unique), 
     Col 2 holds the initial estimate (or constant value) for each parameter. 
     Cols range(3, 3+c) hold Booleans indicating that param i is constant for curve j,
     and Cols range(3+c, 3+2c) hold Booleans indicating that param i is linked in curves j
+    Example for 4 params to fit 2 curves:
+    
     """ 
     pass  
     

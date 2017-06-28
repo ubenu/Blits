@@ -88,16 +88,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     params_table_headers = {hp_trac: "Trace",
                             hp_p0: "Init est",
                             hp_cons: "Const",
-                            hp_link: "Linked",
+                            hp_link: "Linked\nto",
                             }
-    results_table_columns = range(6)
-    hr_trac, hr_dw, hr_dwadv, hr_pfit, hr_conf, hr_advice = results_table_columns
+    results_table_columns = range(4)
+    hr_trac, hr_dw, hr_pfit, hr_conf = results_table_columns
     results_table_headers = {hr_trac: "Trace",
                              hr_dw: "Durbin-\nWatson",
-                             hr_dwadv: "",
                              hr_pfit: "Value",
                              hr_conf: "Error",
-                             hr_advice: "",
                              }
 
     def __init__(self, parent, start, stop):
@@ -116,7 +114,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
         self.btn_calc.clicked.connect(self.on_calc)
-        self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+
+        self.on_current_index_changed(self.cmb_fit_function.currentIndex()) # called o populate the tables
+
         ## Transfer the fitting functions from the (temporary) dictionary to ModellingFunction objects
         self.library = {}
         self.fill_library()
@@ -195,24 +195,109 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
     def on_item_changed(self, item):
         col, row = item.column(), item.row()
-        if row == 0 and (col - 1) % 3 in (1, 2):
+        if row != 0 and (col - 1) % 3 in (1, ):
             cs = item.checkState()
-            for irow in range(1,self.tbl_params.rowCount()):
-                w = self.tbl_params.item(irow, col)
-                if not w is None:
-                    w.setCheckState(cs)
+            w0 = self.tbl_params.item(row, col)
+            w1 = self.tbl_params.item(row, col - 1)
+            v0 = w0.text()
+            v1 = w1.text()
+            if cs == qt.Qt.Checked: 
+                if v0 == "":
+                    w0.setText(v1)
+                else:
+                    w1.setText("") #v0)
+            elif cs == qt.Qt.Unchecked:
+                if v1 == "":
+                    w1.setText(v0)
+                    w0.setText("")
+            self.tbl_params.resizeColumnsToContents()            
+        if row == 0: 
+            if (col - 1) % 3 in (1, ):
+                cs = item.checkState()
+                for irow in range(1, self.tbl_params.rowCount()):
+                    w = self.tbl_params.item(irow, col)
+                    if not w is None:
+                        w.setCheckState(cs)
+            elif (col - 1) % 3 in (2, ):
+                cs = item.checkState()
+                cid = self.tbl_params.verticalHeaderItem(1).text()
+                for irow in range(1, self.tbl_params.rowCount()):
+                    if cs == qt.Qt.Unchecked:
+                        cid = self.tbl_params.verticalHeaderItem(irow).text()
+                    w = self.tbl_params.item(irow, col)
+                    if not w is None:
+                        w.setText(cid)                    
+                                    
+
+    def prepare_params_table(self):
+        self.tbl_params.clear()
+        labels = [self.params_table_headers[self.hp_trac],]
+        if self.current_function != "":
+            pnames = self.library[self.current_function].param_names 
+            for name in pnames:
+                labels.append(self.params_table_headers[self.hp_p0] + '\n' + name)
+                labels.append(self.params_table_headers[self.hp_cons])
+                labels.append(self.params_table_headers[self.hp_link])
+        self.tbl_params.setColumnCount(len(labels))
+        self.tbl_params.setHorizontalHeaderLabels(labels)
+        if len(self.trace_ids) != 0:
+            labels = ['All',]
+            labels.extend(self.trace_ids.tolist())
+            self.tbl_params.setRowCount(len(labels))
+            self.tbl_params.setVerticalHeaderLabels(labels)
+            self.tbl_params.resizeColumnsToContents()
+            self.tbl_params.resizeRowsToContents()
+        
+        p0s = self.get_p0s() 
+        for irow in range(self.tbl_params.rowCount()):
+            tid = self.trace_ids[irow-1]
+            p0 = p0s[tid]
+            for icol in range(self.tbl_params.columnCount()):
+                if icol == 0 and irow != 0: # curve colour icon in col 0
+                    w = widgets.QTableWidgetItem()
+                    cid = self.tbl_params.verticalHeaderItem(irow).text()
+                    col = self.canvas.curve_colours[cid]
+                    ic = self.parent().line_icon(col)
+                    w.setIcon(ic)
+                    self.tbl_params.setItem(irow, icol, w)
+                elif (icol - 1) % 3 in (1, ): 
+                    # checkboxes under the constant header for each param
+                    w = widgets.QTableWidgetItem() 
+                    w.setCheckState(qt.Qt.Unchecked)
+                    if irow != 0 or icol != 0: 
+                        self.tbl_params.setItem(irow, icol, w)
+                elif (icol - 1) % 3 in (2, ):
+                    # values of irow under linked header
+                    w = widgets.QTableWidgetItem()
+                    if icol != 0:
+                        if irow == 0:
+                            w.setText("Link all")
+                            w.setCheckState(qt.Qt.Unchecked)
+                            self.tbl_params.setItem(irow, icol, w) 
+                        else: 
+                            cb = widgets.QComboBox()
+                            cb.addItems(self.trace_ids)
+                            self.tbl_params.setCellWidget(irow, icol, cb)
+#                             w.setText(tid)
+#                         self.tbl_params.setItem(irow, icol, w)
+                elif (icol - 1) % 3 in (0, ) and irow != 0:
+                    # initial estimate values
+                    w = widgets.QTableWidgetItem()
+                    npar = (icol - 1) // 3
+                    w.setText('{:.2g}'.format(p0[npar]))
+                    self.tbl_params.setItem(irow, icol, w)
                     
     def prepare_results_table(self):
         self.tbl_results.clear()
         labels = [self.results_table_headers[self.hr_trac],
-                  self.results_table_headers[self.hr_dw],
-                  self.results_table_headers[self.hr_dwadv],]
+                  self.results_table_headers[self.hr_dw],]
+        
         if self.current_function != "":
             pnames = self.library[self.current_function].param_names 
             for name in pnames:
                 labels.append(name + '\n' + self.results_table_headers[self.hr_pfit])
                 labels.append(name + '\n' + self.results_table_headers[self.hr_conf])
-                labels.append(self.results_table_headers[self.hr_advice])
+                #labels.append(self.results_table_headers[self.hr_advice])
         self.tbl_results.setColumnCount(len(labels))
         self.tbl_results.setHorizontalHeaderLabels(labels)
         if len(self.trace_ids) != 0:
@@ -272,48 +357,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.tbl_results.resizeColumnsToContents()
         self.tbl_results.resizeRowsToContents()
                                 
-    def prepare_params_table(self):
-        self.tbl_params.clear()
-        labels = [self.params_table_headers[self.hp_trac],]
-        if self.current_function != "":
-            pnames = self.library[self.current_function].param_names 
-            for name in pnames:
-                labels.append(self.params_table_headers[self.hp_p0] + '\n' + name)
-                labels.append(self.params_table_headers[self.hp_cons])
-                labels.append(self.params_table_headers[self.hp_link])
-        self.tbl_params.setColumnCount(len(labels))
-        self.tbl_params.setHorizontalHeaderLabels(labels)
-        if len(self.trace_ids) != 0:
-            labels = ['All',]
-            labels.extend(self.trace_ids.tolist())
-            self.tbl_params.setRowCount(len(labels))
-            self.tbl_params.setVerticalHeaderLabels(labels)
-            self.tbl_params.resizeColumnsToContents()
-            self.tbl_params.resizeRowsToContents()
-        
-        p0s = self.get_p0s() 
-        for irow in range(self.tbl_params.rowCount()):
-            tid = self.trace_ids[irow-1]
-            p0 = p0s[tid]
-            for icol in range(self.tbl_params.columnCount()):
-                if icol == 0 and irow != 0: # curve colour icon in col 0
-                    w = widgets.QTableWidgetItem()
-                    cid = self.tbl_params.verticalHeaderItem(irow).text()
-                    col = self.canvas.curve_colours[cid]
-                    ic = self.parent().line_icon(col)
-                    w.setIcon(ic)
-                    self.tbl_params.setItem(irow, icol, w)
-                elif (icol - 1) % 3 in (1, 2): # checkboxes in col 1 and 2 for each param
-                    w = widgets.QTableWidgetItem() 
-                    w.setCheckState(qt.Qt.Unchecked)
-                    if irow != 0 or icol != 0: # (icol - 1) % 3 in (1, 2) and icol != 0:
-                        self.tbl_params.setItem(irow, icol, w)
-                elif (icol - 1) % 3 in (0, ) and irow != 0:
-                    w = widgets.QTableWidgetItem()
-                    np = (icol - 1) // 3
-                    w.setText('{:.2g}'.format(p0[np]))
-                    self.tbl_params.setItem(irow, icol, w)
-                    
     def get_p0s(self):
         p0_func = self.library[self.current_function].p0_fn_ref
         x = self.data['time']

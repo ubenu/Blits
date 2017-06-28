@@ -5,7 +5,6 @@ Created on 23 May 2017
 '''
 # -*- coding: utf-8 -*-
 
-import numpy as np
 import pandas as pd
 
 pd.options.mode.chained_assignment = None  
