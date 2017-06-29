@@ -11,11 +11,9 @@ from scipy.optimize import curve_fit
 from statsmodels.stats.stattools import durbin_watson
 
 from PyQt5 import QtCore as qt
+from PyQt5 import QtGui as gui
 from PyQt5 import QtWidgets as widgets
-from matplotlib.widgets import SpanSelector
-#from matplotlib.lines import Line2D
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar, DraggableLine
-#from blitspak.blits_data import BlitsData as bld
 
 import functions.framework as ff
 import functions.function_defs as fdefs
@@ -23,6 +21,7 @@ import functions.function_defs as fdefs
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
+from dill.pointers import parent
 #from functions.framework import FunctionsFramework
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
@@ -114,8 +113,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
         self.btn_calc.clicked.connect(self.on_calc)
-
-        self.on_current_index_changed(self.cmb_fit_function.currentIndex()) # called o populate the tables
+        # Call on_current_index_changed to populate the tables
+        self.on_current_index_changed(self.cmb_fit_function.currentIndex())
 
         ## Transfer the fitting functions from the (temporary) dictionary to ModellingFunction objects
         self.library = {}
@@ -205,7 +204,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 if v0 == "":
                     w0.setText(v1)
                 else:
-                    w1.setText("") #v0)
+                    w1.setText("")
             elif cs == qt.Qt.Unchecked:
                 if v1 == "":
                     w1.setText(v0)
@@ -222,13 +221,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 cs = item.checkState()
                 cid = self.tbl_params.verticalHeaderItem(1).text()
                 for irow in range(1, self.tbl_params.rowCount()):
+                    cb = self.tbl_params.cellWidget(irow, col)
                     if cs == qt.Qt.Unchecked:
                         cid = self.tbl_params.verticalHeaderItem(irow).text()
-                    w = self.tbl_params.item(irow, col)
-                    if not w is None:
-                        w.setText(cid)                    
+                    if not cb is None:
+                        cb.setCurrentText(cid)               
                                     
-
     def prepare_params_table(self):
         self.tbl_params.clear()
         labels = [self.params_table_headers[self.hp_trac],]
@@ -277,9 +275,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         else: 
                             cb = widgets.QComboBox()
                             cb.addItems(self.trace_ids)
+                            cb.setCurrentText(tid)
                             self.tbl_params.setCellWidget(irow, icol, cb)
-#                             w.setText(tid)
-#                         self.tbl_params.setItem(irow, icol, w)
                 elif (icol - 1) % 3 in (0, ) and irow != 0:
                     # initial estimate values
                     w = widgets.QTableWidgetItem()
