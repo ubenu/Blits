@@ -144,7 +144,65 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.ui_ready = True
         self.on_current_index_changed(0)
         
+    def collect_input(self):
+        # data
+        self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
+        indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
+        selection = cp.deepcopy(self.data[indmin:indmax])
+        
+        data = {}
+        for tid in self.trace_ids:
+            x = cp.deepcopy(selection['time'])
+            y = cp.deepcopy(selection[tid])
+            curve = np.vstack((x,y))
+            data[tid] = curve
+
+        # func
+        nfunc = self.cmb_fit_function.currentText()
+        func = self.fn_dictionary[nfunc][self.d_func]
+
+        pnames = list(self.fn_dictionary[nfunc][self.d_pnames])
+         
+        # consts
+        const_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
+        consts = {}
+        for irow in range(self.tbl_params.rowCount()):
+            cid = self.tbl_params.verticalHeaderItem(irow).text()
+            if cid in self.trace_ids:     
+                const = {}
+                for pname, ploc in zip(pnames, const_locs):
+                    w = self.tbl_params.item(irow, ploc)
+                    if w.checkState() == qt.Qt.Checked:
+                        const[pname] = float(w.text())
+                if len(const) > 0:
+                    consts[cid] = const
+
+        # links
+        links = {}
+        link_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_link
+        for pname, ploc in zip(pnames, link_locs):
+            links[pname] = []
+            for irow in range(self.tbl_params.rowCount()):
+                cid = self.tbl_params.verticalHeaderItem(irow).text()
+                if cid in self.trace_ids:
+                    w = self.tbl_params.cellWidget(irow, ploc)
+                    lid = w.currentText()
+                    to_append = [cid, lid]
+                    for eqcls in links[pname]:
+                        if cid in eqcls or lid in eqcls:
+                            eqcls.extend(to_append)
+                            to_append = []
+                    if to_append != []:
+                        links[pname].append(to_append)
+        for pname in pnames:
+            for eqcls in links[pname]:
+                unique_linked = np.unique(np.array(eqcls))
+                links[pname] = unique_linked
+         
+        return data, func, consts, links
+        
     def on_calc(self):
+        self.collect_input()
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         nfunc = self.cmb_fit_function.currentText()
         f = self.fn_dictionary[nfunc][self.d_func]
@@ -262,6 +320,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     # checkboxes under the constant header for each param
                     w = widgets.QTableWidgetItem() 
                     w.setCheckState(qt.Qt.Unchecked)
+                    if irow == 0:
+                        w.setText("All constant")
                     if irow != 0 or icol != 0: 
                         self.tbl_params.setItem(irow, icol, w)
                 elif (icol - 1) % 3 in (2, ):
@@ -374,6 +434,20 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     p0.append(float(txt))
             p0s[tid] = np.array(p0) 
         return p0s    
+
+#         const_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
+#         consts = {}
+#         for irow in range(self.tbl_params.rowCount()):
+#             cid = self.tbl_params.verticalHeaderItem(irow).text()
+#             if cid in self.trace_ids:     
+#                 const = {}
+#                 for pname, ploc in zip(pnames, const_locs):
+#                     w = self.tbl_params.item(irow, ploc)
+#                     if w.checkState() == qt.Qt.Checked:
+#                         const[pname] = float(w.text())
+#                 if len(const) > 0:
+#                     consts[cid] = const
+
                      
     def draw_all(self):
         if not self.data is None:

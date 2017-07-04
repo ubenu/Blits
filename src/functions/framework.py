@@ -122,28 +122,45 @@ class FunctionsFramework():
         
         return func 
     
-def global_curve_fit(data, splits, func, param_info):  
+def global_curve_fit(data, func, consts={}, links=None):  
     """
-    Perform a non-linear least-squares global fit of data
-    @data is a pandas dataframe, each with shape (k+1, m), where m
-    is the number of data points (cols), and k is the number of independent axes. 
-    The k+1-th row contains the dependent data.
-    @splits 
-    @func is the name of the function definition in function_defs
-    @param_info is pandas dataframe of shape (n_curves, n_params, 3), 
-    where n_curves is the number of curves in the data
-    and n_params the number of parameters in the model
+    Perform a non-linear least-squares global fit of func to data
     
-    in func, and c is the number of curves in data. 
-    Column 0 holds the indices for the parameters (as they occur in the 
-    input *p for func); Col 1 holds the names for the parameters (must be unique), 
-    Col 2 holds the initial estimate (or constant value) for each parameter. 
-    Cols range(3, 3+c) hold Booleans indicating that param i is constant for curve j,
-    and Cols range(3+c, 3+2c) hold Booleans indicating that param i is linked in curves j
-    Example for 4 params to fit 2 curves:
-    
+    @data is a dictionary of the nc individual curves to which 
+    the global fit is to be applied, with the curve identifiers
+    formind the keys. The values are the (x,y) data for the curves, which
+    must be (nx+1, mc)-shaped arrays with nx the number of independents
+    (number of 'x-axes') and mc the total number of data points in
+    that particular curve. The number of independents, nx, must
+    be the same in each curve.  The first nx rows must contain the 
+    independent values, and the bottom row (data[i][-1]) must contain the 
+    dependent values ('y-values').
+    @func is a function with signature fn(x, p), where @p is 
+    a 1D array of parameters and @x is a (k, m) shaped array, 
+    with k the number of independents and m the total number of 
+    data points. 
+    @consts is a dictionary of dictionaries, whose keys are curve identifiers
+    and whose values are dictionaries whose keys are parameter identifiers
+    and whose values are the (constant) value for that parameter.  
+    @links is a dictionary with np entries, where np is the number
+    of parameters taken by func (via p, which is an array).  Each
+    entry must contain one up to nc lists of curve identifiers, with
+    nc the number of curves. Each list contains the curve identifiers
+    that are linked (essentially act as a single parameter). If links is 
+    None, none of the parameters are linked
     """ 
-    pass  
+    print("data")
+    for key in data:
+        print(key)
+        print(data[key])
+    print("links")
+    for key in links:
+        print(key)
+        print(links[key])
+    print("constants")
+    for key in consts:
+        print(key)
+        print(consts[key])  
     
 def test_global():
     import matplotlib.pyplot as plt

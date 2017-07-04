@@ -8,7 +8,6 @@ Created on Tue Oct 25 13:11:32 2016
 """
 
 #from PyQt5.uic import loadUiType
-import copy as cp
 
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
