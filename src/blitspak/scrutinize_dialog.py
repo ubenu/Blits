@@ -21,7 +21,7 @@ import functions.function_defs as fdefs
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
-from dill.pointers import parent
+#from dill.pointers import parent # How did this get here?
 #from functions.framework import FunctionsFramework
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
@@ -424,30 +424,29 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         return p0s
                                
     def get_p0s_from_table(self):
+        """
+        Returns the initial estimates or constant values collected 
+        in self.tbl_params for all parameters.
+        """
+        nfunc = self.cmb_fit_function.currentText()
+        pnames = list(self.fn_dictionary[nfunc][self.d_pnames])
+        p0_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_p0
+        c_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
         p0s = {}
-        for irow in range(self.tbl_params.rowCount()):
-            tid = self.trace_ids[irow-1]
+        for irow in range(1, self.tbl_params.rowCount()):
+            cid = self.tbl_params.verticalHeaderItem(irow).text()
             p0 = []
-            for icol in range(self.tbl_params.columnCount()):
-                if (icol - 1) % 3 in (0, ) and irow != 0:
-                    txt = self.tbl_params.item(irow, icol).text()
+            for ploc, cloc in zip(p0_locs, c_locs):
+                wp = self.tbl_params.item(irow, ploc)
+                wc = self.tbl_params.item(irow, cloc)
+                if wc.checkState() == qt.Qt.Checked:
+                    txt = wc.text()
                     p0.append(float(txt))
-            p0s[tid] = np.array(p0) 
+                else:
+                    txt = wp.text()
+                    p0.append(float(txt))    
+            p0s[cid] = np.array(p0) 
         return p0s    
-
-#         const_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
-#         consts = {}
-#         for irow in range(self.tbl_params.rowCount()):
-#             cid = self.tbl_params.verticalHeaderItem(irow).text()
-#             if cid in self.trace_ids:     
-#                 const = {}
-#                 for pname, ploc in zip(pnames, const_locs):
-#                     w = self.tbl_params.item(irow, ploc)
-#                     if w.checkState() == qt.Qt.Checked:
-#                         const[pname] = float(w.text())
-#                 if len(const) > 0:
-#                     consts[cid] = const
-
                      
     def draw_all(self):
         if not self.data is None:
