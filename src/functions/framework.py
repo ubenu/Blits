@@ -122,7 +122,7 @@ class FunctionsFramework():
         
         return func 
     
-def global_curve_fit(data, func, consts={}, links=None):  
+def global_curve_fit(data, func, param_values, consts={}, links=None):  
     """
     Perform a non-linear least-squares global fit of func to data
     
@@ -139,9 +139,12 @@ def global_curve_fit(data, func, consts={}, links=None):
     a 1D array of parameters and @x is a (k, m) shaped array, 
     with k the number of independents and m the total number of 
     data points. 
-    @consts is a dictionary of dictionaries, whose keys are curve identifiers
-    and whose values are dictionaries whose keys are parameter identifiers
-    and whose values are the (constant) value for that parameter.  
+    @param_values is a dictionary  whose keys are curve identifiers
+    and whose values are dictionaries with the parameter identifiers
+    as keys and the initial or constant value for that parameter as values.  
+    @consts is a dictionary of curve identifiers (keys) with a list of
+    parameters to be kept constant (at the value given in @param_values)
+    for each curve identifier.
     @links is a dictionary with np entries, where np is the number
     of parameters taken by func (via p, which is an array).  Each
     entry must contain one up to nc lists of curve identifiers, with

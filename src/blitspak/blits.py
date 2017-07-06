@@ -222,7 +222,13 @@ class Main(QMainWindow, Ui_MainWindow):
         paint.end()
         icon = gui.QIcon(pix)
         return icon        
-      
+
+    def is_number(self, s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False      
         
 # Standard main loop code
 if __name__ == '__main__':

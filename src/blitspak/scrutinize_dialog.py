@@ -158,12 +158,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             data[tid] = curve
 
         # func
-        nfunc = self.cmb_fit_function.currentText()
-        func = self.fn_dictionary[nfunc][self.d_func]
+        funcname = self.cmb_fit_function.currentText()
+        func = self.fn_dictionary[funcname][self.d_func]
 
-        pnames = list(self.fn_dictionary[nfunc][self.d_pnames])
+        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
          
-        # consts
+        # param_values
         const_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
         consts = {}
         for irow in range(self.tbl_params.rowCount()):
@@ -176,7 +176,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         const[pname] = float(w.text())
                 if len(const) > 0:
                     consts[cid] = const
-
+                    
         # links
         links = {}
         link_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_link
@@ -204,8 +204,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     def on_calc(self):
         self.collect_input()
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
-        nfunc = self.cmb_fit_function.currentText()
-        f = self.fn_dictionary[nfunc][self.d_func]
+        funcname = self.cmb_fit_function.currentText()
+        f = self.fn_dictionary[funcname][self.d_func]
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
         selection = cp.deepcopy(self.data[indmin:indmax])
@@ -213,7 +213,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
         self.residuals = cp.deepcopy(selection)
         self.residuals[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
-        p0s = self.get_p0s_from_table()
+        p0s = self.get_param_values_from_table()
         for trace in self.trace_ids:
             p = p0s[trace]
             t = selection['time']
@@ -249,33 +249,44 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.txt_function.adjustSize()
             self.prepare_params_table()
             self.prepare_results_table()
+            
         
     def on_item_changed(self, item):
         col, row = item.column(), item.row()
-        if row != 0 and (col - 1) % 3 in (1, ):
-            cs = item.checkState()
-            w0 = self.tbl_params.item(row, col)
-            w1 = self.tbl_params.item(row, col - 1)
-            v0 = w0.text()
-            v1 = w1.text()
-            if cs == qt.Qt.Checked: 
-                if v0 == "":
-                    w0.setText(v1)
-                else:
-                    w1.setText("")
-            elif cs == qt.Qt.Unchecked:
-                if v1 == "":
-                    w1.setText(v0)
-                    w0.setText("")
-            self.tbl_params.resizeColumnsToContents()            
-        if row == 0: 
-            if (col - 1) % 3 in (1, ):
+        print(col, row)
+        funcname = self.cmb_fit_function.currentText()
+        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
+        if col in np.arange(0, len(pnames) * 3, 3) + self.hp_cons:
+            if row == 0:
                 cs = item.checkState()
                 for irow in range(1, self.tbl_params.rowCount()):
                     w = self.tbl_params.item(irow, col)
                     if not w is None:
                         w.setCheckState(cs)
-            elif (col - 1) % 3 in (2, ):
+            else:
+                cs = item.checkState()
+                w_con = self.tbl_params.item(row, col)
+                w_var = self.tbl_params.item(row, col - 1)
+                v_con = w_con.text()
+                v_var = w_var.text()
+                if cs == qt.Qt.Checked: 
+                    if v_con == "":
+                        #w_con.setFlags(qt.Qt.ItemIsEditable)
+                        w_con.setText(v_var)
+                        #w_var.setFlags(w_var.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
+                    else:
+                        #w_var.setFlags(qt.Qt.ItemIsEditable)
+                        w_var.setText("")
+                        #w_con.setFlags(w_con.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
+                elif cs == qt.Qt.Unchecked:
+                    if v_var == "":
+                        #w_var.setFlags(qt.Qt.ItemIsEditable)
+                        w_var.setText(v_con)
+                        w_con.setText("")
+                        #w_con.setFlags(w_con.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
+                self.tbl_params.resizeColumnsToContents() 
+        elif col in np.arange(0, len(pnames) * 3, 3) + self.hp_link:               
+            if row == 0: 
                 cs = item.checkState()
                 cid = self.tbl_params.verticalHeaderItem(1).text()
                 for irow in range(1, self.tbl_params.rowCount()):
@@ -321,7 +332,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     w = widgets.QTableWidgetItem() 
                     w.setCheckState(qt.Qt.Unchecked)
                     if irow == 0:
-                        w.setText("All constant")
+                        w.setText("All\nconstant")
                     if irow != 0 or icol != 0: 
                         self.tbl_params.setItem(irow, icol, w)
                 elif (icol - 1) % 3 in (2, ):
@@ -329,7 +340,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     w = widgets.QTableWidgetItem()
                     if icol != 0:
                         if irow == 0:
-                            w.setText("Link all")
+                            w.setText("All\nlinked")
                             w.setCheckState(qt.Qt.Unchecked)
                             self.tbl_params.setItem(irow, icol, w) 
                         else: 
@@ -423,13 +434,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             p0s[tid] = p0_func(x, y)
         return p0s
                                
-    def get_p0s_from_table(self):
+    def get_param_values_from_table(self):
         """
-        Returns the initial estimates or constant values collected 
-        in self.tbl_params for all parameters.
+        Returns a dictionary with trace identifiers as keys
+        and a list of parameter values collected from 
+        self.tbl_params (variables and constants) for each trace.
         """
-        nfunc = self.cmb_fit_function.currentText()
-        pnames = list(self.fn_dictionary[nfunc][self.d_pnames])
+        funcname = self.cmb_fit_function.currentText()
+        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
         p0_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_p0
         c_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
         p0s = {}
