@@ -122,48 +122,52 @@ class FunctionsFramework():
         
         return func 
     
-def global_curve_fit(data, func, param_values, consts={}, links=None):  
-    """
-    Perform a non-linear least-squares global fit of func to data
-    
-    @data is a dictionary of the nc individual curves to which 
-    the global fit is to be applied, with the curve identifiers
-    formind the keys. The values are the (x,y) data for the curves, which
-    must be (nx+1, mc)-shaped arrays with nx the number of independents
-    (number of 'x-axes') and mc the total number of data points in
-    that particular curve. The number of independents, nx, must
-    be the same in each curve.  The first nx rows must contain the 
-    independent values, and the bottom row (data[i][-1]) must contain the 
-    dependent values ('y-values').
-    @func is a function with signature fn(x, p), where @p is 
-    a 1D array of parameters and @x is a (k, m) shaped array, 
-    with k the number of independents and m the total number of 
-    data points. 
-    @param_values is a dictionary  whose keys are curve identifiers
-    and whose values are dictionaries with the parameter identifiers
-    as keys and the initial or constant value for that parameter as values.  
-    @consts is a dictionary of curve identifiers (keys) with a list of
-    parameters to be kept constant (at the value given in @param_values)
-    for each curve identifier.
-    @links is a dictionary with np entries, where np is the number
-    of parameters taken by func (via p, which is an array).  Each
-    entry must contain one up to nc lists of curve identifiers, with
-    nc the number of curves. Each list contains the curve identifiers
-    that are linked (essentially act as a single parameter). If links is 
-    None, none of the parameters are linked
-    """ 
-    print("data")
-    for key in data:
-        print(key)
-        print(data[key])
-    print("links")
-    for key in links:
-        print(key)
-        print(links[key])
-    print("constants")
-    for key in consts:
-        print(key)
-        print(consts[key])  
+    def perform_global_curve_fit(self, data, func, param_values, consts={}, links=None):  
+        """
+        Perform a non-linear least-squares global fit of func to data
+        
+        @data is a dictionary of the nc individual curves to which 
+        the global fit is to be applied, with the curve identifiers
+        formind the keys. The values are the (x,y) data for the curves, which
+        must be (nx+1, mc)-shaped arrays with nx the number of independents
+        (number of 'x-axes') and mc the total number of data points in
+        that particular curve. The number of independents, nx, must
+        be the same in each curve.  The first nx rows must contain the 
+        independent values, and the bottom row (data[i][-1]) must contain the 
+        dependent values ('y-values').
+        @func is a function with signature fn(x, p), where @p is 
+        a 1D array of parameters and @x is a (k, m) shaped array, 
+        with k the number of independents and m the total number of 
+        data points. 
+        @param_values is a dictionary  whose keys are curve identifiers
+        and whose values are dictionaries with the parameter identifiers
+        as keys and the initial or constant value for that parameter as values.  
+        @consts is a dictionary of curve identifiers (keys) with a list of
+        parameter ids to be kept constant (at the value in @param_values)
+        for each curve identifier.
+        @links is a dictionary with np entries, where np is the number
+        of parameters taken by func (via p, which is an array).  Each
+        entry must contain one up to nc lists of curve identifiers, with
+        nc the number of curves. Each list contains the curve identifiers
+        that are linked (essentially act as a single parameter). If links is 
+        None, none of the parameters are linked
+        """ 
+        print("data")
+        for key in data:
+            print(key)
+            print(data[key])
+        print("param_vals")
+        for key in param_values:
+            print(key)
+            print(param_values[key])  
+        print("constants")
+        for key in consts:
+            print(key)
+            print(consts[key])  
+        print("links")
+        for key in links:
+            print(key)
+            print(links[key])
     
 def test_global():
     import matplotlib.pyplot as plt

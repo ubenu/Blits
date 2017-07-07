@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 from statsmodels.stats.stattools import durbin_watson
 
 from PyQt5 import QtCore as qt
-from PyQt5 import QtGui as gui
+#from PyQt5 import QtGui as gui
 from PyQt5 import QtWidgets as widgets
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar, DraggableLine
 
@@ -143,49 +143,52 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         self.ui_ready = True
         self.on_current_index_changed(0)
-        
-    def collect_input(self):
-        # data
+   
+   
+    
+    def get_selected_func(self):
+        funcname = self.cmb_fit_function.currentText()
+        return self.fn_dictionary[funcname][self.d_func]
+    
+    def get_selected_data(self):
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
         selection = cp.deepcopy(self.data[indmin:indmax])
-        
         data = {}
         for tid in self.trace_ids:
             x = cp.deepcopy(selection['time'])
             y = cp.deepcopy(selection[tid])
             curve = np.vstack((x,y))
             data[tid] = curve
-
-        # func
+        return data
+    
+    def get_constant_params(self):
         funcname = self.cmb_fit_function.currentText()
-        func = self.fn_dictionary[funcname][self.d_func]
-
         pnames = list(self.fn_dictionary[funcname][self.d_pnames])
-         
-        # param_values
-        const_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
-        consts = {}
+        c_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
+        constants = {}
         for irow in range(self.tbl_params.rowCount()):
             cid = self.tbl_params.verticalHeaderItem(irow).text()
             if cid in self.trace_ids:     
-                const = {}
-                for pname, ploc in zip(pnames, const_locs):
-                    w = self.tbl_params.item(irow, ploc)
-                    if w.checkState() == qt.Qt.Checked:
-                        const[pname] = float(w.text())
-                if len(const) > 0:
-                    consts[cid] = const
-                    
-        # links
+                cpars = []
+                for pname, cloc in zip(pnames, c_locs):
+                    wc = self.tbl_params.item(irow, cloc)
+                    if wc.checkState() == qt.Qt.Checked:
+                        cpars.append(pname)
+                constants[cid] = cpars
+        return constants
+    
+    def get_linked_params(self):
+        funcname = self.cmb_fit_function.currentText()
+        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
         links = {}
-        link_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_link
-        for pname, ploc in zip(pnames, link_locs):
+        l_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_link
+        for pname, lloc in zip(pnames, l_locs):
             links[pname] = []
             for irow in range(self.tbl_params.rowCount()):
                 cid = self.tbl_params.verticalHeaderItem(irow).text()
                 if cid in self.trace_ids:
-                    w = self.tbl_params.cellWidget(irow, ploc)
+                    w = self.tbl_params.cellWidget(irow, lloc)
                     lid = w.currentText()
                     to_append = [cid, lid]
                     for eqcls in links[pname]:
@@ -194,15 +197,27 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                             to_append = []
                     if to_append != []:
                         links[pname].append(to_append)
+        u_links = {}
         for pname in pnames:
+            pulinks = []
             for eqcls in links[pname]:
                 unique_linked = np.unique(np.array(eqcls))
-                links[pname] = unique_linked
-         
-        return data, func, consts, links
-        
+                pulinks.append(unique_linked)
+            u_links[pname] = pulinks
+        return u_links    
+                    
+    def collect_input_for_global_fit(self):
+        data = self.get_selected_data()
+        func = self.get_selected_func()
+        param_values = self.get_all_param_values()
+        const_params = self.get_constant_params()
+        links = self.get_linked_params()
+        return data, func, param_values, const_params, links
+              
     def on_calc(self):
-        self.collect_input()
+        data, func, param_values, const_params, links = self.collect_input_for_global_fit()
+        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, data, func, param_values, const_params, links)
+        
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         funcname = self.cmb_fit_function.currentText()
         f = self.fn_dictionary[funcname][self.d_func]
@@ -213,7 +228,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
         self.residuals = cp.deepcopy(selection)
         self.residuals[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
-        p0s = self.get_param_values_from_table()
+        p0s = self.get_all_param_values()
         for trace in self.trace_ids:
             p = p0s[trace]
             t = selection['time']
@@ -253,7 +268,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
     def on_item_changed(self, item):
         col, row = item.column(), item.row()
-        print(col, row)
         funcname = self.cmb_fit_function.currentText()
         pnames = list(self.fn_dictionary[funcname][self.d_pnames])
         if col in np.arange(0, len(pnames) * 3, 3) + self.hp_cons:
@@ -434,7 +448,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             p0s[tid] = p0_func(x, y)
         return p0s
                                
-    def get_param_values_from_table(self):
+    def get_all_param_values(self):
         """
         Returns a dictionary with trace identifiers as keys
         and a list of parameter values collected from 
