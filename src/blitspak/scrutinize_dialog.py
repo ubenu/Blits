@@ -180,43 +180,58 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     def get_linked_params(self):
         funcname = self.cmb_fit_function.currentText()
-        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
-        links = {}
-        l_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_link
-        for pname, lloc in zip(pnames, l_locs):
-            links[pname] = []
+        nparams = len(self.fn_dictionary[funcname][self.d_pnames])
+        ncurves = self.trace_ids.shape[0]
+        links = np.empty((nparams, ncurves), dtype=int)
+        l_locs = np.arange(0, nparams * 3, 3) + self.hp_link
+        pcount, indpcount = 0, 0
+        for lloc in l_locs:
+            mlinks = np.identity(ncurves, dtype=int) # matrix is reflexive
             for irow in range(self.tbl_params.rowCount()):
                 cid = self.tbl_params.verticalHeaderItem(irow).text()
                 if cid in self.trace_ids:
                     w = self.tbl_params.cellWidget(irow, lloc)
                     lid = w.currentText()
-                    to_append = [cid, lid]
-                    for eqcls in links[pname]:
-                        if cid in eqcls or lid in eqcls:
-                            eqcls.extend(to_append)
-                            to_append = []
-                    if to_append != []:
-                        links[pname].append(to_append)
-        u_links = {}
-        for pname in pnames:
-            pulinks = []
-            for eqcls in links[pname]:
-                unique_linked = np.unique(np.array(eqcls))
-                pulinks.append(unique_linked)
-            u_links[pname] = pulinks
-        return u_links    
-                    
+                    icid = self.trace_ids.tolist().index(cid)
+                    ilid = self.trace_ids.tolist().index(lid)
+                    mlinks[icid, ilid] = 1
+                    mlinks[ilid, icid] = 1 # keep matrix symmetrical
+            # Warshall-Floyd to make matrix transitive
+            for k in range(ncurves):
+                for i in range(ncurves):
+                    for j in range(ncurves):
+                        mlinks[i, j] = mlinks[i, j] or (mlinks[i, k] == 1 and mlinks[k, j] == 1)
+            scrap = np.ones((ncurves,), dtype=bool)
+            # Get the equivalence classes
+            eq_classes = []
+            for k in range(ncurves):
+                if scrap[k]:
+                    ec = np.where(mlinks[k] == 1)
+                    eq_classes.append(ec[0])
+                    scrap[ec] = False
+            ind_params = np.empty_like(self.trace_ids, dtype=int)
+            for i in eq_classes:
+                ind_params[i] = indpcount
+                indpcount += 1
+            links[pcount] = ind_params
+            pcount += 1
+        return links.transpose()
+                                
     def collect_input_for_global_fit(self):
         data = self.get_selected_data()
-        func = self.get_selected_func()
         param_values = self.get_all_param_values()
         const_params = self.get_constant_params()
         links = self.get_linked_params()
-        return data, func, param_values, const_params, links
+        return data, param_values, const_params, links
               
     def on_calc(self):
-        data, func, param_values, const_params, links = self.collect_input_for_global_fit()
-        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, data, func, param_values, const_params, links)
+        funcname = self.cmb_fit_function.currentText()
+        func = self.fn_dictionary[funcname][self.d_func]
+        data, param_values, const_params, links = self.collect_input_for_global_fit()
+        curve_order = self.trace_ids.tolist()
+        param_order = list(self.fn_dictionary[funcname][self.d_pnames])
+        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, curve_order, param_order,
+                                                       data, func, param_values, const_params, links)
         
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         funcname = self.cmb_fit_function.currentText()

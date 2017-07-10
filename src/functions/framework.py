@@ -109,23 +109,26 @@ class FunctionsFramework():
             for i in consts:
                 u[i] = consts[i]
                 mask[i] = False
-            # u contains the values of all parameters
-            # v contains the values of the variable parameters
+            # u will contain the values of all parameters
             u[mask] = v
+            # input array v contains the values of the variable parameters
             for i in range(links.shape[0]):
                 params[i] = u[links[i]] # fill in the parameter values
             params = params.reshape((n_curves, n_params))
             y_out = []
             for i in range(n_curves):
                 y_out.extend(fn(split_x[i], params[i]))
-            return y_out
-        
+            return y_out      
         return func 
     
-    def perform_global_curve_fit(self, data, func, param_values, consts={}, links=None):  
+    def perform_global_curve_fit(self, curve_order, param_order, 
+                                 data, func, param_values, consts, links):  
         """
-        Perform a non-linear least-squares global fit of func to data
-        
+        Perform a non-linear least-squares global fit of func to data 
+        @curve_order is an array of curve keys in the order in which the curves
+        should be concatenated (note to self: is this necessary?)
+        @param_order is an array of parameter identifiers in the order in which
+        the parameters appear in func
         @data is a dictionary of the nc individual curves to which 
         the global fit is to be applied, with the curve identifiers
         formind the keys. The values are the (x,y) data for the curves, which
@@ -145,29 +148,78 @@ class FunctionsFramework():
         @consts is a dictionary of curve identifiers (keys) with a list of
         parameter ids to be kept constant (at the value in @param_values)
         for each curve identifier.
-        @links is a dictionary with np entries, where np is the number
-        of parameters taken by func (via p, which is an array).  Each
-        entry must contain one up to nc lists of curve identifiers, with
-        nc the number of curves. Each list contains the curve identifiers
-        that are linked (essentially act as a single parameter). If links is 
-        None, none of the parameters are linked
+        @links is an array of shape (n_curves, n_params) of integers, 
+        containing the indices of the actual parameters to be fitted, 
+        where n_curves is the number of curves and n_params the number of
+        parameters taken by fn (ie len(p)).
+        Example for 4 curves and 3 parameters:
+              p0    p1    p2
+        c0    0     2     3
+        c1    0     2     4
+        c2    1     2     5
+        c3    1     2     6
+        means that parameter p0 is assumed to have the same value in 
+        curves c0 and c1, and in curves c2 and c3 (a different value), 
+        and that the value for p1 is the same in all curves, whereas
+        the value of p2 is different for all curves. In this example, 
+        the total number of parameters to be fitted is 7.
         """ 
-        print("data")
-        for key in data:
-            print(key)
-            print(data[key])
-        print("param_vals")
+        # Prepare the input for make_func_global and curve_fit
+        # func and links are already in order
+        # data needs to be concatenated and the x_splits array constructed
+        x_splits = []
+        splt = 0
+        flat_data = None
+        for ckey in curve_order:
+            splt += data[ckey].shape[1]
+            x_splits.append(splt)
+            if flat_data is None:
+                flat_data = data[ckey]
+            else:
+                flat_data = np.concatenate((flat_data, data[ckey]), axis=1)
+        x_splits = np.array(x_splits[:-1]) # no split at end of last curve
+        # param_values needs to be put in a 2D array
+        mpvalues = np.empty((len(curve_order), len(param_order)))
         for key in param_values:
-            print(key)
-            print(param_values[key])  
-        print("constants")
+            ic = curve_order.index(key)
+            mpvalues[ic] = param_values[key]
+        # constants must be translated into the required format
+        const_values = {}
         for key in consts:
-            print(key)
-            print(consts[key])  
-        print("links")
-        for key in links:
-            print(key)
-            print(links[key])
+            ic = curve_order.index(key)
+            for p in consts[key]:
+                ip = param_order.index(p)
+                nrp = links[ic][ip] # gives the param nr in the links matrix
+                vp = mpvalues[ic][ip] # gives the value in the param values matrix
+                const_values[nrp] = vp # so this will overwrite any earlier value
+                # To avoid confusion, deal with this before it gets here (ie in UI)
+        print(links)
+        print(const_values)
+        
+                
+                
+
+
+            
+            
+        
+        
+#         print("data")
+#         for key in data:
+#             print(key)
+#             print(data[key])
+#         print("param_vals")
+#         for key in param_values:
+#             print(key)
+#             print(param_values[key])  
+#         print("constants")
+#         for key in consts:
+#             print(key)
+#             print(consts[key])  
+#         print("links")
+#         for key in links:
+#             print(key)
+#             print(links[key])
     
 def test_global():
     import matplotlib.pyplot as plt
@@ -242,8 +294,6 @@ def test_global():
     p0 = np.ones_like(ups, dtype=float)[m]
     out = curve_fit(FunctionsFramework.make_func_global(FunctionsFramework, ffn, splits, links, consts=c), flat_x, flat_y, p0=p0)
     cis = FunctionsFramework.confidence_intervals(FunctionsFramework, flat_y.shape[0], out[0], out[1], 0.95)
-    print(out[0])
-    print(cis)
     p_fin = np.zeros_like(ups, dtype=float)
     p_fin[m] = out[0]
     for i in c:
