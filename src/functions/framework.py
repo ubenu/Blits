@@ -98,9 +98,15 @@ class FunctionsFramework():
         @consts is a dictionary with the indices (keys) and values (values) 
         of the parameters that must be kept constant during the fit. 
         """
+        # This function contains an error that does not occur
+        # when using a (2, m) array for x (as in test_global) 
+        # but does for a (1, m) array
+        # np.split returns a list of (1, split_n) shaped arrays
+        # and of course fn doesn't like that
+        #
         n_curves = links.shape[0]
         n_params = links.shape[1]
-        links = links.flatten()        
+        links = links.flatten() 
         def func(x, *v):
             split_x = np.split(x, x_splits, axis=1)
             params = np.zeros_like(links, dtype=float)
@@ -116,6 +122,12 @@ class FunctionsFramework():
                 params[i] = u[links[i]] # fill in the parameter values
             params = params.reshape((n_curves, n_params))
             y_out = []
+# # #             for x, p in zip(split_x, params):
+# # #                 print(x[0])
+# # #                 print(p)
+# # #                 y_out.extend(fn(x[0]), p)
+
+            ## this is the old version that worked with a 2D x-array
             for i in range(n_curves):
                 y_out.extend(fn(split_x[i], params[i]))
             return y_out      
@@ -179,47 +191,42 @@ class FunctionsFramework():
                 flat_data = np.concatenate((flat_data, data[ckey]), axis=1)
         x_splits = np.array(x_splits[:-1]) # no split at end of last curve
         # param_values needs to be put in a 2D array
-        mpvalues = np.empty((len(curve_order), len(param_order)))
+        all_params = np.empty((len(curve_order), len(param_order)))
         for key in param_values:
             ic = curve_order.index(key)
-            mpvalues[ic] = param_values[key]
-        # constants must be translated into the required format
+            all_params[ic] = param_values[key]
+#         all_params = all_params.flatten()
+
+        uniq_params, first_occurrence, inverse_indices = np.unique(links, return_index= True, return_inverse=True)
+        #reconstructed = uniq_param_values[inverse_indices]
+                
+        # constants must be translated into the required format, 
+        # and we also need the variable parameter estimates in the correct format
         const_values = {}
+        const_params_mask = np.zeros_like(all_params, dtype=bool)
+        var_params_mask = np.ones_like(all_params, dtype=bool)       
         for key in consts:
             ic = curve_order.index(key)
             for p in consts[key]:
                 ip = param_order.index(p)
                 nrp = links[ic][ip] # gives the param nr in the links matrix
-                vp = mpvalues[ic][ip] # gives the value in the param values matrix
+                vp = all_params[ic][ip] # gives the value in the param values matrix
+                var_params_mask[ic][ip] = False
+                const_params_mask[ic][ip] = True
                 const_values[nrp] = vp # so this will overwrite any earlier value
                 # To avoid confusion, deal with this before it gets here (ie in UI)
-        print(links)
-        print(const_values)
-        
-                
-                
+        # we also need parameter estimates in the correct format (with the constants excluded)
+        uniq_param_values = all_params.flatten()[first_occurrence]
+        uniq_var_params_mask = var_params_mask.flatten()[first_occurrence]
+        uniq_const_params_mask = const_params_mask.flatten()[first_occurrence]
+        p_est = uniq_param_values[uniq_var_params_mask]
+        x = np.reshape(flat_data[0], (1, flat_data[0].shape[0]))
+        print(self.make_func_global(self, func, x_splits, links, consts=const_values)(x, p_est))
+#        out = curve_fit(gfunc, flat_data[0], flat_data[1], p0=p_est)
+#        print(out)
 
+        
 
-            
-            
-        
-        
-#         print("data")
-#         for key in data:
-#             print(key)
-#             print(data[key])
-#         print("param_vals")
-#         for key in param_values:
-#             print(key)
-#             print(param_values[key])  
-#         print("constants")
-#         for key in consts:
-#             print(key)
-#             print(consts[key])  
-#         print("links")
-#         for key in links:
-#             print(key)
-#             print(links[key])
     
 def test_global():
     import matplotlib.pyplot as plt
