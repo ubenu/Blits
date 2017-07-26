@@ -7,7 +7,8 @@ import numpy as np
 
 def fn_average(x, p):
     a, = p
-    return a
+    x0 = np.ones_like(x[0])
+    return x0 * a
 
 def p0_fn_average(x, y):
     p0 = np.array([y.mean()])
@@ -15,7 +16,8 @@ def p0_fn_average(x, y):
 
 def fn_straight_line(x, p):
     a, b = p
-    return a + b*x
+    x0 = x[0]
+    return a + b * x0
 
 def p0_fn_straight_line(x, y):
     p0 = np.ones((2,), dtype=float)
@@ -23,7 +25,7 @@ def p0_fn_straight_line(x, y):
 
 def fn_1exp(x, p):
     a0, a1, k1 = p
-    t = x
+    t = x[0]
     return a0 + a1*np.exp(-t*k1)
 
 def p0_fn_1exp(x, y):
@@ -35,7 +37,7 @@ def p0_fn_1exp(x, y):
 
 def fn_1exp_strline(x, p):
     a0, a1, k1, b = p
-    t = x
+    t = x[0]
     return a0 + a1*np.exp(-t*k1) + b * t
 
 def p0_fn_1exp_strline(x, y):
@@ -49,7 +51,7 @@ def p0_fn_1exp_strline(x, y):
     
 def fn_2exp(x, p):
     a0, a1, k1, a2, k2 = p
-    t = x
+    t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2)
 
 def p0_fn_2exp(x, y):
@@ -63,7 +65,7 @@ def p0_fn_2exp(x, y):
     
 def fn_2exp_strline(x, p):
     a0, a1, k1, a2, k2, b = p
-    t = x
+    t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + b * t
 
 def p0_fn_2exp_strline(x, y):
@@ -78,7 +80,7 @@ def p0_fn_2exp_strline(x, y):
     
 def fn_3exp(x, p):
     a0, a1, k1, a2, k2, a3, k3 = p
-    t = x
+    t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + a3*np.exp(-t*k3)
 
 def p0_fn_3exp(x, y):
@@ -94,7 +96,7 @@ def p0_fn_3exp(x, y):
 
 def fn_mich_ment(x, p):
     km, vmax = p
-    s = x
+    s = x[0]
     return vmax * s / (km + s)
 
 def p0_fn_mich_ment(x, y):
@@ -115,7 +117,8 @@ def p0_fn_comp_inhibition(x, y):
     
 def fn_hill(x, p):
     ymax, xhalf, h = p
-    return ymax / (np.power(xhalf/x, h) + 1.0)
+    x0 = x[0]
+    return ymax / (np.power(xhalf/x0, h) + 1.0)
 
 def p0_fn_hill(x, y):
     p0 = np.ones((3,), dtype=float)
