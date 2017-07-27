@@ -133,7 +133,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         ## Add the data and draw them
         indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
-        self.trace_ids = self.data.columns[self.data.columns != 'time']
+        self.curve_names = self.data.columns[self.data.columns != 'time']
 
         self.x_outer_limits = self.data['time'].min(), self.data['time'].max()
         self.x_limits = cp.deepcopy(self.x_outer_limits)
@@ -146,70 +146,121 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
    
    
     
-    def get_selected_func(self):
-        funcname = self.cmb_fit_function.currentText()
-        return self.fn_dictionary[funcname][self.d_func]
+#     def get_selected_func(self):
+#         funcname = self.cmb_fit_function.currentText()
+#         return self.fn_dictionary[funcname][self.d_func]
     
-    def get_selected_data(self):
+    def _get_selected_data(self):
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
         selection = cp.deepcopy(self.data[indmin:indmax])
-        data = {}
-        for tid in self.trace_ids:
+        data = []
+        for tid in self.curve_names:
             x = cp.deepcopy(selection['time'])
             y = cp.deepcopy(selection[tid])
             curve = np.vstack((x,y))
-            data[tid] = curve
+            if len(data) == 0:
+                data = [curve]
+            else:
+                data.append(curve)
         return data
-    
-    def get_constant_params(self):
+
+    def _get_all_param_values(self):
+        """
+        Returns an (n_curves, n_params)-shaped array (with rows and columns 
+        parallel to self.curve_names and self.fn_dictionary[fn][self.d_pnames], 
+        respectively) with values for each parameter in each curve).  
+        """
         funcname = self.cmb_fit_function.currentText()
-        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
-        c_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
-        constants = {}
-        for irow in range(self.tbl_params.rowCount()):
-            cid = self.tbl_params.verticalHeaderItem(irow).text()
-            if cid in self.trace_ids:     
-                cpars = []
-                for pname, cloc in zip(pnames, c_locs):
-                    wc = self.tbl_params.item(irow, cloc)
-                    if wc.checkState() == qt.Qt.Checked:
-                        cpars.append(pname)
-                constants[cid] = cpars
-        return constants
+        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        vari_locs = np.arange(0, len(param_names) * 3, 3) + self.hp_p0
+        cnst_locs = np.arange(0, len(param_names) * 3, 3) + self.hp_cons
+        param_values = np.zeros((len(self.curve_names), len(param_names)))
+        for irow in range(1, self.tbl_params.rowCount()):
+            cname = self.tbl_params.verticalHeaderItem(irow).text()
+            if cname in self.curve_names:
+                cind = self.curve_names.get_loc(cname)
+                pval = []
+                for vloc, cloc in zip(vari_locs, cnst_locs):
+                    txt = self.tbl_params.item(irow, vloc).text()
+                    if self.tbl_params.item(irow, cloc).checkState() == qt.Qt.Checked:
+                        txt = self.tbl_params.item(irow, cloc).text()
+                    if len(pval) == 0:
+                        pval = [float(txt)]
+                    else:
+                        pval.append(float(txt))
+                param_values[cind] = np.array(pval)
+        return param_values    
     
-    def get_linked_params(self):
+    def _get_constant_params(self):
+        """
+        Returns an (n_curves, n_params)-shaped array of Boolean values 
+        (with rows and columns parallel to self.curve_names and 
+        self.fn_dictionary[fn][self.d_pnames], respectively); if True, 
+        parameter values is constant, if False, parameter value is variable.
+        """
         funcname = self.cmb_fit_function.currentText()
-        nparams = len(self.fn_dictionary[funcname][self.d_pnames])
-        ncurves = self.trace_ids.shape[0]
-        links = np.empty((nparams, ncurves), dtype=int)
+        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        cnst_locs = np.arange(0, len(param_names) * 3, 3) + self.hp_cons
+        const_params = np.zeros((self.curve_names.shape[0], len(param_names)), dtype = bool)
+        for irow in range(1, self.tbl_params.rowCount()):
+            cname = self.tbl_params.verticalHeaderItem(irow).text()
+            if cname in self.curve_names: 
+                cind = self.curve_names.get_loc(cname)
+                for pname, cloc in zip(param_names, cnst_locs):
+                    pind = param_names.index(pname)
+                    const_params[cind, pind] = self.tbl_params.item(irow, cloc).checkState() == qt.Qt.Checked
+        return const_params
+    
+    def _get_linked_params(self):
+        """
+        Returns an (n_curves, n_params)-shaped array (with rows and columns parallel 
+        to self.curve_names and self.fn_dictionary[fn][self.d_pnames], respectively)
+        of integers, in which linked parameters are grouped by their values.
+        Example for 4 curves and 3 parameters:
+              p0    p1    p2
+        c0    0     2     3
+        c1    0     2     4
+        c2    1     2     5
+        c3    1     2     6
+        indicates that parameter p0 is assumed to have the same value in 
+        curves c0 and c1, and in curves c2 and c3 (a different value), 
+        and that the value for p1 is the same in all curves, whereas
+        the value of p2 is different for all curves. 
+        """
+        funcname = self.cmb_fit_function.currentText()
+        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        nparams = len(param_names) # param_names is a python list
+        ncurves = self.curve_names.shape[0]  # self.curve_names is a pandas Index
         l_locs = np.arange(0, nparams * 3, 3) + self.hp_link
+        links = np.empty((nparams, ncurves), dtype=int)
         pcount, indpcount = 0, 0
         for lloc in l_locs:
-            mlinks = np.identity(ncurves, dtype=int) # matrix is reflexive
+            # Find all connections (reflexive, symmetrical, transitive graph)
+            mlinks = np.identity(ncurves, dtype=int) # Make matrix reflexive
             for irow in range(self.tbl_params.rowCount()):
-                cid = self.tbl_params.verticalHeaderItem(irow).text()
-                if cid in self.trace_ids:
-                    w = self.tbl_params.cellWidget(irow, lloc)
-                    lid = w.currentText()
-                    icid = self.trace_ids.tolist().index(cid)
-                    ilid = self.trace_ids.tolist().index(lid)
-                    mlinks[icid, ilid] = 1
-                    mlinks[ilid, icid] = 1 # keep matrix symmetrical
-            # Warshall-Floyd to make matrix transitive
+                cname = self.tbl_params.verticalHeaderItem(irow).text()
+                if cname in self.curve_names:
+                    linked = self.tbl_params.cellWidget(irow, lloc).currentText()
+                    cind = self.curve_names.get_loc(cname)
+                    lind = self.curve_names.get_loc(linked)
+                    mlinks[cind, lind] = 1
+                    mlinks[lind, cind] = 1 # Make matrix symmetrical
+            # Warshall-Floyd to make matrix transitive 
             for k in range(ncurves):
                 for i in range(ncurves):
                     for j in range(ncurves):
                         mlinks[i, j] = mlinks[i, j] or (mlinks[i, k] == 1 and mlinks[k, j] == 1)
+            # Find the equivalence classes for this parameter 
             scrap = np.ones((ncurves,), dtype=bool)
-            # Get the equivalence classes
             eq_classes = []
             for k in range(ncurves):
                 if scrap[k]:
                     ec = np.where(mlinks[k] == 1)
                     eq_classes.append(ec[0])
                     scrap[ec] = False
-            ind_params = np.empty_like(self.trace_ids, dtype=int)
+            # Number the individual equivalence classes
+            ind_params = np.empty_like(self.curve_names, dtype=int)
             for i in eq_classes:
                 ind_params[i] = indpcount
                 indpcount += 1
@@ -217,20 +268,17 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             pcount += 1
         return links.transpose()
                                 
-    def collect_input_for_global_fit(self):
-        data = self.get_selected_data()
-        param_values = self.get_all_param_values()
-        const_params = self.get_constant_params()
-        links = self.get_linked_params()
-        return data, param_values, const_params, links
-              
     def on_calc(self):
         funcname = self.cmb_fit_function.currentText()
         func = self.fn_dictionary[funcname][self.d_func]
-        data, param_values, const_params, links = self.collect_input_for_global_fit()
-        curve_order = self.trace_ids.tolist()
-        param_order = list(self.fn_dictionary[funcname][self.d_pnames])
-        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, curve_order, param_order,
+        data = self._get_selected_data()
+        param_values = self._get_all_param_values()
+        const_params = self._get_constant_params()
+        links = self._get_linked_params()
+        curve_names = self.curve_names.tolist()
+        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        
+        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, curve_names, param_names,
                                                        data, func, param_values, const_params, links)
         
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
@@ -240,12 +288,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
         selection = cp.deepcopy(self.data[indmin:indmax])
         self.display_curves = cp.deepcopy(selection)
-        self.display_curves[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
+        self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
         self.residuals = cp.deepcopy(selection)
-        self.residuals[self.trace_ids] = np.zeros_like(selection[self.trace_ids])
-        p0s = self.get_all_param_values()
-        for trace in self.trace_ids:
-            p = p0s[trace]
+        self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
+        param_values = self.get_all_param_values()
+        for trace in self.curve_names:
+            p = param_values[trace]
             t = selection['time']
             x = t - t.iloc[0]
             y = selection[trace]
@@ -284,8 +332,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     def on_item_changed(self, item):
         col, row = item.column(), item.row()
         funcname = self.cmb_fit_function.currentText()
-        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
-        if col in np.arange(0, len(pnames) * 3, 3) + self.hp_cons:
+        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        if col in np.arange(0, len(param_names) * 3, 3) + self.hp_cons:
             if row == 0:
                 cs = item.checkState()
                 for irow in range(1, self.tbl_params.rowCount()):
@@ -314,7 +362,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         w_con.setText("")
                         #w_con.setFlags(w_con.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
                 self.tbl_params.resizeColumnsToContents() 
-        elif col in np.arange(0, len(pnames) * 3, 3) + self.hp_link:               
+        elif col in np.arange(0, len(param_names) * 3, 3) + self.hp_link:               
             if row == 0: 
                 cs = item.checkState()
                 cid = self.tbl_params.verticalHeaderItem(1).text()
@@ -329,25 +377,25 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.tbl_params.clear()
         labels = [self.params_table_headers[self.hp_trac],]
         if self.current_function != "":
-            pnames = self.library[self.current_function].param_names 
-            for name in pnames:
+            param_names = self.library[self.current_function].param_names 
+            for name in param_names:
                 labels.append(self.params_table_headers[self.hp_p0] + '\n' + name)
                 labels.append(self.params_table_headers[self.hp_cons])
                 labels.append(self.params_table_headers[self.hp_link])
         self.tbl_params.setColumnCount(len(labels))
         self.tbl_params.setHorizontalHeaderLabels(labels)
-        if len(self.trace_ids) != 0:
+        if len(self.curve_names) != 0:
             labels = ['All',]
-            labels.extend(self.trace_ids.tolist())
+            labels.extend(self.curve_names.tolist())
             self.tbl_params.setRowCount(len(labels))
             self.tbl_params.setVerticalHeaderLabels(labels)
             self.tbl_params.resizeColumnsToContents()
             self.tbl_params.resizeRowsToContents()
         
-        p0s = self.get_p0s() 
+        param_values = self.get_p0s() 
         for irow in range(self.tbl_params.rowCount()):
-            tid = self.trace_ids[irow-1]
-            p0 = p0s[tid]
+            tid = self.curve_names[irow-1]
+            p0 = param_values[tid]
             for icol in range(self.tbl_params.columnCount()):
                 if icol == 0 and irow != 0: # curve colour icon in col 0
                     w = widgets.QTableWidgetItem()
@@ -374,7 +422,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                             self.tbl_params.setItem(irow, icol, w) 
                         else: 
                             cb = widgets.QComboBox()
-                            cb.addItems(self.trace_ids)
+                            cb.addItems(self.curve_names)
                             cb.setCurrentText(tid)
                             self.tbl_params.setCellWidget(irow, icol, cb)
                 elif (icol - 1) % 3 in (0, ) and irow != 0:
@@ -390,16 +438,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                   self.results_table_headers[self.hr_dw],]
         
         if self.current_function != "":
-            pnames = self.library[self.current_function].param_names 
-            for name in pnames:
+            param_names = self.library[self.current_function].param_names 
+            for name in param_names:
                 labels.append(name + '\n' + self.results_table_headers[self.hr_pfit])
                 labels.append(name + '\n' + self.results_table_headers[self.hr_conf])
                 #labels.append(self.results_table_headers[self.hr_advice])
         self.tbl_results.setColumnCount(len(labels))
         self.tbl_results.setHorizontalHeaderLabels(labels)
-        if len(self.trace_ids) != 0:
+        if len(self.curve_names) != 0:
             labels = []
-            labels.extend(self.trace_ids.tolist())
+            labels.extend(self.curve_names.tolist())
             self.tbl_results.setRowCount(len(labels))
             self.tbl_results.setVerticalHeaderLabels(labels)
             self.tbl_results.resizeColumnsToContents()
@@ -457,51 +505,26 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     def get_p0s(self):
         p0_func = self.library[self.current_function].p0_fn_ref
         x = self.data['time']
-        p0s = {}
-        for tid in self.trace_ids:
+        param_values = {}
+        for tid in self.curve_names:
             y = self.data[tid]
-            p0s[tid] = p0_func(x, y)
-        return p0s
+            param_values[tid] = p0_func(x, y)
+        return param_values
                                
-    def get_all_param_values(self):
-        """
-        Returns a dictionary with trace identifiers as keys
-        and a list of parameter values collected from 
-        self.tbl_params (variables and constants) for each trace.
-        """
-        funcname = self.cmb_fit_function.currentText()
-        pnames = list(self.fn_dictionary[funcname][self.d_pnames])
-        p0_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_p0
-        c_locs = np.arange(0, len(pnames) * 3, 3) + self.hp_cons
-        p0s = {}
-        for irow in range(1, self.tbl_params.rowCount()):
-            cid = self.tbl_params.verticalHeaderItem(irow).text()
-            p0 = []
-            for ploc, cloc in zip(p0_locs, c_locs):
-                wp = self.tbl_params.item(irow, ploc)
-                wc = self.tbl_params.item(irow, cloc)
-                if wc.checkState() == qt.Qt.Checked:
-                    txt = wc.text()
-                    p0.append(float(txt))
-                else:
-                    txt = wp.text()
-                    p0.append(float(txt))    
-            p0s[cid] = np.array(p0) 
-        return p0s    
                      
     def draw_all(self):
         if not self.data is None:
             x = self.data['time']
-            y = self.data[self.trace_ids]
+            y = self.data[self.curve_names]
             self.canvas.draw_data(x, y)
             self.line0, self.line1 = None, None
             self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
             self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
             if not self.display_curves is None:
                 xd = self.display_curves['time']
-                yd = self.display_curves[self.trace_ids]
+                yd = self.display_curves[self.curve_names]
                 self.canvas.draw_fitted_data(xd, yd)
-                ryd = self.residuals[self.trace_ids]
+                ryd = self.residuals[self.curve_names]
                 self.canvas.draw_residuals(xd, ryd)
             
 
