@@ -6,6 +6,7 @@ Created on 6 Jun 2017
 
 import sys
 import numpy as np
+import pandas as pd
 import copy as cp
 from scipy.optimize import curve_fit
 from statsmodels.stats.stattools import durbin_watson
@@ -276,47 +277,70 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         const_params = self._get_constant_params()
         links = self._get_linked_params()
         curve_names = self.curve_names.tolist()
+        header = ['time']
+        header.extend(curve_names)
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
         
-        ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, curve_names, param_names,
-                                                       data, func, param_values, const_params, links)
+        fitted_params = ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, 
+                                                                       data, func, param_values, 
+                                                                       const_params, links)
         
-        self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
-        funcname = self.cmb_fit_function.currentText()
-        f = self.fn_dictionary[funcname][self.d_func]
-        self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
-        indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
-        selection = cp.deepcopy(self.data[indmin:indmax])
-        self.display_curves = cp.deepcopy(selection)
-        self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
-        self.residuals = cp.deepcopy(selection)
-        self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
-        param_values = self.get_all_param_values()
-        for trace in self.curve_names:
-            p = param_values[trace]
-            t = selection['time']
-            x = t - t.iloc[0]
-            y = selection[trace]
-            try:
-                pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
-                pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
-                self.param_values_fit[trace] = pfit
-                self.conf_intervals_fit[trace] = pconf
-                self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
-                self.residuals[trace] = self.data[trace] - self.display_curves[trace]
-                self.dw_statistic_fit[trace] = durbin_watson(self.residuals[trace], 0)
-            except ValueError as e:
-                print("VE: " + str(e))
-            except RuntimeError as e:  
-                print("RTE: " + str(e))
-            except TypeError as e:
-                print("TE: " + str(e))               
-            except:
-                e = sys.exc_info()[0]
-                print("Generic: " + str(e))
-                
+        fitted_curves = cp.deepcopy(data)
+        d_curves = None
+        r_curves = None
+        for curve, params in zip(fitted_curves, fitted_params):
+            x = curve[:-1]
+            y = curve[-1]
+            y_fit = func(x, params)
+            y_res = y - y_fit
+            if d_curves is None:
+                d_curves = np.vstack((x[0], y_fit))
+                r_curves = np.vstack((x[0], y_res))
+            else:
+                d_curves = np.vstack((d_curves, y_fit))
+                r_curves = np.vstack((r_curves, y_res))
+        self.display_curves = pd.DataFrame(d_curves.transpose(), columns=header)
+        self.residuals = pd.DataFrame(r_curves.transpose(), columns=header)
         self.draw_all()
-        self.prepare_results_table()   
+        
+            
+        
+##         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
+##         funcname = self.cmb_fit_function.currentText()
+##         f = self.fn_dictionary[funcname][self.d_func]
+##         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
+##         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
+##         selection = cp.deepcopy(self.data[indmin:indmax])
+#         self.display_curves = cp.deepcopy(selection)
+#         self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
+#         self.residuals = cp.deepcopy(selection)
+#         self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
+#         param_values = self.get_all_param_values()
+#         for trace in self.curve_names:
+#             p = param_values[trace]
+#             t = selection['time']
+#             x = t - t.iloc[0]
+#             y = selection[trace]
+#             try:
+#                 pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
+#                 pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
+#                 self.param_values_fit[trace] = pfit
+#                 self.conf_intervals_fit[trace] = pconf
+#                 self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
+#                 self.residuals[trace] = self.data[trace] - self.display_curves[trace]
+#                 self.dw_statistic_fit[trace] = durbin_watson(self.residuals[trace], 0)
+#             except ValueError as e:
+#                 print("VE: " + str(e))
+#             except RuntimeError as e:  
+#                 print("RTE: " + str(e))
+#             except TypeError as e:
+#                 print("TE: " + str(e))               
+#             except:
+#                 e = sys.exc_info()[0]
+#                 print("Generic: " + str(e))
+                
+#         self.draw_all()
+#         self.prepare_results_table()   
          
     def on_current_index_changed(self, index):
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}

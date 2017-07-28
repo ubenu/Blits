@@ -4,10 +4,12 @@ Created on 24 May 2017
 @author: SchilsM
 '''
 
+import sys
 import numpy as np
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
+from astropy.modeling.tests.test_projections import pars
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
@@ -71,7 +73,7 @@ class FunctionsFramework():
         return func
     
     
-    def make_func_global(self, fn, x_splits, groups, keep_constant={}):
+    def make_func_global(self, fn, x_splits, param_vals, variables, groups):
         """
         @fn is a function with signature fn(x, p), where @p is 
         a 1D array of parameters and @x is a (k, m) shaped array, 
@@ -80,6 +82,11 @@ class FunctionsFramework():
         @x_splits is  is a sorted 1-D array of integers, whose entries 
         indicate where the array's second axis must be split to generate
         the individual curves.
+        @param_vals is an (n_curves, n_params)-shaped array with values for
+        each parameter in each curve.
+        @variables is an (n_curves, n_params)-shaped array of Boolean values 
+        (with rows and columns parallel to @curve_names and @param_names, respectively):
+        if True, parameter values is variable, if False, parameter value is constant.
         @groups is an array of shape (n_curves, n_params) of integers, 
         containing the indices of the actual parameters to be fitted, 
         where n_curves is the number of curves and n_params the number of
@@ -95,140 +102,104 @@ class FunctionsFramework():
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. In this example, 
         the total number of parameters to be fitted is 7.
-        @keep_constant is a dictionary with the indices (keys) and values (values) 
-        of the parameters that must be kept constant during the fit. 
+        
+        @returns [0] a function that can be used as input to curve_fit
+        @returns [1] an initial estimate for the variable parameters
         """
-        n_curves = groups.shape[0]
-        n_params = groups.shape[1]
-        groups = groups.flatten() 
+        pshape = param_vals.shape
+        ugroups, indices, inverse_indices = np.unique(groups.flatten(), 
+                                                      return_index=True, 
+                                                      return_inverse=True)
+        uparams = param_vals.flatten()[indices]
+        uv_filter = variables.flatten()[indices]
         def func(x, *v):
             split_x = np.split(x, x_splits, axis=1)
-            params = np.zeros_like(groups, dtype=float)
-            u = np.zeros_like(np.unique(groups), dtype=float) 
-            filter_in = np.ones_like(u, dtype=bool)
-            for i in keep_constant:
-                u[i] = keep_constant[i]
-                filter_in[i] = False
-            # u will contain the values of all parameters
-            u[filter_in] = v
-            # input array v contains the values of the variable parameters
-            for i in range(groups.shape[0]):
-                params[i] = u[groups[i]] # fill in the parameter values
-            params = params.reshape((n_curves, n_params))
+            uparams[uv_filter] = v
+            params = uparams[inverse_indices].reshape(pshape)          
             y_out = []
             for x, p in zip(split_x, params):
                 i_out = fn(x, p)
                 y_out.extend(i_out)
             return y_out      
-        return func 
+        return func, uparams[uv_filter] 
     
-    def perform_global_curve_fit(self, curve_names, param_names, 
-                                 data, func, param_values, keep_constant, groups):  
+    def perform_global_curve_fit(self, data, func, param_values, keep_constant, groups):  
         """
         Perform a non-linear least-squares global fit of func to data 
-        @curve_names: list (length n_curves) of curve names; indices are 
-        curve identifiers
-        @param_names: list (length n_params) of parameter names; indices are 
-        parameter identifiers.
-        @data: list (length n_curves, parallel to @curve_names) of curves;
+        @data: list of n_curves curves;
         each curve is an (n_indi + 1, n_points)-shaped array, with n_indi the 
         number of independent ('x') axes and n_points is the number of data
         points in each curve. Curve items [0 : n_indi] contain the values of the 
         independents, and curve item [-1] contains the dependent ('y') values.
         @func: reference to function with signature fn(x, params), with @params  
-        a list of parameters (parallel to @param_names) and @x an (n_indi, n_points)- 
-        shaped array of independent values.
-        @param_values is an (n_curves, n_params)-shaped array (with rows and columns 
-        parallel to @curve_names and @param_names, respectively) with values for
-        each parameter in each curve).  Linked parameters should all have the same
-        value (if not, they will be set to the value that occurs first).The values 
-        are taken as initial estimates (if the parameter is variable) or as the value 
-        for the parameter (for constants).
+        a list of parameter values and @x an (n_indi, n_points)-shaped 
+        array of independent values.
+        @param_values is an (n_curves, n_params)-shaped array with individual values for
+        each parameter in each curve.  The values are used as initial estimates 
+        (for variable parameters) or as invariants.
         @keep_constant is an (n_curves, n_params)-shaped array of Boolean values 
         (with rows and columns parallel to @curve_names and @param_names, respectively):
-        if True, parameter values is constant, if False, parameter value is variable.
+        if True, parameter values is an invariant, if False, parameter value is variable.
         @groups is an (n_curves, n_params)-shaped array of integers, in which linked 
         parameters are grouped by their values (the actual value identifying a group
-        of linked parameters does not matter). Group identifiers may be re-used for
-        different parameters (ie in different columns) 
+        of linked parameters does not matter, but it has to be unique across all parameters). 
         Example for 4 curves and 3 parameters:
               p0    p1    p2
-        c0    0     0     0
-        c1    0     0     1
-        c2    1     0     2
-        c3    1     0     3
+        c0    0     2     3
+        c1    0     2     4
+        c2    1     2     5
+        c3    1     2     6
         means that parameter p0 is assumed to have the same value in 
         curves c0 and c1, and in curves c2 and c3 (a different value), 
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. In this example, 
         the total number of parameters to be fitted is 7.
         """ 
-        
-        # NOTE (27-07-2017): input to perform_global_curve_fit has undergone
-        # drastic redefinition - code still needs to be adapted to new
-        # data structures (mostly using lists and parallel arrays 
-        # instead of dictionaries)
-        
-        
-        # Prepare the input for make_func_global and curve_fit
-        # func and groups are already in order
-        # data needs to be concatenated and the x_splits array constructed
+        # Create a flat data set and an array that indicates where to split 
+        # the flat data to reconstruct the individual curves
         x_splits = []
         splt = 0
-        flat_data = None
-        for ckey in curve_names:
-            splt += data[ckey].shape[1]
+        flat_data = np.array([])
+        for curve in data:
+            splt += curve.shape[1]
             x_splits.append(splt)
-            if flat_data is None:
-                flat_data = data[ckey]
+            if flat_data.shape[0] == 0:
+                flat_data = curve
             else:
-                flat_data = np.concatenate((flat_data, data[ckey]), axis=1)
+                flat_data = np.concatenate((flat_data, curve), axis=1)
         x_splits = np.array(x_splits[:-1]) # no split at end of last curve
-        # param_values needs to be put in a 2D array
-        all_params = np.empty((len(curve_names), len(param_names)))
-        for key in param_values:
-            ic = curve_names.index(key)
-            all_params[ic] = param_values[key]
-
-        uniq_params, first_occurrence, inverse_indices = np.unique(groups, return_index= True, return_inverse=True)
+        # Create the input x and y from flat_data
+        x, y = flat_data[:-1], flat_data[-1]
+        # Get the variables array
+        variables = np.logical_not(keep_constant)
+        pars = []
+        if np.any(variables): # There must be something to fit
+            # Get the correct function for global fitting and a first estimate for the variable params
+            gfunc, p_est = self.make_func_global(self, func, x_splits, param_values, variables, groups)
+            # Perform the global fit
+            try:
+                pars, covs = curve_fit(gfunc, x, y, p0=p_est)
+            except:
+                e = sys.exc_info()[0]
+                print("Generic: " + str(e))
+        
+        # Reconstruct and return the full parameter matrix 
+        pshp = param_values.shape
+        ug, first_occurrence, inverse_indices = np.unique(groups.flatten(), return_index= True, return_inverse=True)
+        uv_filter = variables.flatten()[first_occurrence]
+        fitted_params = param_values.flatten()[first_occurrence]
+        fitted_params[uv_filter] = pars
+        param_matrix = fitted_params[inverse_indices].reshape(pshp)
+        return param_matrix
                 
-        # constants must be translated into the required format, 
-        # and we also need the variable parameter estimates in the correct format
-        const_values = {}
-        const_params_filter = np.zeros_like(all_params, dtype=bool)
-        var_params_filter = np.ones_like(all_params, dtype=bool)       
-        for key in keep_constant:
-            ic = curve_names.index(key)
-            for p in keep_constant[key]:
-                ip = param_names.index(p)
-                nparam = groups[ic][ip] # gives the param nr in the groups matrix
-                vparam = all_params[ic][ip] # gives the value in the param values matrix
-                var_params_filter[ic][ip] = False
-                const_params_filter[ic][ip] = True
-                const_values[nparam] = vparam # so this will overwrite any earlier value
-                # To avoid confusion, should deal with this before it gets here (ie in UI)
-        # we also need parameter estimates in the correct format (with the constants excluded)
-        uniq_param_values = all_params.flatten()[first_occurrence]
-        uniq_var_params_filter = var_params_filter.flatten()[first_occurrence]
-        uniq_const_params_filter = const_params_filter.flatten()[first_occurrence]
-        p_est = uniq_param_values[uniq_var_params_filter]
-        x = np.reshape(flat_data[0], (1, flat_data[0].shape[0])) ## Note: this is only for 1D independent - need to check for higher dimensions
-        y = flat_data[-1]
-        gfunc = self.make_func_global(self, func, x_splits, groups, keep_constant=const_values)
-
-        pars, covs = curve_fit(gfunc, x, y, p0=p_est)        
-        uniq_param_values[uniq_var_params_filter] = pars
-        fit_results = uniq_param_values[inverse_indices].reshape(all_params.shape)
-        return fit_results
         
-        
-        
+################################################################################################
+## Tests
+################################################################################################
 
-
-        
-
-    
 def test_global():
+    # NOTE: not adapted to latest version of make_func_global, so does not work
+    # Keep for example of function with 2 independent axes
     import matplotlib.pyplot as plt
     # Create the independent (x)
     fn = fdefs.fn_comp_inhibition # has 3 params: km, ki, vm, in that order  
