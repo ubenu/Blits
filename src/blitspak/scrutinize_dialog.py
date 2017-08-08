@@ -28,6 +28,8 @@ Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dia
 
 class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
+    # Function selection is a kind of stub: needs to go via dialog
+    # and offer possibility for users to create their own function
     available_functions = range(7)
     f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3 = available_functions
     fn_names = {f_avg: "Average",
@@ -145,11 +147,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.ui_ready = True
         self.on_current_index_changed(0)
    
-   
-    
-#     def get_selected_func(self):
-#         funcname = self.cmb_fit_function.currentText()
-#         return self.fn_dictionary[funcname][self.d_func]
     
     def _get_selected_data(self):
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
