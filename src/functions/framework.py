@@ -74,23 +74,17 @@ class FunctionsFramework():
 
     def make_func(self, fn, params, keep_constant):
         """
-        @fn is a function with signature fn(x, p), where p is a tuple of parameter values
+        @fn is a function with signature fn(x, *p), where *p is a tuple of parameter values
         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
         @params is the full input array for fn; same length as p (fn argument)
         @keep_constant is an (n_params)-shaped array of Boolean values (parallel to @params):
         if True, parameter values is to be kept constant, if False, parameter value is variable.
         """
         variables = np.logical_not(keep_constant)
-        # Needs implementing
-# #         filter_in = np.ones((len(params),), dtype=bool)
-# #         for index in const:
-# #             params[index] = const[index]
-# #             filter_in[index] = False
-# #         def func(x, *v):
-# #             params[filter_in] = v 
-# #             return fn(x, params)
-# #         return func
-    
+        def func(x, *v):
+            params[variables] = v
+            return fn(x, params)
+        return func
     
     def make_func_global(self, fn, x_splits, param_vals, variables, groups):
         """
@@ -147,14 +141,18 @@ class FunctionsFramework():
             self.perform_global_curve_fit(data, func, param_values, keep_constant, groups)
         else:
             process_log = ""
-            if keep_constant is not None:
-            # this probably doesn't work and hasn't been tested recently
-                func = self.make_func(func, param_values, keep_constant)
             # Now fit all curves independently (as in Blivion)
             i = 0
             for curve in data:
                 x, y = curve[:-1], curve[-1]
                 p_est = param_values[i]
+                fnc = None  # creating fnc is probably unnecessary (func can be set to the func argument), but just in case
+                if keep_constant is None:
+                    fnc = func
+                else:
+                # this probably doesn't work and hasn't been tested yet
+                    p_const = keep_constant[i]
+                    fnc = self.make_func(func, p_est, p_const)
                 i += 1
                 ftol, xtol = 1.0e-9, 1.0e-9
                 pars = None
@@ -162,7 +160,7 @@ class FunctionsFramework():
                     ftol *= 10.
                     xtol *= 10.
                     try:
-                        out = curve_fit(func, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
+                        out = curve_fit(fnc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
                         pars = out[0]
                         #covar = out[1]
                         nfev = out[2]['nfev']    
