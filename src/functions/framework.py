@@ -9,7 +9,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
-from astropy.modeling.tests.test_projections import pars
+#from astropy.modeling.tests.test_projections import pars
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
@@ -57,7 +57,7 @@ class FunctionsFramework():
             
     def make_func(self, fn, params, const={}):
         """
-        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
+        @fn is a function with signature fn(x, p), where p is a tuple of parameter values
         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
         @params is the full input array for fn; same length as p (fn argument)
         @const is a dictionary with the indices (keys) and values (values) of the parameters
@@ -76,7 +76,7 @@ class FunctionsFramework():
     def make_func_global(self, fn, x_splits, param_vals, variables, groups):
         """
         @fn is a function with signature fn(x, p), where @p is 
-        a 1D array of parameters and @x is a (k, m) shaped array, 
+        a tuple of parameter values and @x is a (k, m) shaped array, 
         with k the number of independents and m the total number of 
         data points (all curves concatenated along the array's 2nd axis)
         @x_splits is  is a sorted 1-D array of integers, whose entries 
@@ -157,6 +157,7 @@ class FunctionsFramework():
         """ 
         # Create a flat data set and an array that indicates where to split 
         # the flat data to reconstruct the individual curves
+        process_log = "\n**** New attempt ****\n"
         x_splits = []
         splt = 0
         flat_data = np.array([])
@@ -172,16 +173,35 @@ class FunctionsFramework():
         x, y = flat_data[:-1], flat_data[-1]
         # Get the variables array
         variables = np.logical_not(keep_constant)
-        pars = []
         if np.any(variables): # There must be something to fit
             # Get the correct function for global fitting and a first estimate for the variable params
             gfunc, p_est = self.make_func_global(self, func, x_splits, param_values, variables, groups)
             # Perform the global fit
-            try:
-                pars, covs = curve_fit(gfunc, x, y, p0=p_est)
-            except:
-                e = sys.exc_info()[0]
-                print("Generic: " + str(e))
+            pars = None
+            ftol, xtol = 1.0e-9, 1.0e-9
+            while pars is None and ftol < 1.0:
+                try:
+                    ftol *= 10.
+                    xtol *= 10.
+                    out = curve_fit(gfunc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
+#                    pars, covs = curve_fit(gfunc, x, y, p0=p_est)
+                    pars = out[0]
+                    #covar = out[1]
+                    nfev = out[2]['nfev']
+                    log_entry = "\nNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
+                    print(log_entry)
+                except ValueError as e:
+                    log_entry = "\nValue Error (ass):" + str(e)
+                    process_log += log_entry
+                    print(log_entry)
+                except RuntimeError as e:
+                    log_entry = "\nRuntime Error (ass):" + str(e)
+                    process_log += log_entry
+                    print(log_entry)
+                except:
+                    log_entry = "\nOther error (ass)"
+                    process_log += log_entry
+                    print(log_entry)
         
         # Reconstruct and return the full parameter matrix 
         pshp = param_values.shape
