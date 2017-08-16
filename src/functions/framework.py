@@ -55,22 +55,41 @@ class FunctionsFramework():
         sigma = np.power(np.diag(covar), 0.5) # standard error
         return sigma * tval
             
-    def make_func(self, fn, params, const={}):
+#     def make_func(self, fn, params, const={}):
+#         """
+#         @fn is a function with signature fn(x, p), where p is a tuple of parameter values
+#         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+#         @params is the full input array for fn; same length as p (fn argument)
+#         @const is a dictionary with the indices (keys) and values (values) of the parameters
+#         that must be kept constant
+#         """
+#         filter_in = np.ones((len(params),), dtype=bool)
+#         for index in const:
+#             params[index] = const[index]
+#             filter_in[index] = False
+#         def func(x, *v):
+#             params[filter_in] = v 
+#             return fn(x, params)
+#         return func#     
+
+    def make_func(self, fn, params, keep_constant):
         """
         @fn is a function with signature fn(x, p), where p is a tuple of parameter values
         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
         @params is the full input array for fn; same length as p (fn argument)
-        @const is a dictionary with the indices (keys) and values (values) of the parameters
-        that must be kept constant
+        @keep_constant is an (n_params)-shaped array of Boolean values (parallel to @params):
+        if True, parameter values is to be kept constant, if False, parameter value is variable.
         """
-        filter_in = np.ones((len(params),), dtype=bool)
-        for index in const:
-            params[index] = const[index]
-            filter_in[index] = False
-        def func(x, *v):
-            params[filter_in] = v 
-            return fn(x, params)
-        return func
+        variables = np.logical_not(keep_constant)
+        # Needs implementing
+# #         filter_in = np.ones((len(params),), dtype=bool)
+# #         for index in const:
+# #             params[index] = const[index]
+# #             filter_in[index] = False
+# #         def func(x, *v):
+# #             params[filter_in] = v 
+# #             return fn(x, params)
+# #         return func
     
     
     def make_func_global(self, fn, x_splits, param_vals, variables, groups):
@@ -122,6 +141,48 @@ class FunctionsFramework():
                 y_out.extend(i_out)
             return y_out      
         return func, uparams[uv_filter] 
+    
+    def perform_fit(self, data, func, param_values, keep_constant=None, groups=None):
+        if groups is not None:
+            self.perform_global_curve_fit(data, func, param_values, keep_constant, groups)
+        else:
+            process_log = ""
+            if keep_constant is not None:
+            # this probably doesn't work and hasn't been tested recently
+                func = self.make_func(func, param_values, keep_constant)
+            # Now fit all curves independently (as in Blivion)
+            i = 0
+            for curve in data:
+                x, y = curve[:-1], curve[-1]
+                p_est = param_values[i]
+                i += 1
+                ftol, xtol = 1.0e-9, 1.0e-9
+                pars = None
+                while pars is None and ftol < 1.0:
+                    ftol *= 10.
+                    xtol *= 10.
+                    try:
+                        out = curve_fit(func, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
+                        pars = out[0]
+                        #covar = out[1]
+                        nfev = out[2]['nfev']    
+                        log_entry = "\nTrace: " + curve + "\tNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
+                        process_log += log_entry
+                        print(log_entry)
+                        print(pars)
+                    except ValueError as e:
+                        log_entry = "\nValue Error (ass):" + str(e)
+                        process_log += log_entry
+                        print(log_entry)
+                    except RuntimeError as e:
+                        log_entry = "\nRuntime Error (ass):" + str(e)
+                        process_log += log_entry
+                        print(log_entry)
+                    except:
+                        log_entry = "\nOther error (ass)"
+                        process_log += log_entry
+                        print(log_entry)
+        
     
     def perform_global_curve_fit(self, data, func, param_values, keep_constant, groups):  
         """
@@ -184,7 +245,6 @@ class FunctionsFramework():
                     ftol *= 10.
                     xtol *= 10.
                     out = curve_fit(gfunc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
-#                    pars, covs = curve_fit(gfunc, x, y, p0=p_est)
                     pars = out[0]
                     #covar = out[1]
                     nfev = out[2]['nfev']
@@ -210,6 +270,7 @@ class FunctionsFramework():
         fitted_params = param_values.flatten()[first_occurrence]
         fitted_params[uv_filter] = pars
         param_matrix = fitted_params[inverse_indices].reshape(pshp)
+        print(param_matrix)
         return param_matrix
                 
         

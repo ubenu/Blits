@@ -62,7 +62,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                      "Double exponential": (fdefs.fn_2exp, 
                                             fdefs.p0_fn_2exp,
                                             ('a0', 'a1', 'k1', 'a2', 'k2'), 
-                                            "a0 + a1.exp(-x.k1) + a2..exp(-x.k2)"), 
+                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2)"), 
                      "Double exponential and straight line": (fdefs.fn_2exp_strline, 
                                             fdefs.p0_fn_2exp_strline,
                                             ('a0', 'a1', 'k1', 'a2', 'k2', 'b'), 
@@ -88,14 +88,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     params_table_columns = range(4)
     hp_trac, hp_p0, hp_cons, hp_link = params_table_columns
     params_table_headers = {hp_trac: "Trace",
-                            hp_p0: "Init est",
-                            hp_cons: "Const",
-                            hp_link: "Linked\nto",
+                            hp_p0: "Initial",
+                            hp_cons: "Constant",
+                            hp_link: "Share with",
                             }
     results_table_columns = range(4)
     hr_trac, hr_dw, hr_pfit, hr_conf = results_table_columns
     results_table_headers = {hr_trac: "Trace",
-                             hr_dw: "Durbin-\nWatson",
+                             hr_dw: "Durbin-Watson",
                              hr_pfit: "Value",
                              hr_conf: "Error",
                              }
@@ -147,7 +147,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.ui_ready = True
         self.on_current_index_changed(0)
    
-    
     def _get_selected_data(self):
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
@@ -430,7 +429,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     w = widgets.QTableWidgetItem() 
                     w.setCheckState(qt.Qt.Unchecked)
                     if irow == 0:
-                        w.setText("All\nconstant")
+                        w.setText("All")
                     if irow != 0 or icol != 0: 
                         self.tbl_params.setItem(irow, icol, w)
                 elif (icol - 1) % 3 in (2, ):
@@ -438,7 +437,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     w = widgets.QTableWidgetItem()
                     if icol != 0:
                         if irow == 0:
-                            w.setText("All\nlinked")
+                            w.setText("All")
                             w.setCheckState(qt.Qt.Unchecked)
                             self.tbl_params.setItem(irow, icol, w) 
                         else: 
