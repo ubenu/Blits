@@ -44,7 +44,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
         self.mpl_layout.addWidget(self.plot_toolbar)
-        
+
         self.span = SpanSelector(self.canvas.data_plot, self.on_select_span, 
         'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
         

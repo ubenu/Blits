@@ -123,6 +123,14 @@ class FunctionsFramework():
         ugroups, indices, inverse_indices = np.unique(groups.flatten(), 
                                                       return_index=True, 
                                                       return_inverse=True)
+        # ugroups are the IDs of the unique groups in a flattened array
+        # indices are the indices of the first occurrence of a unique group 
+        #    in the flattened array or in a parallel one
+        # reverse_indices indicates where to find a particular ID in ugroups 
+        #    to reconstruct the original flat array (or a parallel one)
+        print(ugroups)
+        print(indices)
+        print(inverse_indices)
         uparams = param_vals.flatten()[indices]
         uv_filter = variables.flatten()[indices]
         def func(x, *v):

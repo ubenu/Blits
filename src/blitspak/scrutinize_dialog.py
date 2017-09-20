@@ -12,7 +12,7 @@ from scipy.optimize import curve_fit
 from statsmodels.stats.stattools import durbin_watson
 
 from PyQt5 import QtCore as qt
-#from PyQt5 import QtGui as gui
+from PyQt5 import QtGui as gui
 from PyQt5 import QtWidgets as widgets
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar, DraggableLine
 
@@ -116,8 +116,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
         self.btn_calc.clicked.connect(self.on_calc)
+        self.chk_global.clicked.connect(self.on_toggle_global)
         # Call on_current_index_changed to populate the tables
         self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+
 
         ## Transfer the fitting functions from the (temporary) dictionary to ModellingFunction objects
         self.library = {}
@@ -129,6 +131,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         for i in self.available_functions:
             name = self.fn_names[i]
             self.cmb_fit_function.addItem(name)
+        self.param_layout = widgets.QGridLayout()
+        self.vbox_right.addLayout(self.param_layout)
 
         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
@@ -337,6 +341,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 
 #         self.draw_all()
 #         self.prepare_results_table()   
+
+    def on_toggle_global(self):
+        self.prepare_params_table()
          
     def on_current_index_changed(self, index):
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
@@ -411,6 +418,71 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.tbl_params.setVerticalHeaderLabels(labels)
             self.tbl_params.resizeColumnsToContents()
             self.tbl_params.resizeRowsToContents()
+
+###########################################
+        cids, param_names = [], {}
+        # clear param_layout
+        while self.param_layout.count():
+            child = self.param_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        if len(self.curve_names) != 0:
+            cids = self.curve_names.tolist()
+            if self.current_function != "":
+                param_names = self.library[self.current_function].param_names
+                param_values = self.get_p0s()
+            row, col = 0, 0
+            str_const = "Keep\nconstant"
+            str_share = "Share\nwith"
+            str_space = "  "
+            hor_labels0 = ['Data', str_space ]
+            for pname in param_names:
+                entry = [str_space, pname, str_const]
+                if self.chk_global.checkState() == qt.Qt.Checked:
+                    entry += [str_share]
+                hor_labels0 += entry
+            for h in hor_labels0:
+                lb0 = widgets.QLabel(h)
+                self.param_layout.addWidget(lb0, row, col)
+                if h in (str_const, str_share):
+                    chk = widgets.QCheckBox("All")
+                    self.param_layout.addWidget(chk, row+1, col)
+                col += 1
+            row += 2    
+            for cid in cids:
+                col = 0
+                # curve colour goes in col 0
+                lb0 = widgets.QLabel()
+                pm = gui.QPixmap(20, 4)
+                pm.fill(gui.QColor(self.canvas.curve_colours[cid]))
+                lb0.setPixmap(pm)
+                self.param_layout.addWidget(lb0, row, col)
+                col += 1
+                # curve name to col 1
+                lb1 = widgets.QLabel(cid)
+                self.param_layout.addWidget(lb1, row, col)
+                # initial param values go in columns 2 and further
+                col += 1
+                for ival in param_values[cid]:
+                    self.param_layout.addWidget(widgets.QLabel("  "), row, col)
+                    col += 1
+                    led = widgets.QLineEdit()
+                    led.setText('{:.2g}'.format(ival)) 
+                    self.param_layout.addWidget(led, row, col)
+                    col += 1
+                    chk = widgets.QCheckBox()
+                    self.param_layout.addWidget(chk, row, col)
+                    col += 1
+                    if self.chk_global.checkState() == qt.Qt.Checked:
+                        cbx = widgets.QComboBox()
+                        cbx.addItems(cids)
+                        cbx.setCurrentText(cid)
+                        self.param_layout.addWidget(cbx, row, col)
+                        col += 1   
+                row += 1
+                
+########################################
         
         param_values = self.get_p0s() 
         for irow in range(self.tbl_params.rowCount()):

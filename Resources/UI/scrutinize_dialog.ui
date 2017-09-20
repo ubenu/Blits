@@ -34,7 +34,7 @@
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
+      <layout class="QVBoxLayout" name="vbox_right">
        <item>
         <widget class="QGroupBox" name="groupBox_2">
          <property name="sizePolicy">
@@ -134,8 +134,15 @@
          <property name="title">
           <string>Parameters</string>
          </property>
-         <layout class="QGridLayout" name="params_layout">
-          <item row="0" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <widget class="QCheckBox" name="chk_global">
+            <property name="text">
+             <string>Do global fit (share specified parameter values among specified data sets)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QTableWidget" name="tbl_params"/>
           </item>
          </layout>
@@ -146,8 +153,8 @@
          <property name="title">
           <string>Best fit results</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout_6">
+          <item>
            <widget class="QTableWidget" name="tbl_results">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
