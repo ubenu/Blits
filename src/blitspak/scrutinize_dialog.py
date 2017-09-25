@@ -107,11 +107,13 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.ui_ready = False
         super(widgets.QDialog, self).__init__(parent)
         self.setupUi(self)
+        self.vbox_main.setAlignment(qt.Qt.AlignHCenter)
         ## Create the plot area
         self.canvas = MplCanvas(self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.plot_toolbar)
+        self.mpl_layout.setAlignment(qt.Qt.AlignHCenter)
         ## Connect signals to slots
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
@@ -132,7 +134,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             name = self.fn_names[i]
             self.cmb_fit_function.addItem(name)
         self.param_layout = widgets.QGridLayout()
-        self.hbox_fit.addLayout(self.param_layout)
+        self.param_group.setLayout(self.param_layout)
+#        self.hbox_fit.addLayout(self.param_layout)
 
         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
@@ -400,7 +403,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     if not cb is None:
                         cb.setCurrentText(cid) 
                         
-    def construct_params_grid(self):              
+    def construct_params_grid(self, global_fit=True):              
         # firstly, clear the entire param_layout
         while self.param_layout.count():
             child = self.param_layout.takeAt(0)
@@ -413,31 +416,35 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         if self.current_function in self.library:
             param_names = self.library[self.current_function].param_names
         # Construct layout with dummy widgets
-        for col in range(2 + 4 * param_count):
-            for row in range(3 + cid_count):
+        hd0 = ["Series in fit", 
+               "Colour", 
+               ]
+        hd1 = ["Value",
+               "Keep\nconstant",
+               ]
+        if global_fit:
+            hd1.append("Share\nwith")
+            
+        vhead_nrows, hhead_ncols, np_cols = 3, len(hd0), 2
+        if global_fit:
+            np_cols += 1
+        for col in range(hhead_ncols + np_cols * param_count):
+            for row in range(vhead_nrows + cid_count):
                 dummy = widgets.QWidget()
                 self.param_layout.addWidget(dummy, row, col)
                 
-        row, col = 0, 2
+        row, col = 0, hhead_ncols - 1
         for pname in param_names:
             lbl = widgets.QLabel(pname)
-            lbl.setAlignment(qt.Qt.AlignHCenter)
+            lbl.setAlignment(qt.Qt.AlignLeft)
             font = lbl.font()
             font.setPointSize(11)
             font.setBold(True)
             lbl.setFont(font)
-            self.param_layout.addWidget(lbl, row, col+1, 1, 3)
-            col += 4
+            self.param_layout.addWidget(lbl, row, col+1, 1, 1) #np_cols-1)
+            col += np_cols
         
         row, col = 1, 0
-        hd0 = ["Series in fit", 
-               "", 
-               ]
-        hd1 = ["",
-               "Value",
-               "Keep\nconstant",
-               "Share\nwith",
-               ]
         for hd in hd0:
             lbl = widgets.QLabel(hd)
             self.param_layout.addWidget(lbl, row, col)
@@ -452,16 +459,21 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         chb = widgets.QCheckBox()
         chb.setText("All")
         self.param_layout.addWidget(chb, row, col)
-        col = 4
+        col = hhead_ncols
         for pname in param_names:
+            col += 1
             chb = widgets.QCheckBox()
             chb.setText("All")
             self.param_layout.addWidget(chb, row, col)
-            col += 4
+            chb = widgets.QCheckBox()
+            if global_fit:
+                col += 1
+                chb.setText("All")
+                self.param_layout.addWidget(chb, row, col)
+#             spc = widgets.QSpacerItem(0, 0)
+#             self.param_layout.addItem(spc, row, col)
+            col += 1
             
-            
-        
-        
         row = 3        
         for cid in cids:
             col = 0
@@ -474,18 +486,22 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             lbl = widgets.QLabel()
             lbl.setPixmap(pm)
             self.param_layout.addWidget(lbl, row, col)
+            col += 1
             for pname in param_names:
-                col += 2
                 txb = widgets.QLineEdit()
+                txb.setMinimumWidth(50)
+                txb.setSizePolicy(widgets.QSizePolicy.Maximum, widgets.QSizePolicy.Preferred)
                 self.param_layout.addWidget(txb, row, col)
                 col += 1
                 chb = widgets.QCheckBox()
                 self.param_layout.addWidget(chb, row, col)
+                if global_fit:
+                    col += 1
+                    cmb = widgets.QComboBox()
+                    cmb.addItems(cids)
+                    cmb.setCurrentText(cid)
+                    self.param_layout.addWidget(cmb, row, col)
                 col += 1
-                cmb = widgets.QComboBox()
-                cmb.addItems(cids)
-                cmb.setCurrentText(cid)
-                self.param_layout.addWidget(cmb, row, col)
             row += 1
             
                     
