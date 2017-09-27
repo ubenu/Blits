@@ -72,15 +72,14 @@ class FunctionsFramework():
 #             return fn(x, params)
 #         return func#     
 
-    def make_func(self, fn, params, keep_constant):
+    def make_func(self, fn, params, variables):
         """
         @fn is a function with signature fn(x, *p), where *p is a tuple of parameter values
         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
         @params is the full input array for fn; same length as p (fn argument)
-        @keep_constant is an (n_params)-shaped array of Boolean values (parallel to @params):
-        if True, parameter values is to be kept constant, if False, parameter value is variable.
+        @variables is an (n_params)-shaped array of Boolean values (parallel to @params):
+        if True, parameter values is variable, if False, parameter value is to be kept constant.
         """
-        variables = np.logical_not(keep_constant)
         def func(x, *v):
             params[variables] = v
             return fn(x, params)
@@ -128,9 +127,6 @@ class FunctionsFramework():
         #    in the flattened array or in a parallel one
         # reverse_indices indicates where to find a particular ID in ugroups 
         #    to reconstruct the original flat array (or a parallel one)
-        print(ugroups)
-        print(indices)
-        print(inverse_indices)
         uparams = param_vals.flatten()[indices]
         uv_filter = variables.flatten()[indices]
         def func(x, *v):
@@ -144,52 +140,62 @@ class FunctionsFramework():
             return y_out      
         return func, uparams[uv_filter] 
     
-    def perform_fit(self, data, func, param_values, keep_constant=None, groups=None):
-        if groups is not None:
-            self.perform_global_curve_fit(data, func, param_values, keep_constant, groups)
+    def perform_fit(self, data, func, param_values, keep_constant, groups=None):
+        if groups is None:
+            return self.perform_standard_curve_fit(data, func, param_values, keep_constant)
         else:
-            process_log = ""
-            # Now fit all curves independently (as in Blivion)
-            i = 0
-            for curve in data:
-                x, y = curve[:-1], curve[-1]
-                p_est = param_values[i]
-                fnc = None  # creating fnc is probably unnecessary (func can be set to the func argument), but just in case
-                if keep_constant is None:
-                    fnc = func
-                else:
-                # this probably doesn't work and hasn't been tested yet
-                    p_const = keep_constant[i]
-                    fnc = self.make_func(func, p_est, p_const)
-                i += 1
-                ftol, xtol = 1.0e-9, 1.0e-9
-                pars = None
-                while pars is None and ftol < 1.0:
-                    ftol *= 10.
-                    xtol *= 10.
-                    try:
-                        out = curve_fit(fnc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
-                        pars = out[0]
-                        #covar = out[1]
-                        nfev = out[2]['nfev']    
-                        log_entry = "\nTrace: " + curve + "\tNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
-                        process_log += log_entry
-                        print(log_entry)
-                        print(pars)
-                    except ValueError as e:
-                        log_entry = "\nValue Error (ass):" + str(e)
-                        process_log += log_entry
-                        print(log_entry)
-                    except RuntimeError as e:
-                        log_entry = "\nRuntime Error (ass):" + str(e)
-                        process_log += log_entry
-                        print(log_entry)
-                    except:
-                        log_entry = "\nOther error (ass)"
-                        process_log += log_entry
-                        print(log_entry)
-        
+            return self.perform_global_curve_fit(data, func, param_values, keep_constant, groups)
     
+    def perform_standard_curve_fit(self, data, func, param_values, keep_constant):
+        process_log = ""
+        variables = np.logical_not(keep_constant)
+
+        if np.any(variables): # There must be something to fit
+            # Get the correct function for global fitting and a first estimate for the variable params
+            #gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
+            pass
+
+        # Now fit all curves independently (as in Blivion)
+        i = 0
+        for curve in data:
+            x, y = curve[:-1], curve[-1]
+            p_est = param_values[i]
+            var = variables[i]
+            fnc = func  # creating fnc is probably unnecessary (func can be set to the func argument), but just in case
+            if not np.all(var):                
+                fnc = self.make_func(func, p_est, var)
+                
+            i += 1
+            
+            ftol, xtol = 1.0e-9, 1.0e-9
+            pars = None
+            while pars is None and ftol < 1.0:
+                ftol *= 10.
+                xtol *= 10.
+                try:
+                    out = curve_fit(fnc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
+                    pars = out[0]
+                    #covar = out[1]
+                    nfev = out[2]['nfev']    
+                    log_entry = "\nTrace: " + '{:d}'.format(i) + "\tNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
+                    process_log += log_entry
+                    print(log_entry)
+                    print(pars)
+                except ValueError as e:
+                    log_entry = "\nValue Error (ass):" + str(e)
+                    process_log += log_entry
+                    print(log_entry)
+                except RuntimeError as e:
+                    log_entry = "\nRuntime Error (ass):" + str(e)
+                    process_log += log_entry
+                    print(log_entry)
+                except:
+                    log_entry = "\nOther error (ass)"
+                    process_log += log_entry
+                    print(log_entry) 
+            print(pars) 
+            return pars
+                      
     def perform_global_curve_fit(self, data, func, param_values, keep_constant, groups):  
         """
         Perform a non-linear least-squares global fit of func to data 
@@ -242,7 +248,7 @@ class FunctionsFramework():
         variables = np.logical_not(keep_constant)
         if np.any(variables): # There must be something to fit
             # Get the correct function for global fitting and a first estimate for the variable params
-            gfunc, p_est = self.make_func_global(self, func, x_splits, param_values, variables, groups)
+            gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
             # Perform the global fit
             pars = None
             ftol, xtol = 1.0e-9, 1.0e-9

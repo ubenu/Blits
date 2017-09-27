@@ -85,10 +85,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                        "ymax / ((xhalf/x)^h + 1 )"),
                      }
     
-    params_table_columns = range(5)
-    head_series_id, head_infit, head_param_val, head_constant, head_share = params_table_columns
-    params_table_headers = {head_series_id: "Series",
-                            head_infit: "Fit\nseries",
+    params_table_columns = range(4)
+    head_infit, head_param_val, head_constant, head_share = params_table_columns
+    params_table_headers = {head_infit: "Fit\nseries",
                             head_param_val: "Parameter\nvalue",
                             head_constant: "Keep\nvalue\nconstant",
                             head_share: "Share\nvalue\nwith",
@@ -108,7 +107,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.ui_ready = False
         super(widgets.QDialog, self).__init__(parent)
         self.setupUi(self)
-#        self.vbox_main.setAlignment(qt.Qt.AlignHCenter)
         ## Create the plot area
         self.canvas = MplCanvas(self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
@@ -136,8 +134,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         for i in self.available_functions:
             name = self.fn_names[i]
             self.cmb_fit_function.addItem(name)
-#         self.param_layout = widgets.QGridLayout()
-#         self.param_group.setLayout(self.param_layout)
         
 
         self.fnfrw = ff.FunctionsFramework()  
@@ -179,26 +175,29 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         parallel to self.curve_names and self.fn_dictionary[fn][self.d_pnames], 
         respectively) with values for each parameter in each curve).  
         """
+        ncol_per_param = 2
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            ncol_per_param = 3
+
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
-        vari_locs = np.arange(0, len(param_names) * 3, 3) + self.head_param_val
-        cnst_locs = np.arange(0, len(param_names) * 3, 3) + self.head_constant
-        param_values = np.zeros((len(self.curve_names), len(param_names)))
+        
+        p_locs = np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_param_val
+        p_vals = np.zeros((len(self.curve_names), len(param_names)))
+        
         for irow in range(1, self.tbl_params.rowCount()):
             cname = self.tbl_params.verticalHeaderItem(irow).text()
             if cname in self.curve_names:
                 cind = self.curve_names.get_loc(cname)
                 pval = []
-                for vloc, cloc in zip(vari_locs, cnst_locs):
-                    txt = self.tbl_params.item(irow, vloc).text()
-                    if self.tbl_params.item(irow, cloc).checkState() == qt.Qt.Checked:
-                        txt = self.tbl_params.item(irow, cloc).text()
+                for ploc in p_locs:
+                    txt = self.tbl_params.item(irow, ploc).text()
                     if len(pval) == 0:
                         pval = [float(txt)]
                     else:
                         pval.append(float(txt))
-                param_values[cind] = np.array(pval)
-        return param_values    
+                p_vals[cind] = np.array(pval)
+        return p_vals    
     
     def _get_constant_params(self):
         """
@@ -207,9 +206,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.fn_dictionary[fn][self.d_pnames], respectively); if True, 
         parameter values is constant, if False, parameter value is variable.
         """
+        ncol_per_param = 2
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            ncol_per_param = 3
+
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
-        cnst_locs = np.arange(0, len(param_names) * 3, 3) + self.head_constant
+        
+        cnst_locs = np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_constant
         const_params = np.zeros((self.curve_names.shape[0], len(param_names)), dtype = bool)
         for irow in range(1, self.tbl_params.rowCount()):
             cname = self.tbl_params.verticalHeaderItem(irow).text()
@@ -236,11 +240,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. 
         """
+        ncol_per_param = 2
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            ncol_per_param = 3
+
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        
         nparams = len(param_names) # param_names is a python list
         ncurves = self.curve_names.shape[0]  # self.curve_names is a pandas Index
-        l_locs = np.arange(0, nparams * 3, 3) + self.head_share
+        l_locs = np.arange(0, nparams * ncol_per_param, ncol_per_param) + self.head_share
         links = np.empty((nparams, ncurves), dtype=int)
         pcount, indpcount = 0, 0
         for lloc in l_locs:
@@ -282,15 +291,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         data = self._get_selected_data()
         param_values = self._get_all_param_values()
         const_params = self._get_constant_params()
-        links = self._get_linked_params()
+        links = None
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            links = self._get_linked_params()
         curve_names = self.curve_names.tolist()
         header = ['time']
         header.extend(curve_names)
-        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+#        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
         
-        fitted_params = ff.FunctionsFramework.perform_global_curve_fit(ff.FunctionsFramework, 
-                                                                       data, func, param_values, 
-                                                                       const_params, links)
+        ffw = ff.FunctionsFramework()
+        fitted_params = ffw.perform_fit(data, func, param_values, const_params, links)
         
         fitted_curves = cp.deepcopy(data)
         d_curves = None
@@ -309,45 +319,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.display_curves = pd.DataFrame(d_curves.transpose(), columns=header)
         self.residuals = pd.DataFrame(r_curves.transpose(), columns=header)
         self.draw_all()
-        
-            
-        
-##         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
-##         funcname = self.cmb_fit_function.currentText()
-##         f = self.fn_dictionary[funcname][self.d_func]
-##         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
-##         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
-##         selection = cp.deepcopy(self.data[indmin:indmax])
-#         self.display_curves = cp.deepcopy(selection)
-#         self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
-#         self.residuals = cp.deepcopy(selection)
-#         self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
-#         param_values = self.get_all_param_values()
-#         for trace in self.curve_names:
-#             p = param_values[trace]
-#             t = selection['time']
-#             x = t - t.iloc[0]
-#             y = selection[trace]
-#             try:
-#                 pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
-#                 pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
-#                 self.param_values_fit[trace] = pfit
-#                 self.conf_intervals_fit[trace] = pconf
-#                 self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
-#                 self.residuals[trace] = self.data[trace] - self.display_curves[trace]
-#                 self.dw_statistic_fit[trace] = durbin_watson(self.residuals[trace], 0)
-#             except ValueError as e:
-#                 print("VE: " + str(e))
-#             except RuntimeError as e:  
-#                 print("RTE: " + str(e))
-#             except TypeError as e:
-#                 print("TE: " + str(e))               
-#             except:
-#                 e = sys.exc_info()[0]
-#                 print("Generic: " + str(e))
-                
-#         self.draw_all()
-#         self.prepare_results_table()   
 
     def on_toggle_global(self):
         self.prepare_params_table()
@@ -362,41 +333,23 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.prepare_params_table()
             self.prepare_results_table()
             
-        
     def on_item_changed(self, item):
-        col, row = item.column(), item.row()
+        ncol_per_param = 2
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            ncol_per_param = 3
+                      
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
-        if col in np.arange(0, len(param_names) * 3, 3) + self.head_constant:
+        
+        col, row = item.column(), item.row()
+        if col == 0 or col in np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_constant:
             if row == 0:
                 cs = item.checkState()
                 for irow in range(1, self.tbl_params.rowCount()):
                     w = self.tbl_params.item(irow, col)
                     if not w is None:
                         w.setCheckState(cs)
-            else:
-                cs = item.checkState()
-                w_con = self.tbl_params.item(row, col)
-                w_var = self.tbl_params.item(row, col - 1)
-                v_con = w_con.text()
-                v_var = w_var.text()
-                if cs == qt.Qt.Checked: 
-                    if v_con == "":
-                        #w_con.setFlags(qt.Qt.ItemIsEditable)
-                        w_con.setText(v_var)
-                        #w_var.setFlags(w_var.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
-                    else:
-                        #w_var.setFlags(qt.Qt.ItemIsEditable)
-                        w_var.setText("")
-                        #w_con.setFlags(w_con.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
-                elif cs == qt.Qt.Unchecked:
-                    if v_var == "":
-                        #w_var.setFlags(qt.Qt.ItemIsEditable)
-                        w_var.setText(v_con)
-                        w_con.setText("")
-                        #w_con.setFlags(w_con.flags() ^ qt.Qt.ItemIsEditable) # bitwise xor
-                self.tbl_params.resizeColumnsToContents() 
-        elif col in np.arange(0, len(param_names) * 3, 3) + self.head_share:               
+        elif col in np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_share:               
             if row == 0: 
                 cs = item.checkState()
                 cid = self.tbl_params.verticalHeaderItem(1).text()
@@ -407,119 +360,31 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     if not cb is None:
                         cb.setCurrentText(cid) 
                         
-#     def construct_params_grid(self, global_fit=True):              
-#         # firstly, clear the entire param_layout
-#         while self.param_layout.count():
-#             child = self.param_layout.takeAt(0)
-#             if child.widget():
-#                 child.widget().deleteLater()
-#         # Get current parameters
-#         cids = self.curve_names.tolist()
-#         cid_count = len(cids)
-#         param_count, param_names = 0, []
-#         if self.current_function in self.library:
-#             param_names = self.library[self.current_function].param_names
-#         hd0 = ["Series\nin fit", 
-#                "Series\ncolour", 
-#                ]
-#         hd1 = ["Parameter\nvalue",
-#                "Keep\nvalue\nconstant",
-#                ]
-#         if global_fit:
-#             hd1.append("Share\nvalue\nwith")
-#           
-#         # Construct layout grid with dummy widgets          
-#         vhead_nrows = 3
-#         hhead_ncols, np_cols = len(hd0), len(hd1)
-#         for col in range(hhead_ncols + np_cols * (param_count)):
-#             for row in range(vhead_nrows + cid_count):
-#                 dummy = widgets.QWidget()
-#                 self.param_layout.addWidget(dummy, row, col)
-#                 
-#         row, col = 0, hhead_ncols - 1
-#         for pname in param_names:
-#             lbl = widgets.QLabel(pname)
-#             lbl.setAlignment(qt.Qt.AlignLeft)
-#             font = lbl.font()
-#             font.setPointSize(11)
-#             font.setBold(True)
-#             lbl.setFont(font)
-#             self.param_layout.addWidget(lbl, row, col+1, 1, 1) #np_cols-1)
-#             col += np_cols + 1
-#         
-#         row, col = 1, 0
-#         for hd in hd0:
-#             lbl = widgets.QLabel(hd)
-#             self.param_layout.addWidget(lbl, row, col)
-#             col += 1
-#         for pname in param_names:
-#             for hd in hd1:
-#                 lbl = widgets.QLabel(hd)
-#                 self.param_layout.addWidget(lbl, row, col)
-#                 col += 1
-#                 
-#         row, col = 2, 0
-#         chb = widgets.QCheckBox()
-#         chb.setText("All")
-#         self.param_layout.addWidget(chb, row, col)
-#         col = hhead_ncols
-#         for pname in param_names:
-#             col += 1
-#             chb = widgets.QCheckBox()
-#             chb.setText("All")
-#             self.param_layout.addWidget(chb, row, col)
-#             chb = widgets.QCheckBox()
-#             if global_fit:
-#                 col += 1
-#                 chb.setText("All")
-#                 self.param_layout.addWidget(chb, row, col)
-#             col += 1
-#             spc = widgets.QSpacerItem(0, 0)
-#             self.param_layout.addItem(spc, row, col)
-#             col += 1
-#             
-#         row = 3        
-#         for cid in cids:
-#             col = 0
-#             chb = widgets.QCheckBox()
-#             chb.setText(cid)
-#             self.param_layout.addWidget(chb, row, col)
-#             col += 1
-#             pm = gui.QPixmap(20, 4)
-#             pm.fill(gui.QColor(self.canvas.curve_colours[cid]))
-#             lbl = widgets.QLabel()
-#             lbl.setPixmap(pm)
-#             self.param_layout.addWidget(lbl, row, col)
-#             col += 1
-#             for pname in param_names:
-#                 txb = widgets.QLineEdit()
-#                 txb.setMaximumWidth(50)
-#                 txb.setSizePolicy(widgets.QSizePolicy.Maximum, widgets.QSizePolicy.Fixed)
-#                 self.param_layout.addWidget(txb, row, col)
-#                 col += 1
-#                 chb = widgets.QCheckBox()
-#                 self.param_layout.addWidget(chb, row, col)
-#                 if global_fit:
-#                     col += 1
-#                     cmb = widgets.QComboBox()
-#                     cmb.addItems(cids)
-#                     cmb.setCurrentText(cid)
-#                     self.param_layout.addWidget(cmb, row, col)
-#                 col += 1
-#             row += 1
                                                     
     def prepare_params_table(self):
+        # Table must be set up for global or non-global fit
+        global_fit = False
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            global_fit = True
+        # Clear the table of all data
         self.tbl_params.clear()
+
+        # Set the horizontal header for the current function
         labels = [self.params_table_headers[self.head_infit], ]
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
             for name in param_names:
                 labels.append(name)
                 labels.append(self.params_table_headers[self.head_constant])
-                labels.append(self.params_table_headers[self.head_share])
+                if global_fit:
+                    labels.append(self.params_table_headers[self.head_share])
         self.tbl_params.setColumnCount(len(labels))
         self.tbl_params.setHorizontalHeaderLabels(labels)
+        ncol_per_param = 2
+        if global_fit:
+            ncol_per_param = 3
         
+        # Set vertical header (series names + colour icons)
         if len(self.curve_names) != 0:
             labels = ['All',]
             labels.extend(self.curve_names.tolist())
@@ -535,52 +400,89 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     ic = self.parent().line_icon(clr)
                     vhw.setIcon(ic)
                 row += 1
-            self.tbl_params.resizeColumnsToContents()
-            self.tbl_params.resizeRowsToContents()
 
-        param_values = self.get_p0s() 
+        # Set horizontal header
         for irow in range(self.tbl_params.rowCount()):
-            tid = self.curve_names[irow-1]
-            p0 = param_values[tid]
             for icol in range(self.tbl_params.columnCount()):
                 # checkboxes under the in-fit header for each param
                 if icol == 0:
-                    w = widgets.QWidget() 
-                    c = widgets.QCheckBox()
-                    l = widgets.QVBoxLayout(w)
-#                     sp = widgets.QSizePolicy(widgets.QSizePolicy.Fixed, widgets.QSizePolicy.Fixed)
-#                     w.setSizePolicy(sp)
-                    c.setCheckState(qt.Qt.Checked)
-                    l.addWidget(c)
-                    l.setAlignment(qt.Qt.AlignCenter)
-                    l.setContentsMargins(0, 0, 0, 0)
-                    w.setLayout(l)
-                    self.tbl_params.setCellWidget(irow, icol, w)
-                elif (icol - 1) % 3 in (1, ): 
-                    # checkboxes under the constant header for each param
-                    w = widgets.QTableWidgetItem() 
-                    w.setCheckState(qt.Qt.Unchecked)
-                    if irow != 0 or icol != 0: 
-                        self.tbl_params.setItem(irow, icol, w)
-                elif (icol - 1) % 3 in (2, ):
-                    # values of irow under linked header
                     w = widgets.QTableWidgetItem()
+                    w.setCheckState(qt.Qt.Checked)
+                    self.tbl_params.setItem(irow, icol, w)
+                elif (icol - 1) % ncol_per_param in (1, ): 
+                    # checkboxes under the constant header for each param
+                    if irow != 0 or icol != 0: 
+                        w = widgets.QTableWidgetItem()
+                        w.setCheckState(qt.Qt.Unchecked)
+                        self.tbl_params.setItem(irow, icol, w)
+                elif global_fit and (icol - 1) % ncol_per_param in (2, ):
+                    # values of irow under linked header
                     if icol != 0:
                         if irow == 0:
+                            w = widgets.QTableWidgetItem()
+                            w.setCheckState(qt.Qt.Unchecked)
                             self.tbl_params.setItem(irow, icol, w) 
                         else: 
                             cb = widgets.QComboBox()
                             cb.addItems(self.curve_names)
-                            cb.setCurrentText(tid)
+                            cb.setCurrentText(self.curve_names[irow-1])
                             self.tbl_params.setCellWidget(irow, icol, cb)
-                elif (icol - 1) % 3 in (0, ) and irow != 0:
+                elif (icol - 1) % ncol_per_param in (0, ) and irow != 0:
                     # initial estimate values
                     w = widgets.QTableWidgetItem()
-                    npar = (icol - 1) // 3
-                    w.setText('{:.2g}'.format(p0[npar]))
                     self.tbl_params.setItem(irow, icol, w)
-            self.tbl_params.resizeColumnsToContents()
-                    
+        p0s = self.get_p0s()
+        self.set_tbl_param_values(p0s)
+        self.tbl_params.resizeColumnsToContents()
+        self.tbl_params.resizeRowsToContents()
+        
+    def set_tbl_param_values(self, param_val_dict):
+        ncol_per_param = 2
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            ncol_per_param = 3  
+               
+        for irow in range(self.tbl_params.rowCount()):
+            params_for_series = param_val_dict[self.curve_names[irow-1]]
+            for icol in range(self.tbl_params.columnCount()):
+                if (icol - 1) % ncol_per_param in (0, ) and irow != 0:
+                    w = self.tbl_params.item(irow, icol)
+                    npar = (icol - 1) // ncol_per_param
+                    w.setText('{:.2g}'.format(params_for_series[npar]))
+                                
+    def get_p0s(self):
+        p0_func = self.library[self.current_function].p0_fn_ref
+        x = self.data['time']
+        param_values = {}
+        for tid in self.curve_names:
+            y = self.data[tid]
+            param_values[tid] = p0_func(x, y)
+        return param_values
+                               
+                     
+    def draw_all(self):
+        if not self.data is None:
+            x = self.data['time']
+            y = self.data[self.curve_names]
+            self.canvas.draw_data(x, y)
+            self.line0, self.line1 = None, None
+            self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+            self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
+            if not self.display_curves is None:
+                xd = self.display_curves['time']
+                yd = self.display_curves[self.curve_names]
+                self.canvas.draw_fitted_data(xd, yd)
+                ryd = self.residuals[self.curve_names]
+                self.canvas.draw_residuals(xd, ryd)
+            
+
+    def fill_library(self):                
+        for name in self.fn_dictionary:
+            fn_ref = self.fn_dictionary[name][self.d_func]
+            p0_fn_ref = self.fn_dictionary[name][self.d_p0]
+            param_names = self.fn_dictionary[name][self.d_pnames]
+            fn_str = self.fn_dictionary[name][self.d_expr]
+            self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
+            
     def prepare_results_table(self):
         self.tbl_results.clear()
         labels = [self.results_table_headers[self.hr_trac],
@@ -649,40 +551,60 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                             cic = self.parent().circle_icon(trlcol)
                             w.setIcon(cic)
         self.tbl_results.resizeColumnsToContents()
-        self.tbl_results.resizeRowsToContents()
-                                
-    def get_p0s(self):
-        p0_func = self.library[self.current_function].p0_fn_ref
-        x = self.data['time']
-        param_values = {}
-        for tid in self.curve_names:
-            y = self.data[tid]
-            param_values[tid] = p0_func(x, y)
-        return param_values
-                               
-                     
-    def draw_all(self):
-        if not self.data is None:
-            x = self.data['time']
-            y = self.data[self.curve_names]
-            self.canvas.draw_data(x, y)
-            self.line0, self.line1 = None, None
-            self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
-            self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
-            if not self.display_curves is None:
-                xd = self.display_curves['time']
-                yd = self.display_curves[self.curve_names]
-                self.canvas.draw_fitted_data(xd, yd)
-                ryd = self.residuals[self.curve_names]
-                self.canvas.draw_residuals(xd, ryd)
-            
-
-    def fill_library(self):                
-        for name in self.fn_dictionary:
-            fn_ref = self.fn_dictionary[name][self.d_func]
-            p0_fn_ref = self.fn_dictionary[name][self.d_p0]
-            param_names = self.fn_dictionary[name][self.d_pnames]
-            fn_str = self.fn_dictionary[name][self.d_expr]
-            self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
-            
+        self.tbl_results.resizeRowsToContents() 
         
+#     def centred_checkbox(self, checked=False):
+#         w = widgets.QWidget() 
+#         c = widgets.QCheckBox()
+#         l = widgets.QVBoxLayout(w)
+#         c.setCheckState(qt.Qt.Unchecked)
+#         if checked:
+#             c.setCheckState(qt.Qt.Checked)
+#         c.stateChanged.connect(self.on_checkstate_changed)
+#         l.addWidget(c)
+#         l.setAlignment(qt.Qt.AlignCenter)
+#         l.setContentsMargins(0, 0, 0, 0)
+#         w.setLayout(l)
+#         return w                    
+                    
+      
+        
+###    NON-GLOBAL FITTING ROUTINE
+##         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
+##         funcname = self.cmb_fit_function.currentText()
+##         f = self.fn_dictionary[funcname][self.d_func]
+##         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
+##         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
+##         selection = cp.deepcopy(self.data[indmin:indmax])
+#         self.display_curves = cp.deepcopy(selection)
+#         self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
+#         self.residuals = cp.deepcopy(selection)
+#         self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
+#         param_values = self.get_all_param_values()
+#         for trace in self.curve_names:
+#             p = param_values[trace]
+#             t = selection['time']
+#             x = t - t.iloc[0]
+#             y = selection[trace]
+#             try:
+#                 pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
+#                 pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
+#                 self.param_values_fit[trace] = pfit
+#                 self.conf_intervals_fit[trace] = pconf
+#                 self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
+#                 self.residuals[trace] = self.data[trace] - self.display_curves[trace]
+#                 self.dw_statistic_fit[trace] = durbin_watson(self.residuals[trace], 0)
+#             except ValueError as e:
+#                 print("VE: " + str(e))
+#             except RuntimeError as e:  
+#                 print("RTE: " + str(e))
+#             except TypeError as e:
+#                 print("TE: " + str(e))               
+#             except:
+#                 e = sys.exc_info()[0]
+#                 print("Generic: " + str(e))
+                
+#         self.draw_all()
+#         self.prepare_results_table()   
+
+
