@@ -55,36 +55,6 @@ class FunctionsFramework():
         sigma = np.power(np.diag(covar), 0.5) # standard error
         return sigma * tval
             
-#     def make_func(self, fn, params, const={}):
-#         """
-#         @fn is a function with signature fn(x, p), where p is a tuple of parameter values
-#         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-#         @params is the full input array for fn; same length as p (fn argument)
-#         @const is a dictionary with the indices (keys) and values (values) of the parameters
-#         that must be kept constant
-#         """
-#         filter_in = np.ones((len(params),), dtype=bool)
-#         for index in const:
-#             params[index] = const[index]
-#             filter_in[index] = False
-#         def func(x, *v):
-#             params[filter_in] = v 
-#             return fn(x, params)
-#         return func#     
-
-    def make_func(self, fn, params, variables):
-        """
-        @fn is a function with signature fn(x, *p), where *p is a tuple of parameter values
-        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-        @params is the full input array for fn; same length as p (fn argument)
-        @variables is an (n_params)-shaped array of Boolean values (parallel to @params):
-        if True, parameter values is variable, if False, parameter value is to be kept constant.
-        """
-        def func(x, *v):
-            params[variables] = v
-            return fn(x, params)
-        return func
-    
     def make_func_global(self, fn, x_splits, param_vals, variables, groups):
         """
         @fn is a function with signature fn(x, p), where @p is 
@@ -116,7 +86,7 @@ class FunctionsFramework():
         the total number of parameters to be fitted is 7.
         
         @returns [0] a function that can be used as input to curve_fit
-        @returns [1] an initial estimate for the variable parameters
+        @returns [1] a flat array with the unique variable parameter values
         """
         pshape = param_vals.shape
         ugroups, indices, inverse_indices = np.unique(groups.flatten(), 
@@ -130,7 +100,9 @@ class FunctionsFramework():
         uparams = param_vals.flatten()[indices]
         uv_filter = variables.flatten()[indices]
         def func(x, *v):
-            split_x = np.split(x, x_splits, axis=1)
+            split_x = x
+            if len(x_splits) > 0:
+                split_x = np.split(x, x_splits, axis=1)
             uparams[uv_filter] = v
             params = uparams[inverse_indices].reshape(pshape)          
             y_out = []
@@ -139,63 +111,7 @@ class FunctionsFramework():
                 y_out.extend(i_out)
             return y_out      
         return func, uparams[uv_filter] 
-    
-    def perform_fit(self, data, func, param_values, keep_constant, groups=None):
-        if groups is None:
-            return self.perform_standard_curve_fit(data, func, param_values, keep_constant)
-        else:
-            return self.perform_global_curve_fit(data, func, param_values, keep_constant, groups)
-    
-    def perform_standard_curve_fit(self, data, func, param_values, keep_constant):
-        process_log = ""
-        variables = np.logical_not(keep_constant)
-
-        if np.any(variables): # There must be something to fit
-            # Get the correct function for global fitting and a first estimate for the variable params
-            #gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
-            pass
-
-        # Now fit all curves independently (as in Blivion)
-        i = 0
-        for curve in data:
-            x, y = curve[:-1], curve[-1]
-            p_est = param_values[i]
-            var = variables[i]
-            fnc = func  # creating fnc is probably unnecessary (func can be set to the func argument), but just in case
-            if not np.all(var):                
-                fnc = self.make_func(func, p_est, var)
-                
-            i += 1
-            
-            ftol, xtol = 1.0e-9, 1.0e-9
-            pars = None
-            while pars is None and ftol < 1.0:
-                ftol *= 10.
-                xtol *= 10.
-                try:
-                    out = curve_fit(fnc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
-                    pars = out[0]
-                    #covar = out[1]
-                    nfev = out[2]['nfev']    
-                    log_entry = "\nTrace: " + '{:d}'.format(i) + "\tNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
-                    process_log += log_entry
-                    print(log_entry)
-                    print(pars)
-                except ValueError as e:
-                    log_entry = "\nValue Error (ass):" + str(e)
-                    process_log += log_entry
-                    print(log_entry)
-                except RuntimeError as e:
-                    log_entry = "\nRuntime Error (ass):" + str(e)
-                    process_log += log_entry
-                    print(log_entry)
-                except:
-                    log_entry = "\nOther error (ass)"
-                    process_log += log_entry
-                    print(log_entry) 
-            print(pars) 
-            return pars
-                      
+                          
     def perform_global_curve_fit(self, data, func, param_values, keep_constant, groups):  
         """
         Perform a non-linear least-squares global fit of func to data 
@@ -487,3 +403,84 @@ print ("Global fit results")
 print ("Best fit parameters for first trajectory: " + str(p_best_1))
 print ("Best fit parameters for second trajectory: " + str(p_best_2))
 """
+
+
+
+#     def perform_standard_curve_fit(self, data, func, param_values, keep_constant):
+#         process_log = ""
+#         variables = np.logical_not(keep_constant)
+# 
+#         # Now fit all curves independently (as in Blivion)
+#         curve_count = 0
+#         for curve in data:
+#             x, y = curve[:-1], curve[-1]
+#             ivars = variables[curve_count]
+#             iparams = param_values[curve_count]
+#             print(ivars, iparams, iparams[ivars])
+#             if np.any(ivars): # There must be something to fit
+#                 fnc, p_est = func, iparams  
+#                 if not np.all(ivars):                
+#                     fnc, p_est = self.make_func(func, iparams, ivars)
+#                 print (func, p_est)
+#                 ftol, xtol = 1.0e-9, 1.0e-9
+#                 pars = None
+#                 while pars is None and ftol < 1.0:
+#                     ftol *= 10.
+#                     xtol *= 10.
+#                     try:
+#                         out = curve_fit(fnc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
+#                         pars = out[0]
+#                         #covar = out[1]
+#                         nfev = out[2]['nfev']    
+#                         log_entry = "\nTrace: " + '{:d}'.format(curve_count) + "\tNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
+#                         process_log += log_entry
+#                         print(log_entry)
+#                         print(pars)
+#                     except ValueError as e:
+#                         log_entry = "\nValue Error (ass):" + str(e)
+#                         process_log += log_entry
+#                         print(log_entry)
+#                     except RuntimeError as e:
+#                         log_entry = "\nRuntime Error (ass):" + str(e)
+#                         process_log += log_entry
+#                         print(log_entry)
+#                     except:
+#                         log_entry = "\nOther error (ass)"
+#                         process_log += log_entry
+#                         #print(log_entry) 
+#                 print(pars) 
+#                 curve_count += 1
+#         return pars
+#   
+
+#     def make_func(self, fn, params, const={}):
+#         """
+#         @fn is a function with signature fn(x, p), where p is a tuple of parameter values
+#         @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
+#         @params is the full input array for fn; same length as p (fn argument)
+#         @const is a dictionary with the indices (keys) and values (values) of the parameters
+#         that must be kept constant
+#         """
+#         filter_in = np.ones((len(params),), dtype=bool)
+#         for index in const:
+#             params[index] = const[index]
+#             filter_in[index] = False
+#         def func(x, *v):
+#             params[filter_in] = v 
+#             return fn(x, params)
+#         return func#     
+
+#     def make_func(self, fn, param_vals, variables):
+#         """
+#         @fn is a function with signature fn(x, p), where @p is a tuple of parameter values 
+#         and @x is a (k, m) shaped array, with k the number of independents and m the number of points
+#         @param_vals is the full input array for fn
+#         @variables is an (n_params)-shaped array of Boolean values (parallel to @param_vals):
+#         if True, parameter values is variable, if False, parameter value is to be kept constant.
+#         """
+#         def func(x, *v):
+#             param_vals[variables] = v
+#             return fn(x, param_vals)
+#         return func, param_vals[variables]
+    
+              

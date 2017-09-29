@@ -48,11 +48,49 @@ class MplCanvas(FigureCanvas):
     def on_move(self):
         pass
 
-    def set_fig_annotations(self):
-        self.data_plot.set_xlabel("Time (s)")
-        self.data_plot.set_ylabel("Response (nm)")
-        self.data_res_plot.set_ylabel("Residuals")
-        self.data_res_plot.locator_params(axis='y',nbins=4)        
+    def set_fig_annotations(self, xlabel="X", ylabel="Y", rlabel="Residuals"):
+        self.data_plot.set_xlabel(xlabel) #"Time (s)")
+        self.data_plot.set_ylabel(ylabel) #"Response (nm)")
+        self.data_res_plot.set_ylabel(rlabel)
+        self.data_res_plot.locator_params(axis='y',nbins=4)
+        
+    def set_colours(self, series_names):
+        self.curve_colours = {}
+        for name in series_names:
+            i = series_names.index(name) % len(self.colour_seq)
+            self.curve_colours[name] = self.colour_seq[i]
+            
+    def get_series_colour(self, series_name):
+        if self.series_in_plot(series_name):
+            return self.curve_colours[series_name]
+        return ''
+    
+    def series_in_plot(self, series_name):
+        return series_name in self.curve_colours
+    
+    def clear_plots(self):
+        self.data_plot.cla()
+        self.data_res_plot.cla()
+        self.fig.canvas.draw()
+    
+    def draw_series(self, series_name, x, y):
+        if not self.series_in_plot(series_name):
+            i = len(self.curve_colours.keys()) % len(self.colour_seq)
+            self.curve_colours[series_name] = self.colour_seq[i]
+        self.data_plot.plot(x, y, color=self.curve_colours[series_name])
+        self.fig.canvas.draw()
+        
+    def draw_series_fit(self, series_name, x, y):
+        if self.series_in_plot(series_name):
+            self.data_plot.plot(x, y, color='k',linestyle='--')
+            self.fig.canvas.draw()
+        
+    def draw_series_residuals(self, series_name, x, y):
+        if self.series_in_plot(series_name):
+            self.res_plot.plot(x, y, color=self.curve_colours[series_name])
+            self.fig.canvas.draw()        
+        
+             
     
     def draw_data(self, x, y):
         self.data_plot.cla()

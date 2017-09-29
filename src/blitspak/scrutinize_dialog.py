@@ -153,13 +153,24 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         self.ui_ready = True
         self.on_current_index_changed(0)
+        
+    def _get_selected_series(self):
+        selected = []
+        for irow in range(1, self.tbl_params.rowCount()):
+            cname = self.tbl_params.verticalHeaderItem(irow).text()
+            if cname in self.curve_names: # superfluous, but just in case...
+                in_fit = self.tbl_params.item(irow, 0)
+                if in_fit.checkState() == qt.Qt.Checked:
+                    selected.append(cname)
+        return selected
+            
    
-    def _get_selected_data(self):
+    def _get_selected_data(self, series_names):
         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
         selection = cp.deepcopy(self.data[indmin:indmax])
         data = []
-        for tid in self.curve_names:
+        for tid in series_names:
             x = cp.deepcopy(selection['time'])
             y = cp.deepcopy(selection[tid])
             curve = np.vstack((x,y))
@@ -169,7 +180,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 data.append(curve)
         return data
 
-    def _get_all_param_values(self):
+    def _get_all_param_values(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns 
         parallel to self.curve_names and self.fn_dictionary[fn][self.d_pnames], 
@@ -197,9 +208,11 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     else:
                         pval.append(float(txt))
                 p_vals[cind] = np.array(pval)
-        return p_vals    
+                
+        selected = [self.curve_names.tolist().index(name) for name in series_names] 
+        return p_vals[selected]   
     
-    def _get_constant_params(self):
+    def _get_constant_params(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array of Boolean values 
         (with rows and columns parallel to self.curve_names and 
@@ -222,9 +235,11 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 for pname, cloc in zip(param_names, cnst_locs):
                     pind = param_names.index(pname)
                     const_params[cind, pind] = self.tbl_params.item(irow, cloc).checkState() == qt.Qt.Checked
-        return const_params
+                    
+        selected = [self.curve_names.tolist().index(name) for name in series_names]    
+        return const_params[selected]
     
-    def _get_linked_params(self):
+    def _get_linked_params(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns parallel 
         to self.curve_names and self.fn_dictionary[fn][self.d_pnames], respectively)
@@ -249,76 +264,90 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         nparams = len(param_names) # param_names is a python list
         ncurves = self.curve_names.shape[0]  # self.curve_names is a pandas Index
-        l_locs = np.arange(0, nparams * ncol_per_param, ncol_per_param) + self.head_share
-        links = np.empty((nparams, ncurves), dtype=int)
-        pcount, indpcount = 0, 0
-        for lloc in l_locs:
-            # Find all connections (reflexive, symmetrical, transitive graph)
-            mlinks = np.identity(ncurves, dtype=int) # Make matrix reflexive
-            for irow in range(self.tbl_params.rowCount()):
-                cname = self.tbl_params.verticalHeaderItem(irow).text()
-                if cname in self.curve_names:
-                    linked = self.tbl_params.cellWidget(irow, lloc).currentText()
-                    cind = self.curve_names.get_loc(cname)
-                    lind = self.curve_names.get_loc(linked)
-                    mlinks[cind, lind] = 1
-                    mlinks[lind, cind] = 1 # Make matrix symmetrical
-            # Warshall-Floyd to make matrix transitive 
-            for k in range(ncurves):
-                for i in range(ncurves):
-                    for j in range(ncurves):
-                        mlinks[i, j] = mlinks[i, j] or (mlinks[i, k] == 1 and mlinks[k, j] == 1)
-            # Find the equivalence classes for this parameter 
-            scrap = np.ones((ncurves,), dtype=bool)
-            eq_classes = []
-            for k in range(ncurves):
-                if scrap[k]:
-                    ec = np.where(mlinks[k] == 1)
-                    eq_classes.append(ec[0])
-                    scrap[ec] = False
-            # Number the individual equivalence classes
-            ind_params = np.empty_like(self.curve_names, dtype=int)
-            for i in eq_classes:
-                ind_params[i] = indpcount
-                indpcount += 1
-            links[pcount] = ind_params
-            pcount += 1
-        return links.transpose()
+        links = np.arange(nparams * ncurves, dtype=int)
+        links = np.reshape(links, (nparams, ncurves))
+        
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            l_locs = np.arange(0, nparams * ncol_per_param, ncol_per_param) + self.head_share
+            pcount, indpcount = 0, 0
+            for lloc in l_locs:
+                # Find all connections (reflexive, symmetrical, transitive graph)
+                mlinks = np.identity(ncurves, dtype=int) # Make matrix reflexive
+                for irow in range(self.tbl_params.rowCount()):
+                    cname = self.tbl_params.verticalHeaderItem(irow).text()
+                    if cname in self.curve_names:
+                        linked = self.tbl_params.cellWidget(irow, lloc).currentText()
+                        cind = self.curve_names.get_loc(cname)
+                        lind = self.curve_names.get_loc(linked)
+                        mlinks[cind, lind] = 1
+                        mlinks[lind, cind] = 1 # Make matrix symmetrical
+                # Warshall-Floyd to make matrix transitive 
+                for k in range(ncurves):
+                    for i in range(ncurves):
+                        for j in range(ncurves):
+                            mlinks[i, j] = mlinks[i, j] or (mlinks[i, k] == 1 and mlinks[k, j] == 1)
+                # Find the equivalence classes for this parameter 
+                scrap = np.ones((ncurves,), dtype=bool)
+                eq_classes = []
+                for k in range(ncurves):
+                    if scrap[k]:
+                        ec = np.where(mlinks[k] == 1)
+                        eq_classes.append(ec[0])
+                        scrap[ec] = False
+                # Number the individual equivalence classes
+                ind_params = np.empty_like(self.curve_names, dtype=int)
+                for i in eq_classes:
+                    ind_params[i] = indpcount
+                    indpcount += 1
+                links[pcount] = ind_params
+                pcount += 1
+        
+        selected = [self.curve_names.tolist().index(name) for name in series_names]        
+        return links.transpose()[selected]
                                 
     def on_calc(self):
         funcname = self.cmb_fit_function.currentText()
         func = self.fn_dictionary[funcname][self.d_func]
-        data = self._get_selected_data()
-        param_values = self._get_all_param_values()
-        const_params = self._get_constant_params()
-        links = None
-        if self.chk_global.checkState() == qt.Qt.Checked:
-            links = self._get_linked_params()
-        curve_names = self.curve_names.tolist()
-        header = ['time']
-        header.extend(curve_names)
-#        param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+        selected_series = self._get_selected_series()
+        data = self._get_selected_data(selected_series) 
+        param_values = self._get_all_param_values(selected_series)
+        const_params = self._get_constant_params(selected_series)
+        links = self._get_linked_params(selected_series)
         
         ffw = ff.FunctionsFramework()
-        fitted_params = ffw.perform_fit(data, func, param_values, const_params, links)
+        fitted_params = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
         
         fitted_curves = cp.deepcopy(data)
-        d_curves = None
-        r_curves = None
-        for curve, params in zip(fitted_curves, fitted_params):
+        # data is a list of arrays in which [:-1] are x-values and [-1] is y
+        
+#         d_curves = None
+#         r_curves = None
+        self.canvas.clear_plots()
+        for series, curve, params in zip(selected_series, fitted_curves, fitted_params):
             x = curve[:-1]
             y = curve[-1]
             y_fit = func(x, params)
             y_res = y - y_fit
-            if d_curves is None:
-                d_curves = np.vstack((x[0], y_fit))
-                r_curves = np.vstack((x[0], y_res))
-            else:
-                d_curves = np.vstack((d_curves, y_fit))
-                r_curves = np.vstack((r_curves, y_res))
-        self.display_curves = pd.DataFrame(d_curves.transpose(), columns=header)
-        self.residuals = pd.DataFrame(r_curves.transpose(), columns=header)
-        self.draw_all()
+            
+            print(x.shape, y.shape, y_fit.shape, y_res.shape)
+            self.canvas.draw_series(series, x[0], y)
+            self.canvas.draw_series_fit(series, x[0], y_fit)
+            self.canvas.draw_series_residuals(series, x[0], y_res)
+            
+            
+#             if d_curves is None:
+#                 d_curves = np.vstack((x[0], y_fit))
+#                 r_curves = np.vstack((x[0], y_res))
+#             else:
+#                 d_curves = np.vstack((d_curves, y_fit))
+#                 r_curves = np.vstack((r_curves, y_res))
+# 
+#         header = ['time']
+#         header.extend(selected_series)
+#         self.display_curves = pd.DataFrame(d_curves.transpose(), columns=header)
+#         self.residuals = pd.DataFrame(r_curves.transpose(), columns=header)
+#         self.draw_all()
+            
 
     def on_toggle_global(self):
         self.prepare_params_table()
