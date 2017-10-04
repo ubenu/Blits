@@ -315,13 +315,18 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         links = self._get_linked_params(selected_series)
         
         ffw = ff.FunctionsFramework()
-        fitted_params = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            fitted_params = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+        else:
+            for data_item in data:
+                item = list(data_item)
+                print(item)
+                fitted_params = ffw.perform_global_curve_fit(item, func, param_values, const_params, links)
+#                print(fitted_params)
         
         fitted_curves = cp.deepcopy(data)
         # data is a list of arrays in which [:-1] are x-values and [-1] is y
         
-#         d_curves = None
-#         r_curves = None
         self.canvas.clear_plots()
         for sid, series, params in zip(selected_series, fitted_curves, fitted_params):
             x = series[:-1]
@@ -334,6 +339,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.canvas.draw_series_residuals(sid, x[0], y_res)
             
             
+#         d_curves = None
+#         r_curves = None
 #             if d_curves is None:
 #                 d_curves = np.vstack((x[0], y_fit))
 #                 r_curves = np.vstack((x[0], y_res))
