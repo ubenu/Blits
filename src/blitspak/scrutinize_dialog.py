@@ -323,16 +323,15 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 #         d_curves = None
 #         r_curves = None
         self.canvas.clear_plots()
-        for series, curve, params in zip(selected_series, fitted_curves, fitted_params):
-            x = curve[:-1]
-            y = curve[-1]
+        for sid, series, params in zip(selected_series, fitted_curves, fitted_params):
+            x = series[:-1]
+            y = series[-1]
             y_fit = func(x, params)
             y_res = y - y_fit
             
-            print(x.shape, y.shape, y_fit.shape, y_res.shape)
-            self.canvas.draw_series(series, x[0], y)
-            self.canvas.draw_series_fit(series, x[0], y_fit)
-            self.canvas.draw_series_residuals(series, x[0], y_res)
+            self.canvas.draw_series(sid, x[0], y)
+            self.canvas.draw_series_fit(sid, x[0], y_fit)
+            self.canvas.draw_series_residuals(sid, x[0], y_res)
             
             
 #             if d_curves is None:

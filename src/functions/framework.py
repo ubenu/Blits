@@ -100,9 +100,7 @@ class FunctionsFramework():
         uparams = param_vals.flatten()[indices]
         uv_filter = variables.flatten()[indices]
         def func(x, *v):
-            split_x = x
-            if len(x_splits) > 0:
-                split_x = np.split(x, x_splits, axis=1)
+            split_x = np.split(x, x_splits, axis=1) # ok, even if x_splits == []
             uparams[uv_filter] = v
             params = uparams[inverse_indices].reshape(pshape)          
             y_out = []

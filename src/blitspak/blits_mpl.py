@@ -87,7 +87,7 @@ class MplCanvas(FigureCanvas):
         
     def draw_series_residuals(self, series_name, x, y):
         if self.series_in_plot(series_name):
-            self.res_plot.plot(x, y, color=self.curve_colours[series_name])
+            self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
             self.fig.canvas.draw()        
         
              
