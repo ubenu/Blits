@@ -313,16 +313,20 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         param_values = self._get_all_param_values(selected_series)
         const_params = self._get_constant_params(selected_series)
         links = self._get_linked_params(selected_series)
+        fitted_params = cp.deepcopy(param_values)
         
         ffw = ff.FunctionsFramework()
         if self.chk_global.checkState() == qt.Qt.Checked:
             fitted_params = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
         else:
-            for data_item in data:
-                item = list(data_item)
-                print(item)
-                fitted_params = ffw.perform_global_curve_fit(item, func, param_values, const_params, links)
-#                print(fitted_params)
+            n = 0
+            for d, p, c, l in zip(data, param_values, const_params, links):
+                d = [d, ]
+                p = np.reshape(p, (1, p.shape[0]))
+                c = np.reshape(c, (1, c.shape[0]))
+                l = np.reshape(l, (1, l.shape[0]))
+                fitted_params[n] = ffw.perform_global_curve_fit(d, func, p, c, l)
+                n += 1
         
         fitted_curves = cp.deepcopy(data)
         # data is a list of arrays in which [:-1] are x-values and [-1] is y
@@ -337,22 +341,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.canvas.draw_series(sid, x[0], y)
             self.canvas.draw_series_fit(sid, x[0], y_fit)
             self.canvas.draw_series_residuals(sid, x[0], y_res)
-            
-            
-#         d_curves = None
-#         r_curves = None
-#             if d_curves is None:
-#                 d_curves = np.vstack((x[0], y_fit))
-#                 r_curves = np.vstack((x[0], y_res))
-#             else:
-#                 d_curves = np.vstack((d_curves, y_fit))
-#                 r_curves = np.vstack((r_curves, y_res))
-# 
-#         header = ['time']
-#         header.extend(selected_series)
-#         self.display_curves = pd.DataFrame(d_curves.transpose(), columns=header)
-#         self.residuals = pd.DataFrame(r_curves.transpose(), columns=header)
-#         self.draw_all()
             
 
     def on_toggle_global(self):

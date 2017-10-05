@@ -46,7 +46,7 @@ class FunctionsFramework():
         @params is a 1D numpy array of best-fit parameter values
         @covar is the best fit covariance matrix
         @conf_level is the required confidence level, eg 0.95 for 95% confidence intervals
-        Returns a 1D numpy array of the size of params with the confidence intervals
+        @return a 1D numpy array of the size of params with the confidence intervals
         on params (report (eg) p +/- d or p (d/p*100 %), where p is a parameter value
         and d is its associated relative confidence interval.
         """
@@ -85,8 +85,8 @@ class FunctionsFramework():
         the value of p2 is different for all curves. In this example, 
         the total number of parameters to be fitted is 7.
         
-        @returns [0] a function that can be used as input to curve_fit
-        @returns [1] a flat array with the unique variable parameter values
+        @return [0] a function that can be used as input to curve_fit
+        @return [1] a flat array with the unique variable parameter values
         """
         pshape = param_vals.shape
         ugroups, indices, inverse_indices = np.unique(groups.flatten(), 
@@ -172,8 +172,9 @@ class FunctionsFramework():
                     xtol *= 10.
                     out = curve_fit(gfunc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
                     pars = out[0]
-                    #covar = out[1]
+                    covar = out[1]
                     nfev = out[2]['nfev']
+                    cis = FunctionsFramework.confidence_intervals(FunctionsFramework, x[i].shape[1], pvar, pcov, 0.95)
                     log_entry = "\nNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
                     print(log_entry)
                 except ValueError as e:
@@ -196,7 +197,6 @@ class FunctionsFramework():
         fitted_params = param_values.flatten()[first_occurrence]
         fitted_params[uv_filter] = pars
         param_matrix = fitted_params[inverse_indices].reshape(pshp)
-        print(param_matrix)
         return param_matrix
                 
         
