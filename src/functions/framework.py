@@ -100,7 +100,7 @@ class FunctionsFramework():
         uparams = param_vals.flatten()[indices]
         uv_filter = variables.flatten()[indices]
         def func(x, *v):
-            split_x = np.split(x, x_splits, axis=1) # ok, even if x_splits == []
+            split_x = np.split(x, x_splits, axis=1)
             uparams[uv_filter] = v
             params = uparams[inverse_indices].reshape(pshape)          
             y_out = []
@@ -141,6 +141,13 @@ class FunctionsFramework():
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. In this example, 
         the total number of parameters to be fitted is 7.
+        
+        @return [0] parameter_matrix: full parameter value matrix, shape as @param_values
+        @return [1] confidence_matrix: full confidence intervals matrix, shape as @param_values 
+                (could be reported to user as, eg, confidence_matrix/parameter_matrix for 
+                estimate of stdev on returned parameter values
+        @return [2] the ftol value achieved (the smaller the better, starts at 1e-8, maximally 1e0)
+        @return [3] the process log, with details of the fitting process
         """ 
         # Create a flat data set and an array that indicates where to split 
         # the flat data to reconstruct the individual curves
@@ -164,40 +171,43 @@ class FunctionsFramework():
             # Get the correct function for global fitting and a first estimate for the variable params
             gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
             # Perform the global fit
-            pars = None
+            pars, conf_ints = None, None
+            parameter_matrix, confidence_matrix = None, None
             ftol, xtol = 1.0e-9, 1.0e-9
             while pars is None and ftol < 1.0:
                 try:
                     ftol *= 10.
                     xtol *= 10.
                     out = curve_fit(gfunc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
-                    pars = out[0]
+                    pars = out[0] 
                     covar = out[1]
+                    conf_ints = self.confidence_intervals(x.shape[1], pars, covar, 0.95) 
                     nfev = out[2]['nfev']
-                    cis = FunctionsFramework.confidence_intervals(FunctionsFramework, x[i].shape[1], pvar, pcov, 0.95)
                     log_entry = "\nNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
-                    print(log_entry)
+                    process_log += log_entry
                 except ValueError as e:
                     log_entry = "\nValue Error (ass):" + str(e)
                     process_log += log_entry
-                    print(log_entry)
+#                    print(log_entry)
                 except RuntimeError as e:
                     log_entry = "\nRuntime Error (ass):" + str(e)
                     process_log += log_entry
-                    print(log_entry)
+#                    print(log_entry)
                 except:
                     log_entry = "\nOther error (ass)"
                     process_log += log_entry
-                    print(log_entry)
         
         # Reconstruct and return the full parameter matrix 
-        pshp = param_values.shape
-        ug, first_occurrence, inverse_indices = np.unique(groups.flatten(), return_index= True, return_inverse=True)
-        uv_filter = variables.flatten()[first_occurrence]
-        fitted_params = param_values.flatten()[first_occurrence]
-        fitted_params[uv_filter] = pars
-        param_matrix = fitted_params[inverse_indices].reshape(pshp)
-        return param_matrix
+        if not pars is None:
+            ug, first_occurrence, inverse_indices = np.unique(groups.flatten(), return_index= True, return_inverse=True)
+            uv_filter = variables.flatten()[first_occurrence]
+            fitted_params = param_values.flatten()[first_occurrence]
+            confidence = np.zeros_like(fitted_params)
+            fitted_params[uv_filter] = pars    
+            confidence[uv_filter] = conf_ints
+            parameter_matrix = fitted_params[inverse_indices].reshape(param_values.shape)
+            confidence_matrix = confidence[inverse_indices].reshape(param_values.shape)
+        return parameter_matrix, confidence_matrix, ftol, process_log
                 
         
 ################################################################################################
@@ -263,8 +273,6 @@ def test_global():
     groups = np.zeros(l_shape, dtype=int)
     groups[:,1] += 1
     groups[:,2] += 2 # all 3 params are linked in all curves (here)
-#    groups = np.array([0,1,2,1,3,1,4,1]).reshape(l_shape)
-    #groups = np.arange(n_curves * fp0.shape[0]).reshape(l_shape) # all params independent
     splits = np.arange(n_points, n_curves * n_points, n_points)
     
     flat_x = x[0]

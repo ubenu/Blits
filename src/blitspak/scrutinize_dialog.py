@@ -314,18 +314,27 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         const_params = self._get_constant_params(selected_series)
         links = self._get_linked_params(selected_series)
         fitted_params = cp.deepcopy(param_values)
+        confidence_intervals = np.empty_like(fitted_params)
+        tol = None
         
         ffw = ff.FunctionsFramework()
         if self.chk_global.checkState() == qt.Qt.Checked:
-            fitted_params = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+            results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+            fitted_params = results[0]
+            confidence_intervals = results[1]
+            tol = results[2]
         else:
+            tol = []
             n = 0
             for d, p, c, l in zip(data, param_values, const_params, links):
                 d = [d, ]
                 p = np.reshape(p, (1, p.shape[0]))
                 c = np.reshape(c, (1, c.shape[0]))
                 l = np.reshape(l, (1, l.shape[0]))
-                fitted_params[n] = ffw.perform_global_curve_fit(d, func, p, c, l)
+                results = ffw.perform_global_curve_fit(d, func, p, c, l)
+                fitted_params[n] = results[0]
+                confidence_intervals[n] = results[1]
+                tol.append(results[2])
                 n += 1
         
         fitted_curves = cp.deepcopy(data)
@@ -338,6 +347,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             y_fit = func(x, params)
             y_res = y - y_fit
             
+            self.line0, self.line1 = None, None
+            self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+            self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
+
             self.canvas.draw_series(sid, x[0], y)
             self.canvas.draw_series_fit(sid, x[0], y_fit)
             self.canvas.draw_series_residuals(sid, x[0], y_res)
