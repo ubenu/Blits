@@ -71,6 +71,7 @@ class MplCanvas(FigureCanvas):
     def clear_plots(self):
         self.data_plot.cla()
         self.data_res_plot.cla()
+        self.set_fig_annotations()
         self.fig.canvas.draw()
     
     def draw_series(self, series_name, x, y):
