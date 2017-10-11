@@ -8,8 +8,7 @@ Created on 6 Jun 2017
 import numpy as np
 import pandas as pd
 import copy as cp
-#from scipy.optimize import curve_fit
-#from statsmodels.stats.stattools import durbin_watson
+from statsmodels.stats.stattools import durbin_watson
 
 from PyQt5 import QtCore as qt
 from PyQt5 import QtGui as gui
@@ -22,8 +21,7 @@ import functions.function_defs as fdefs
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
-#from dill.pointers import parent # How did this get here?
-#from functions.framework import FunctionsFramework
+
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
 class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
@@ -93,11 +91,11 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                             head_share: "Share\nvalue\nwith",
                             }
     results_table_columns = range(4)
-    hr_trac, hr_dw, hr_pfit, hr_conf = results_table_columns
-    results_table_headers = {hr_trac: "Trace",
-                             hr_dw: "Durbin-\nWatson",
-                             hr_pfit: "Value",
-                             hr_conf: "Error",
+    qual_durb_wat, qual_param_val, qual_abs_error, qual_rel_error = results_table_columns
+    results_table_headers = {qual_durb_wat: "Residuals\nautocorrelation\n(Durbin-Watson)",
+                             qual_param_val: "Parameter\nvalue",
+                             qual_abs_error: ".95\n confidence\nlimit",
+                             qual_rel_error: "Rel\n(%)",
                              }
 
     def __init__(self, parent, start, stop):
@@ -144,8 +142,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
         self.curve_names = self.data.columns[self.data.columns != 'time'].tolist()
-        
-        # this must be generalized to cater for different data sets
+        # this must be generalised to cater for different data sets (with different independents)
 
         self.x_outer_limits = self.data['time'].min(), self.data['time'].max()
         self.x_limits = cp.deepcopy(self.x_outer_limits)
@@ -166,7 +163,15 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         self.ui_ready = True
         self.on_current_index_changed(0)
-        
+
+    def fill_library(self):                
+        for name in self.fn_dictionary:
+            fn_ref = self.fn_dictionary[name][self.d_func]
+            p0_fn_ref = self.fn_dictionary[name][self.d_p0]
+            param_names = self.fn_dictionary[name][self.d_pnames]
+            fn_str = self.fn_dictionary[name][self.d_expr]
+            self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
+                    
     def _get_selected_series(self):
         selected = []
         for irow in range(1, self.tbl_params.rowCount()):
@@ -350,25 +355,37 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 tol.append(results[2])
                 n += 1
         
-        fitted_curves = cp.deepcopy(data)
+        
+        fitted_curves = cp.deepcopy(data) # data is a list of arrays in which [:-1] are x-values and [-1] is y
         x_data, y_data, y_fit_data, y_res_data = [], [], [], []
-        # data is a list of arrays in which [:-1] are x-values and [-1] is y
-        for series, params in zip(fitted_curves, fitted_params):
+        fitted_param_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}
+        
+        for sid, series, params, conf_intv in zip(selected_series, 
+                                                  fitted_curves, 
+                                                  fitted_params, 
+                                                  confidence_intervals, 
+                                                  ):
             x = series[:-1]
-            x_data.append(x)
             y = series[-1]
-            y_data.append(y)
             y_fit = func(x, params)
-            y_fit_data.append(y_fit)
             y_res = y - y_fit
+            dw_stat = durbin_watson(y_res, 0)
+
+            x_data.append(x)
+            y_data.append(y)
+            y_fit_data.append(y_fit)
             y_res_data.append(y_res)
-            
+            fitted_param_dict[sid] = params
+            conf_intv_dict[sid] = conf_intv
+            dw_stat_dict[sid] = dw_stat
+
         self.draw_curves(selected_series, x_data, y_data, y_fit_data, y_res_data)
+        self.set_tbl_param_values(fitted_param_dict)
+        self.set_tbl_qual_values(fitted_param_dict, conf_intv_dict, dw_stat_dict)
         
             
     def draw_curves(self, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
         self.canvas.clear_plots()
-#        self.line0, self.line1 = None, None
         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_limits)
         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_limits)           
 
@@ -387,14 +404,14 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.prepare_params_table()
          
     def on_current_index_changed(self, index):
-        self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
+#        self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
             self.txt_function.setText(self.library[self.current_function].fn_str)
             self.txt_function.adjustSize()
             self.prepare_params_table()
-            #self.prepare_results_table()
+            self.prepare_results_table()
             
     def on_item_changed(self, item):
         ncol_per_param = 2
@@ -496,21 +513,22 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     self.tbl_params.setItem(irow, icol, w)
         p0s = self.get_p0s()
         self.set_tbl_param_values(p0s)
-        self.tbl_params.resizeColumnsToContents()
-        self.tbl_params.resizeRowsToContents()
         
     def set_tbl_param_values(self, param_val_dict):
         ncol_per_param = 2
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3  
-               
+            ncol_per_param = 3                 
         for irow in range(self.tbl_params.rowCount()):
-            params_for_series = param_val_dict[self.curve_names[irow-1]]
-            for icol in range(self.tbl_params.columnCount()):
-                if (icol - 1) % ncol_per_param in (0, ) and irow != 0:
-                    w = self.tbl_params.item(irow, icol)
-                    npar = (icol - 1) // ncol_per_param
-                    w.setText('{:.2g}'.format(params_for_series[npar]))
+            sid = self.tbl_params.verticalHeaderItem(irow).text()
+            if sid in param_val_dict:
+                params_for_series = param_val_dict[sid] #[self.curve_names[irow-1]]
+                for icol in range(self.tbl_params.columnCount()):
+                    if (icol - 1) % ncol_per_param in (0, ) and irow != 0:
+                        w = self.tbl_params.item(irow, icol)
+                        npar = (icol - 1) // ncol_per_param
+                        w.setText('{:.2g}'.format(params_for_series[npar]))
+        self.tbl_params.resizeColumnsToContents()
+        self.tbl_params.resizeRowsToContents()
                                 
     def get_p0s(self):
         p0_func = self.library[self.current_function].p0_fn_ref
@@ -521,100 +539,145 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             param_values[tid] = p0_func(x, y)
         return param_values
                                
-                     
-    def draw_all(self):
-        if not self.data is None:
-            x = self.data['time']
-            y = self.data[self.curve_names]
-            self.canvas.draw_data(x, y)
-            self.line0, self.line1 = None, None
-            self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
-            self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
-            if not self.display_curves is None:
-                xd = self.display_curves['time']
-                yd = self.display_curves[self.curve_names]
-                self.canvas.draw_fitted_data(xd, yd)
-                ryd = self.residuals[self.curve_names]
-                self.canvas.draw_residuals(xd, ryd)
-            
-
-    def fill_library(self):                
-        for name in self.fn_dictionary:
-            fn_ref = self.fn_dictionary[name][self.d_func]
-            p0_fn_ref = self.fn_dictionary[name][self.d_p0]
-            param_names = self.fn_dictionary[name][self.d_pnames]
-            fn_str = self.fn_dictionary[name][self.d_expr]
-            self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
-            
     def prepare_results_table(self):
+        # Clear the table of all data
         self.tbl_results.clear()
-        labels = [self.results_table_headers[self.hr_trac],
-                  self.results_table_headers[self.hr_dw],]
-        
+        # Set the horizontal header for the current function
+        labels = [self.results_table_headers[self.qual_durb_wat]]
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
             for name in param_names:
-                labels.append(name + '\n' + self.results_table_headers[self.hr_pfit])
-                labels.append(name + '\n' + self.results_table_headers[self.hr_conf])
-                #labels.append(self.results_table_headers[self.hr_advice])
+                labels.append(name)
+                labels.append(self.results_table_headers[self.qual_abs_error])
+                labels.append(self.results_table_headers[self.qual_rel_error])
         self.tbl_results.setColumnCount(len(labels))
         self.tbl_results.setHorizontalHeaderLabels(labels)
+        
+        # Set vertical header (series names + colour icons)
         if len(self.curve_names) != 0:
-            labels = []
-            labels.extend(self.curve_names)
+            labels = self.curve_names
             self.tbl_results.setRowCount(len(labels))
-            self.tbl_results.setVerticalHeaderLabels(labels)
-            self.tbl_results.resizeColumnsToContents()
-            self.tbl_results.resizeRowsToContents() 
-        for irow in range(self.tbl_results.rowCount()):
-            cid = self.tbl_results.verticalHeaderItem(irow).text()
-            for icol in range(self.tbl_results.columnCount()):
+            row = 0
+            for lbl in labels:
+                vhw = widgets.QTableWidgetItem()
+                vhw.setText(lbl)
+                vhw.setTextAlignment(qt.Qt.AlignRight)
+                self.tbl_results.setVerticalHeaderItem(row, vhw)
+                clr = self.canvas.curve_colours[lbl]
+                ic = self.parent().line_icon(clr)
+                vhw.setIcon(ic)
+                row += 1
+                
+        for icol in range(self.tbl_results.columnCount()):
+            for irow in range(self.tbl_results.rowCount()):
                 w = widgets.QTableWidgetItem()
-                self.tbl_results.setItem(irow, icol, w) 
-                if icol == self.hr_trac: # curve colour icon in col 0
-                    col = self.canvas.curve_colours[cid]
-                    ic = self.parent().line_icon(col)
-                    w.setIcon(ic)
-                elif icol == self.hr_dw:
-                    if cid in self.dw_statistic_fit:
-                        w.setText('{:.4g}'.format(self.dw_statistic_fit[cid]))  
-                        dw = self.dw_statistic_fit[cid]
-                        if  1.0 < dw < 3.0:
-                            trlcol = "green"
-                        elif 0.5 < dw <= 1.0 or 3.0 <= dw < 2.5:
-                            trlcol = "orange"
-                        else:
-                            trlcol = "red"
-                        cic = self.parent().circle_icon(trlcol)
-                        w.setIcon(cic)   
-                else:                   
-                    if cid in self.param_values_fit:
-                        nparam = (icol - self.hr_pfit) // 3
-                        ptype = (icol - self.hr_pfit) % 3
-                        pval = self.param_values_fit[cid][nparam]
-                        cintv = self.conf_intervals_fit[cid][nparam]
-                        trlcol = "red"
-                        rstr = "Undetermined"
-                        if not np.isnan(cintv):
-                            rintv = int(abs(100*cintv/pval))
-                            if rintv < 20:
-                                trlcol = "green"
-                            elif rintv < 50:
-                                trlcol = "orange"
-                            else:
-                                trlcol = "red"
-                            if rintv <= 100:
-                                rstr = '{:.1g} ({:d}%)'.format(cintv, rintv)
-                            else:
-                                rstr = '{:.1g} (> 100%)'.format(cintv)                                       
-                        if ptype == 1:
-                            w.setText(rstr)
-                        if ptype == 0:
-                            w.setText('{:.3g}'.format(self.param_values_fit[cid][nparam]))
-                            cic = self.parent().circle_icon(trlcol)
-                            w.setIcon(cic)
+                self.tbl_results.setItem(irow, icol, w)
+                
+    def set_tbl_qual_values(self, param_val_dict, conf_intv_dict={}, durbwat_stat_dict={}):
+        ncol_per_param = 3
+        for irow in range(self.tbl_results.rowCount()):
+            sid = self.tbl_results.verticalHeaderItem(irow).text()
+            icol = 0
+            wd = self.tbl_results.item(irow, icol)
+            wd.setText("")
+            if sid in durbwat_stat_dict:
+                dw = durbwat_stat_dict[sid]
+                wd.setText('{:.3g}'.format(dw)) 
+                if  1.0 < dw < 3.0:
+                    trlcol = "green"
+                elif 0.5 < dw <= 1.0 or 3.0 <= dw < 2.5:
+                    trlcol = "orange"
+                else:
+                    trlcol = "red"
+                cic = self.parent().circle_icon(trlcol)
+                wd.setIcon(cic)   
+
+            for icol in range(1, self.tbl_results.columnCount(), ncol_per_param):
+                if (icol-1) % ncol_per_param in (0, ):
+                    npar = (icol-1) // ncol_per_param
+                    wv = self.tbl_results.item(irow, icol)
+                    wv.setText("")
+                    wc = self.tbl_results.item(irow, icol+1)
+                    wc.setText("")
+                    wr = self.tbl_results.item(irow, icol+2)
+                    wr.setText("")
+                    v, c = 1, 0
+                    if sid in param_val_dict:
+                        v = param_val_dict[sid][npar]
+                        wv.setText('{:.2g}'.format(v))
+                    if sid in conf_intv_dict:
+                        c = conf_intv_dict[sid][npar]
+                        wc.setText('{:.2g}'.format(c))
+                        wr.setText('{:.0g}'.format(c / v * 100))
+                        
         self.tbl_results.resizeColumnsToContents()
-        self.tbl_results.resizeRowsToContents() 
+        self.tbl_results.resizeRowsToContents()
+        
+        
+#         if self.current_function != "":
+#             param_names = self.library[self.current_function].param_names 
+#             for name in param_names:
+#                 labels.append(name + '\n' + self.results_table_headers[self.hr_pfit])
+#                 labels.append(name + '\n' + self.results_table_headers[self.hr_conf])
+#                 #labels.append(self.results_table_headers[self.hr_advice])
+#         self.tbl_results.setColumnCount(len(labels))
+#         self.tbl_results.setHorizontalHeaderLabels(labels)
+#         if len(self.curve_names) != 0:
+#             labels = []
+#             labels.extend(self.curve_names)
+#             self.tbl_results.setRowCount(len(labels))
+#             self.tbl_results.setVerticalHeaderLabels(labels)
+#             self.tbl_results.resizeColumnsToContents()
+#             self.tbl_results.resizeRowsToContents() 
+#         for irow in range(self.tbl_results.rowCount()):
+#             cid = self.tbl_results.verticalHeaderItem(irow).text()
+#             for icol in range(self.tbl_results.columnCount()):
+#                 w = widgets.QTableWidgetItem()
+#                 self.tbl_results.setItem(irow, icol, w) 
+#                 if icol == self.hr_trac: # curve colour icon in col 0
+#                     col = self.canvas.curve_colours[cid]
+#                     ic = self.parent().line_icon(col)
+#                     w.setIcon(ic)
+#                 elif icol == self.hr_dw:
+#                     if cid in self.dw_statistic_fit:
+#                         w.setText('{:.4g}'.format(self.dw_statistic_fit[cid]))  
+#                         dw = self.dw_statistic_fit[cid]
+#                         if  1.0 < dw < 3.0:
+#                             trlcol = "green"
+#                         elif 0.5 < dw <= 1.0 or 3.0 <= dw < 2.5:
+#                             trlcol = "orange"
+#                         else:
+#                             trlcol = "red"
+#                         cic = self.parent().circle_icon(trlcol)
+#                         w.setIcon(cic)   
+#                 else:                   
+#                     if cid in self.param_values_fit:
+#                         nparam = (icol - self.hr_pfit) // 3
+#                         ptype = (icol - self.hr_pfit) % 3
+#                         pval = self.param_values_fit[cid][nparam]
+#                         cintv = self.conf_intervals_fit[cid][nparam]
+#                         trlcol = "red"
+#                         rstr = "Undetermined"
+#                         if not np.isnan(cintv):
+#                             rintv = int(abs(100*cintv/pval))
+#                             if rintv < 20:
+#                                 trlcol = "green"
+#                             elif rintv < 50:
+#                                 trlcol = "orange"
+#                             else:
+#                                 trlcol = "red"
+#                             if rintv <= 100:
+#                                 rstr = '{:.1g} ({:d}%)'.format(cintv, rintv)
+#                             else:
+#                                 rstr = '{:.1g} (> 100%)'.format(cintv)                                       
+#                         if ptype == 1:
+#                             w.setText(rstr)
+#                         if ptype == 0:
+#                             w.setText('{:.3g}'.format(self.param_values_fit[cid][nparam]))
+#                             cic = self.parent().circle_icon(trlcol)
+#                             w.setIcon(cic)
+#         self.tbl_results.resizeColumnsToContents()
+#         self.tbl_results.resizeRowsToContents() 
         
 #     def centred_checkbox(self, checked=False):
 #         w = widgets.QWidget() 
@@ -670,4 +733,18 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 #         self.draw_all()
 #         self.prepare_results_table()   
 
+#     def draw_all(self):
+#         if not self.data is None:
+#             x = self.data['time']
+#             y = self.data[self.curve_names]
+#             self.canvas.draw_data(x, y)
+#             self.line0, self.line1 = None, None
+#             self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+#             self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
+#             if not self.display_curves is None:
+#                 xd = self.display_curves['time']
+#                 yd = self.display_curves[self.curve_names]
+#                 self.canvas.draw_fitted_data(xd, yd)
+#                 ryd = self.residuals[self.curve_names]
+#                 self.canvas.draw_residuals(xd, ryd)
 
