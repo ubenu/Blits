@@ -38,10 +38,16 @@ class BlitsData():
             file.write(f)
             
     def _create_working_data(self):
-        selected = self.raw_data.columns[1::2]
-        self.trace_ids = self.raw_data.columns[0::2]         
-        self.working_data = self.raw_data[selected]
+        n_cols = len(self.raw_data.columns)
+        named_cols = self.raw_data.columns[~self.raw_data.columns.str.contains('unnamed', case=False)]
+        n_series = len(named_cols)
+        n_cols_per_series = n_cols // n_series
+        assert(n_cols % n_series == 0, "Cannot read input")
+        y = self.raw_data.columns[n_cols_per_series-1::n_cols_per_series]
+        self.trace_ids = named_cols #self.raw_data.columns[0::2]         
+        self.working_data = self.raw_data[y]
         self.working_data.columns = self.trace_ids
+        print(self.working_data)
         self.working_data['time'] = self.raw_data.iloc[:,0]
         self.working_data = self.working_data[0:-1:self.data_reduction_factor]
         

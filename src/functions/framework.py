@@ -52,8 +52,17 @@ class FunctionsFramework():
         """
         dof = max(0, n - params.shape[0]) # degrees of freedom
         tval = distributions.t.ppf(conf_level / 2., dof) # student-t value for the dof and confidence level
-        sigma = np.power(np.diag(covar), 0.5) # standard error
+        sigma = self.standard_error_from_covar(covar)
         return sigma * tval
+    
+    def standard_error_from_covar(self, covar):
+        """
+        @covar is a covariance matrix
+        @return a 1D numpy array representing the standard error on the data, derived from
+        the covariance matrix
+        """
+        return np.power(np.diag(covar), 0.5) # standard error
+        
             
     def make_func_global(self, fn, x_splits, param_vals, variables, groups):
         """
@@ -171,8 +180,8 @@ class FunctionsFramework():
             # Get the correct function for global fitting and a first estimate for the variable params
             gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
             # Perform the global fit
-            pars, conf_ints = None, None
-            parameter_matrix, confidence_matrix = None, None
+            pars, sigmas, conf_ints = None, None, None
+            parameter_matrix, sigma_matrix, confidence_matrix = None, None, None
             ftol, xtol = 1.0e-9, 1.0e-9
             while pars is None and ftol < 1.0:
                 try:
@@ -181,6 +190,7 @@ class FunctionsFramework():
                     out = curve_fit(gfunc, x, y, p0=p_est, ftol=ftol, xtol=xtol, maxfev=250, full_output=1) 
                     pars = out[0] 
                     covar = out[1]
+                    sigmas = self.standard_error_from_covar(covar)
                     conf_ints = self.confidence_intervals(x.shape[1], pars, covar, 0.95) 
                     nfev = out[2]['nfev']
                     log_entry = "\nNumber of evaluations: " + '{:d}'.format(nfev) + "\tTolerance: " + '{:.1e}'.format(ftol)
@@ -202,12 +212,16 @@ class FunctionsFramework():
             ug, first_occurrence, inverse_indices = np.unique(groups.flatten(), return_index= True, return_inverse=True)
             uv_filter = variables.flatten()[first_occurrence]
             fitted_params = param_values.flatten()[first_occurrence]
+            sigma = np.zeros_like(fitted_params)
             confidence = np.zeros_like(fitted_params)
-            fitted_params[uv_filter] = pars    
+            fitted_params[uv_filter] = pars
+            sigma[uv_filter] = sigmas  
             confidence[uv_filter] = conf_ints
             parameter_matrix = fitted_params[inverse_indices].reshape(param_values.shape)
+            sigma_matrix = sigma[inverse_indices].reshape(param_values.shape)
             confidence_matrix = confidence[inverse_indices].reshape(param_values.shape)
-        return parameter_matrix, confidence_matrix, ftol, process_log
+#        return parameter_matrix, confidence_matrix, ftol, process_log
+        return parameter_matrix, sigma_matrix, confidence_matrix, ftol, process_log
                 
         
 ################################################################################################
@@ -308,30 +322,34 @@ def test_global():
    
 
 def test_func():   
-    import matplotlib.pyplot as plt
+#     import matplotlib.pyplot as plt
     
     x = np.arange(0, 1, 0.001)
     x = x.reshape((1, x.shape[0]))
+    print(x)
     f = fdefs.fn_3exp
     p = np.array([1.0, 0.5, 10.0, 0.25, 1.0, 0.0, 1.0])
-    c = {5: 0.0, 6: 1.0}
-    m = [not (i in c) for i in range(p.shape[0])] # mask only showing variable params
-    n_free_params = len(p[m])
-    p_est = np.ones(n_free_params, dtype=float)
+#     c = {5: 0.0, 6: 1.0}
+#     m = [not (i in c) for i in range(p.shape[0])] # mask only showing variable params
+#     n_free_params = len(p[m])
+#     p_est = np.ones(n_free_params, dtype=float)
     data = f(x, p)
-    n_points = data.shape[1]
+    print(data)
+    n_points = data.shape[0]
     ndata = data + np.random.normal(0.0, 0.02*data[0], n_points)
-    fnc = FunctionsFramework.make_func(FunctionsFramework, f, p, c)
     
-    pvar, pcov = curve_fit(fnc, x[0], ndata[0], p0=p_est)
+    print(ndata)
+#     fnc = FunctionsFramework.make_func(FunctionsFramework, f, p, c)
     
-    cis = FunctionsFramework.confidence_intervals(FunctionsFramework, n_points, pvar, pcov, 0.95)
-    
-    plt.plot(x[0], ndata[0], 'ro', x[0], f(x, p)[0], 'k-')
-    plt.show()
+#     pvar, pcov = curve_fit(fnc, x[0], ndata[0], p0=p_est)
+#     
+#     cis = FunctionsFramework.confidence_intervals(FunctionsFramework, n_points, pvar, pcov, 0.95)
+#     
+#     plt.plot(x[0], ndata[0], 'ro', x[0], f(x, p)[0], 'k-')
+#     plt.show()
 
 if __name__ == '__main__':
-    test_global()
+    test_func()
 
 
 

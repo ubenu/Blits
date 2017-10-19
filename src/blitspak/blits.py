@@ -40,7 +40,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.scrutinize_dialog = None
         
         self.canvas = MplCanvas(self.mpl_window)
-        self.mpl_layout.addWidget(self.canvas)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
         self.mpl_layout.addWidget(self.plot_toolbar)
@@ -129,8 +128,10 @@ class Main(QMainWindow, Ui_MainWindow):
             if (xmin != xmax):
                 phase_id = self.phase_name + '{:0d}'.format(self.phase_number + 1)
                 self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax) 
-                self.scrutinize_dialog.txt_phase_id.setText(phase_id) 
-                if self.scrutinize_dialog.exec() == widgets.QDialog.Accepted:
+                flags = self.scrutinize_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
+                self.scrutinize_dialog.setWindowFlags(flags)
+                if self.scrutinize_dialog.show() == widgets.QDialog.Accepted:
+                    print(self.scrutinize_dialog.data)
                     self.phase_number += 1
                     self.phase_list.append(phase_id)
                     model = self.scrutinize_dialog.current_function

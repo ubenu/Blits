@@ -85,17 +85,17 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     params_table_columns = range(4)
     head_infit, head_param_val, head_constant, head_share = params_table_columns
-    params_table_headers = {head_infit: "Fit\nseries",
-                            head_param_val: "Parameter\nvalue",
-                            head_constant: "Keep\nvalue\nconstant",
-                            head_share: "Share\nvalue\nwith",
+    params_table_headers = {head_infit: "Include\nin fit",
+                            head_param_val: "Value of\n{0}",
+                            head_constant: "Keep\n{0}\nconstant",
+                            head_share: "Share\n{0}\nwith",
                             }
     results_table_columns = range(4)
-    qual_durb_wat, qual_param_val, qual_abs_error, qual_rel_error = results_table_columns
-    results_table_headers = {qual_durb_wat: "Residuals\nautocorrelation\n(Durbin-Watson)",
-                             qual_param_val: "Parameter\nvalue",
-                             qual_abs_error: ".95\n confidence\nlimit",
-                             qual_rel_error: "Rel\n(%)",
+    qual_durb_wat, qual_param_val, qual_sigma, qual_conf_lims = results_table_columns
+    results_table_headers = {qual_durb_wat: "Residuals\ndistribution\n(Durbin-\nWatson)",
+                             qual_param_val: "Value of\n{0}",
+                             qual_sigma: "Standard \n error\non {0}",
+                             qual_conf_lims: ".95\nconfidence\ninterval\nfor {0}",
                              }
 
     def __init__(self, parent, start, stop):
@@ -134,7 +134,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.cmb_fit_function.addItem(name)
         
 
-        self.fnfrw = ff.FunctionsFramework()  
+#         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
         self.residuals = None
         
@@ -163,6 +163,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         self.ui_ready = True
         self.on_current_index_changed(0)
+        
+#     def accept(self):
+#         print(self.data)
 
     def fill_library(self):                
         for name in self.fn_dictionary:
@@ -204,9 +207,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         parallel to self.curve_names and self.fn_dictionary[fn][self.d_pnames], 
         respectively) with values for each parameter in each curve).  
         """
-        ncol_per_param = 2
+#         ncol_per_param = 2
+#         if self.chk_global.checkState() == qt.Qt.Checked:
+#             ncol_per_param = 3
+        ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3
+            ncol_per_param += 1                 
 
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
@@ -237,9 +243,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.fn_dictionary[fn][self.d_pnames], respectively); if True, 
         parameter values is constant, if False, parameter value is variable.
         """
-        ncol_per_param = 2
+#         ncol_per_param = 2
+#         if self.chk_global.checkState() == qt.Qt.Checked:
+#             ncol_per_param = 3
+        ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3
+            ncol_per_param += 1                 
 
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
@@ -273,9 +282,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. 
         """
-        ncol_per_param = 2
+#         ncol_per_param = 2
+#         if self.chk_global.checkState() == qt.Qt.Checked:
+#             ncol_per_param = 3
+        ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3
+            ncol_per_param += 1                 
 
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
@@ -332,15 +344,19 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         const_params = self._get_constant_params(selected_series)
         links = self._get_linked_params(selected_series)
         fitted_params = cp.deepcopy(param_values)
+        sigmas = np.empty_like(fitted_params)
         confidence_intervals = np.empty_like(fitted_params)
         tol = None
         
+        self.set_tbl_qual_values() # no values; sets all cell contents to ""
+                
         ffw = ff.FunctionsFramework()
         if self.chk_global.checkState() == qt.Qt.Checked:
             results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
             fitted_params = results[0]
-            confidence_intervals = results[1]
-            tol = results[2]
+            sigmas = results[1]
+            confidence_intervals = results[2]
+            tol = results[3]
         else:
             tol = []
             n = 0
@@ -351,18 +367,20 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 l = np.reshape(l, (1, l.shape[0]))
                 results = ffw.perform_global_curve_fit(d, func, p, c, l)
                 fitted_params[n] = results[0]
-                confidence_intervals[n] = results[1]
-                tol.append(results[2])
+                sigmas[n] = results[1]
+                confidence_intervals[n] = results[2]
+                tol.append(results[3])
                 n += 1
         
         
         fitted_curves = cp.deepcopy(data) # data is a list of arrays in which [:-1] are x-values and [-1] is y
         x_data, y_data, y_fit_data, y_res_data = [], [], [], []
-        fitted_param_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}
+        fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}, {}
         
-        for sid, series, params, conf_intv in zip(selected_series, 
+        for sid, series, params, sigma, conf_intv in zip(selected_series, 
                                                   fitted_curves, 
                                                   fitted_params, 
+                                                  sigmas,
                                                   confidence_intervals, 
                                                   ):
             x = series[:-1]
@@ -376,12 +394,13 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             y_fit_data.append(y_fit)
             y_res_data.append(y_res)
             fitted_param_dict[sid] = params
+            sigma_dict[sid] = sigma
             conf_intv_dict[sid] = conf_intv
             dw_stat_dict[sid] = dw_stat
 
         self.draw_curves(selected_series, x_data, y_data, y_fit_data, y_res_data)
         self.set_tbl_param_values(fitted_param_dict)
-        self.set_tbl_qual_values(fitted_param_dict, conf_intv_dict, dw_stat_dict)
+        self.set_tbl_qual_values(fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict)
         
             
     def draw_curves(self, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
@@ -404,7 +423,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.prepare_params_table()
          
     def on_current_index_changed(self, index):
-#        self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
@@ -414,9 +432,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             self.prepare_results_table()
             
     def on_item_changed(self, item):
-        ncol_per_param = 2
+        ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3
+            ncol_per_param += 1                 
                       
         funcname = self.cmb_fit_function.currentText()
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
@@ -442,7 +460,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         
                                                     
     def prepare_params_table(self):
-        # Table must be set up for global or non-global fit
+        # Set up table for global or non-global fit
         global_fit = False
         if self.chk_global.checkState() == qt.Qt.Checked:
             global_fit = True
@@ -454,15 +472,15 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
             for name in param_names:
-                labels.append(name)
-                labels.append(self.params_table_headers[self.head_constant])
+                labels.append(self.params_table_headers[self.head_param_val].format(name))
+                labels.append(self.params_table_headers[self.head_constant].format(name))
                 if global_fit:
-                    labels.append(self.params_table_headers[self.head_share])
+                    labels.append(self.params_table_headers[self.head_share].format(name))
         self.tbl_params.setColumnCount(len(labels))
         self.tbl_params.setHorizontalHeaderLabels(labels)
-        ncol_per_param = 2
+        ncol_per_param = len(self.params_table_headers) - 2
         if global_fit:
-            ncol_per_param = 3
+            ncol_per_param += 1 #3
         
         # Set vertical header (series names + colour icons)
         if len(self.curve_names) != 0:
@@ -515,9 +533,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.set_tbl_param_values(p0s)
         
     def set_tbl_param_values(self, param_val_dict):
-        ncol_per_param = 2
+        ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
-            ncol_per_param = 3                 
+            ncol_per_param += 1                 
         for irow in range(self.tbl_params.rowCount()):
             sid = self.tbl_params.verticalHeaderItem(irow).text()
             if sid in param_val_dict:
@@ -547,9 +565,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
             for name in param_names:
-                labels.append(name)
-                labels.append(self.results_table_headers[self.qual_abs_error])
-                labels.append(self.results_table_headers[self.qual_rel_error])
+                labels.append(self.results_table_headers[self.qual_param_val].format(name))
+                labels.append(self.results_table_headers[self.qual_sigma].format(name))
+                labels.append(self.results_table_headers[self.qual_conf_lims].format(name))
         self.tbl_results.setColumnCount(len(labels))
         self.tbl_results.setHorizontalHeaderLabels(labels)
         
@@ -572,9 +590,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             for irow in range(self.tbl_results.rowCount()):
                 w = widgets.QTableWidgetItem()
                 self.tbl_results.setItem(irow, icol, w)
+        
+        self.tbl_results.resizeColumnsToContents()
+        self.tbl_results.resizeRowsToContents()
                 
-    def set_tbl_qual_values(self, param_val_dict, conf_intv_dict={}, durbwat_stat_dict={}):
-        ncol_per_param = 3
+    def set_tbl_qual_values(self, param_val_dict={}, sigma_dict={}, conf_intv_dict={}, durbwat_stat_dict={}):
+        ncol_per_param = len(self.params_table_headers) - 1 #3
         for irow in range(self.tbl_results.rowCount()):
             sid = self.tbl_results.verticalHeaderItem(irow).text()
             icol = 0
@@ -597,87 +618,26 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     npar = (icol-1) // ncol_per_param
                     wv = self.tbl_results.item(irow, icol)
                     wv.setText("")
-                    wc = self.tbl_results.item(irow, icol+1)
+                    ws = self.tbl_results.item(irow, icol+1)
+                    ws.setText("")
+                    wc = self.tbl_results.item(irow, icol+2)
                     wc.setText("")
-                    wr = self.tbl_results.item(irow, icol+2)
-                    wr.setText("")
                     v, c = 1, 0
                     if sid in param_val_dict:
                         v = param_val_dict[sid][npar]
                         wv.setText('{:.2g}'.format(v))
+                    if sid in sigma_dict:
+                        s = sigma_dict[sid][npar]
+                        ws.setText('{:.2g}'.format(s))
                     if sid in conf_intv_dict:
                         c = conf_intv_dict[sid][npar]
-                        wc.setText('{:.2g}'.format(c))
-                        wr.setText('{:.0g}'.format(c / v * 100))
+                        wc.setText('{:.2g}'.format(abs(c)))
                         
         self.tbl_results.resizeColumnsToContents()
         self.tbl_results.resizeRowsToContents()
         
         
-#         if self.current_function != "":
-#             param_names = self.library[self.current_function].param_names 
-#             for name in param_names:
-#                 labels.append(name + '\n' + self.results_table_headers[self.hr_pfit])
-#                 labels.append(name + '\n' + self.results_table_headers[self.hr_conf])
-#                 #labels.append(self.results_table_headers[self.hr_advice])
-#         self.tbl_results.setColumnCount(len(labels))
-#         self.tbl_results.setHorizontalHeaderLabels(labels)
-#         if len(self.curve_names) != 0:
-#             labels = []
-#             labels.extend(self.curve_names)
-#             self.tbl_results.setRowCount(len(labels))
-#             self.tbl_results.setVerticalHeaderLabels(labels)
-#             self.tbl_results.resizeColumnsToContents()
-#             self.tbl_results.resizeRowsToContents() 
-#         for irow in range(self.tbl_results.rowCount()):
-#             cid = self.tbl_results.verticalHeaderItem(irow).text()
-#             for icol in range(self.tbl_results.columnCount()):
-#                 w = widgets.QTableWidgetItem()
-#                 self.tbl_results.setItem(irow, icol, w) 
-#                 if icol == self.hr_trac: # curve colour icon in col 0
-#                     col = self.canvas.curve_colours[cid]
-#                     ic = self.parent().line_icon(col)
-#                     w.setIcon(ic)
-#                 elif icol == self.hr_dw:
-#                     if cid in self.dw_statistic_fit:
-#                         w.setText('{:.4g}'.format(self.dw_statistic_fit[cid]))  
-#                         dw = self.dw_statistic_fit[cid]
-#                         if  1.0 < dw < 3.0:
-#                             trlcol = "green"
-#                         elif 0.5 < dw <= 1.0 or 3.0 <= dw < 2.5:
-#                             trlcol = "orange"
-#                         else:
-#                             trlcol = "red"
-#                         cic = self.parent().circle_icon(trlcol)
-#                         w.setIcon(cic)   
-#                 else:                   
-#                     if cid in self.param_values_fit:
-#                         nparam = (icol - self.hr_pfit) // 3
-#                         ptype = (icol - self.hr_pfit) % 3
-#                         pval = self.param_values_fit[cid][nparam]
-#                         cintv = self.conf_intervals_fit[cid][nparam]
-#                         trlcol = "red"
-#                         rstr = "Undetermined"
-#                         if not np.isnan(cintv):
-#                             rintv = int(abs(100*cintv/pval))
-#                             if rintv < 20:
-#                                 trlcol = "green"
-#                             elif rintv < 50:
-#                                 trlcol = "orange"
-#                             else:
-#                                 trlcol = "red"
-#                             if rintv <= 100:
-#                                 rstr = '{:.1g} ({:d}%)'.format(cintv, rintv)
-#                             else:
-#                                 rstr = '{:.1g} (> 100%)'.format(cintv)                                       
-#                         if ptype == 1:
-#                             w.setText(rstr)
-#                         if ptype == 0:
-#                             w.setText('{:.3g}'.format(self.param_values_fit[cid][nparam]))
-#                             cic = self.parent().circle_icon(trlcol)
-#                             w.setIcon(cic)
-#         self.tbl_results.resizeColumnsToContents()
-#         self.tbl_results.resizeRowsToContents() 
+
         
 #     def centred_checkbox(self, checked=False):
 #         w = widgets.QWidget() 
@@ -693,45 +653,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 #         w.setLayout(l)
 #         return w                    
                     
-      
-        
-###    NON-GLOBAL FITTING ROUTINE
-##         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
-##         funcname = self.cmb_fit_function.currentText()
-##         f = self.fn_dictionary[funcname][self.d_func]
-##         self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
-##         indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
-##         selection = cp.deepcopy(self.data[indmin:indmax])
-#         self.display_curves = cp.deepcopy(selection)
-#         self.display_curves[self.curve_names] = np.zeros_like(selection[self.curve_names])
-#         self.residuals = cp.deepcopy(selection)
-#         self.residuals[self.curve_names] = np.zeros_like(selection[self.curve_names])
-#         param_values = self.get_all_param_values()
-#         for trace in self.curve_names:
-#             p = param_values[trace]
-#             t = selection['time']
-#             x = t - t.iloc[0]
-#             y = selection[trace]
-#             try:
-#                 pfit, pcov = curve_fit(self.fnfrw.make_func(f, params=p, const={}), x, y, p0=p)
-#                 pconf = self.fnfrw.confidence_intervals(y.shape[0], pfit, pcov, 0.95)
-#                 self.param_values_fit[trace] = pfit
-#                 self.conf_intervals_fit[trace] = pconf
-#                 self.display_curves[trace] = self.fnfrw.display_curve(f, x, pfit)
-#                 self.residuals[trace] = self.data[trace] - self.display_curves[trace]
-#                 self.dw_statistic_fit[trace] = durbin_watson(self.residuals[trace], 0)
-#             except ValueError as e:
-#                 print("VE: " + str(e))
-#             except RuntimeError as e:  
-#                 print("RTE: " + str(e))
-#             except TypeError as e:
-#                 print("TE: " + str(e))               
-#             except:
-#                 e = sys.exc_info()[0]
-#                 print("Generic: " + str(e))
-                
-#         self.draw_all()
-#         self.prepare_results_table()   
 
 #     def draw_all(self):
 #         if not self.data is None:
