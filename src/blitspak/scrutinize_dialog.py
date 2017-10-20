@@ -133,36 +133,52 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             name = self.fn_names[i]
             self.cmb_fit_function.addItem(name)
         
-
 #         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
         self.residuals = None
         
         ## Add the data and draw them
-        indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
-        self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
-        self.curve_names = self.data.columns[self.data.columns != 'time'].tolist()
+        self.series_names = self.parent().blits_data.series_names.tolist()
+        self.series_dict = {}
+        xmin, xmax = 1.0e10, -1.0e10
+        for key in self.series_names:
+            series = self.parent().blits_data.series_dict[key]
+            x_name = 'x0'
+            indmin, indmax = np.searchsorted(series[x_name],(start, stop))
+            selected = cp.deepcopy(series[indmin:indmax])
+            self.series_dict[key] = selected
+            if np.min(selected['x0'].to_matrix()) < xmin:
+                xmin = np.min(selected['x0'].to_matrix())
+            if np.max(selected['x0'].to_matrix()) > xmax:
+                xmax = np.max(selected['x0'].to_matrix())
+            
+                
+            
+            
+#         indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
+#         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
+#         self.curve_names = self.data.columns[self.data.columns != 'time'].tolist()
         # this must be generalised to cater for different data sets (with different independents)
 
-        self.x_outer_limits = self.data['time'].min(), self.data['time'].max()
-        self.x_limits = cp.deepcopy(self.x_outer_limits)
-        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_limits)
-        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_limits)           
-        
-        self.canvas.set_colours(self.curve_names)
-        data = self._get_selected_data(self.curve_names)
-
-        x_data, y_data = [], []
-        for series in data:
-            x = series[:-1]
-            x_data.append(x)
-            y = series[-1]
-            y_data.append(y)
-             
-        self.draw_curves(self.curve_names, x_data, y_data)
-        
+#         self.x_outer_limits = self.data['time'].min(), self.data['time'].max()
+#         self.x_limits = cp.deepcopy(self.x_outer_limits)
+#         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_limits)
+#         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_limits)           
+#         
+#         self.canvas.set_colours(self.curve_names)
+#         data = self._get_selected_data(self.curve_names)
+# 
+#         x_data, y_data = [], []
+#         for series in data:
+#             x = series[:-1]
+#             x_data.append(x)
+#             y = series[-1]
+#             y_data.append(y)
+#              
+#         self.draw_curves(self.curve_names, x_data, y_data)
+#         
         self.ui_ready = True
-        self.on_current_index_changed(0)
+#         self.on_current_index_changed(0)
         
 #     def accept(self):
 #         print(self.data)

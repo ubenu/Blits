@@ -75,10 +75,15 @@ class MplCanvas(FigureCanvas):
         self.fig.canvas.draw()
     
     def draw_series(self, series_name, x, y):
+        xdif = np.mean(np.diff(x.as_matrix()))
+        xspan = np.max(x.as_matrix()) - np.min(x.as_matrix())
+        marker = 'o'
+        if xspan // xdif > 50:
+            marker = '-'
         if not self.series_in_plot(series_name):
             i = len(self.curve_colours.keys()) % len(self.colour_seq)
             self.curve_colours[series_name] = self.colour_seq[i]
-        self.data_plot.plot(x, y, color=self.curve_colours[series_name])
+        self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
         self.fig.canvas.draw()
         
     def draw_series_fit(self, series_name, x, y):

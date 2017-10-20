@@ -82,10 +82,17 @@ class Main(QMainWindow, Ui_MainWindow):
             if self._data_open:
                 self.on_close()
             self.blits_data.import_data(file_path)
-            x = self.blits_data.get_data_x()
-            y = self.blits_data.get_data_y()
+            self.canvas.set_colours(self.blits_data.series_names.tolist())
+            for key in self.blits_data.series_names:
+                series = self.blits_data.series_dict[key]
+                x = series.iloc[:, 0]
+                y = series['y']
+                self.canvas.draw_series(key, x, y)
+
+#             x = self.blits_data.get_data_x()
+#             y = self.blits_data.get_data_y()
             self.action_scrutinize.setEnabled(True)
-            self.canvas.draw_data(x, y)
+#            self.canvas.draw_data(x, y)
             self._data_open = True
             self._scrutinizing = False
             
