@@ -63,28 +63,7 @@ class BlitsData():
             df.set_index(ix, inplace=True)
             self.series_dict[s_name] = df
             
-#         y = self.raw_data.columns[n_cols_per_series-1::n_cols_per_series]
-            
-#         self.series_names = named_cols #self.raw_data.columns[0::2]         
-#         self.working_data = self.raw_data[y]
-#         self.working_data.columns = self.series_names
-# #        print(self.working_data)
-#         self.working_data['time'] = self.raw_data.iloc[:,0]
-#         self.working_data = self.working_data[0:-1:self.data_reduction_factor]
-        
-#     def get_data_x(self):
-#         try:
-#             return self.working_data['time']
-#         except:
-#             print("No independent")
-#             
-#     def get_data_y(self, series_ids=[]):
-#         if series_ids == []:
-#             series_ids = self.series_names
-#         try:
-#             return self.working_data[series_ids]  
-#         except:
-#             print("No dependent")
+
             
 
         

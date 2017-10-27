@@ -123,7 +123,7 @@ class FunctionsFramework():
         """
         Perform a non-linear least-squares global fit of func to data 
         @data: list of n_curves curves;
-        each curve is an (n_indi + 1, n_points)-shaped array, with n_indi the 
+        each curve is an (n_indi + 1, n_points)-shaped numpy array, with n_indi the 
         number of independent ('x') axes and n_points is the number of data
         points in each curve. Curve items [0 : n_indi] contain the values of the 
         independents, and curve item [-1] contains the dependent ('y') values.
@@ -151,12 +151,12 @@ class FunctionsFramework():
         the value of p2 is different for all curves. In this example, 
         the total number of parameters to be fitted is 7.
         
-        @return [0] parameter_matrix: full parameter value matrix, shape as @param_values
-        @return [1] confidence_matrix: full confidence intervals matrix, shape as @param_values 
+        @return [0] (numpy array) parameter_matrix: full parameter value matrix, shape as @param_values
+        @return [1] (numpy array) confidence_matrix: full confidence intervals matrix, shape as @param_values 
                 (could be reported to user as, eg, confidence_matrix/parameter_matrix for 
                 estimate of stdev on returned parameter values
-        @return [2] the ftol value achieved (the smaller the better, starts at 1e-8, maximally 1e0)
-        @return [3] the process log, with details of the fitting process
+        @return [2] (float) the ftol value achieved (the smaller the better, starts at 1e-8, maximally 1e0)
+        @return [3] (str) the process log, with details of the fitting process
         """ 
         # Create a flat data set and an array that indicates where to split 
         # the flat data to reconstruct the individual curves

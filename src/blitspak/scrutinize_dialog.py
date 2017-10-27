@@ -28,8 +28,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     # Function selection is a kind of stub: needs to go via dialog
     # and offer possibility for users to create their own function
-    available_functions = range(7)
-    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3 = available_functions
+    available_functions = range(9)
+    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3, f_mich_ment, f_comp_inh = available_functions
     fn_names = {f_avg: "Average",
                 f_lin: "Straight line",
                 f_ex1: "Single exponential",
@@ -37,6 +37,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 f_ex2: "Double exponential",
                 f_lex2: "Double exponential and straight line",
                 f_ex3: "Triple exponential",
+                f_mich_ment: "Michaelis-Menten equation",
+                f_comp_inh: "Competitive inhibition equation",
                 }
 
     fd_fields = range(4)
@@ -71,12 +73,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                             "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + a3.exp(-x.k3)"),
                      "Michaelis-Menten equation": (fdefs.fn_mich_ment,
                                                    fdefs.p0_fn_mich_ment,
-                                                   ('km', 'vmax'), 
-                                                   "vmax . x / (km + x)"),
+                                                   ('Km', 'Vmax'), 
+                                                   "Vmax . x / (Km + x)"),
                      "Competitive inhibition equation": (fdefs.fn_comp_inhibition, 
                                                          fdefs.p0_fn_comp_inhibition,
-                                                         ('km', 'ki', 'vmax'), 
-                                                         "vmax . x[0] / (km . (1.0 + x[1] / ki) + x[0])"), 
+                                                         ('Km', 'Ki', 'Vmax'), 
+                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1)"), 
                      "Hill equation": (fdefs.fn_hill, 
                                        fdefs.p0_fn_hill,
                                        ('ymax', 'xhalf', 'h'), 
@@ -113,13 +115,13 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.mpl_layout.setAlignment(qt.Qt.AlignHCenter)
         
         ## Connect signals to slots
-        self.cmb_fit_function.currentIndexChanged.connect(self.on_current_index_changed)
+        self.cmb_fit_function.currentIndexChanged.connect(self.on_current_function_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
         self.btn_calc.clicked.connect(self.on_calc)
         self.chk_global.clicked.connect(self.on_toggle_global)
         
-        # Call on_current_index_changed to populate the tables
-        self.on_current_index_changed(self.cmb_fit_function.currentIndex())
+        # Call on_current_function_changed to populate the tables
+        self.on_current_function_changed(self.cmb_fit_function.currentIndex())
 
         ## Transfer the fitting functions from the (temporary) dictionary to ModellingFunction objects
         self.library = {}
@@ -133,56 +135,45 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             name = self.fn_names[i]
             self.cmb_fit_function.addItem(name)
         
-#         self.fnfrw = ff.FunctionsFramework()  
         self.display_curves = None
         self.residuals = None
         
         ## Add the data and draw them
         self.series_names = self.parent().blits_data.series_names.tolist()
-        self.series_dict = {}
-        xmin, xmax = 1.0e10, -1.0e10
+        self.canvas.set_colours(self.series_names)
+        self.x_name = 'x0'
+        self.y_name = 'y'
+        
+        ##  Code below should go in separate procedure
+        x_data, y_data = [], []
+        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
+        self.outer_series_dict = {}
+        self.inner_series_dict = {}
+        
         for key in self.series_names:
             series = self.parent().blits_data.series_dict[key]
-            x_name = 'x0'
-            indmin, indmax = np.searchsorted(series[x_name],(start, stop))
+            indmin, indmax = np.searchsorted(series[self.x_name],(start, stop))
             selected = cp.deepcopy(series[indmin:indmax])
-            self.series_dict[key] = selected
-            if np.min(selected['x0'].to_matrix()) < xmin:
-                xmin = np.min(selected['x0'].to_matrix())
-            if np.max(selected['x0'].to_matrix()) > xmax:
-                xmax = np.max(selected['x0'].to_matrix())
-            
-                
-            
-            
-#         indmin, indmax = np.searchsorted(self.parent().blits_data.working_data['time'],(start, stop))
-#         self.data = cp.deepcopy(self.parent().blits_data.working_data[indmin:indmax])
-#         self.curve_names = self.data.columns[self.data.columns != 'time'].tolist()
-        # this must be generalised to cater for different data sets (with different independents)
+            xmin_series, xmax_series = selected[self.x_name].min(), selected[self.x_name].max()
+            self.outer_series_dict[key] = selected
+#            self.inner_series_dict[key] = selected
+            if xmin_series < xmin:
+                xmin = selected[self.x_name].min()
+            if xmax_series > xmax:
+                xmax = np.max(selected[self.x_name])
+            x = selected[self.x_name]
+            y = selected[self.y_name]
+            x_data.append(x)
+            y_data.append(y)
 
-#         self.x_outer_limits = self.data['time'].min(), self.data['time'].max()
-#         self.x_limits = cp.deepcopy(self.x_outer_limits)
-#         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_limits)
-#         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_limits)           
-#         
-#         self.canvas.set_colours(self.curve_names)
-#         data = self._get_selected_data(self.curve_names)
-# 
-#         x_data, y_data = [], []
-#         for series in data:
-#             x = series[:-1]
-#             x_data.append(x)
-#             y = series[-1]
-#             y_data.append(y)
-#              
-#         self.draw_curves(self.curve_names, x_data, y_data)
-#         
+#         self.inner_series_dict = cp.deepcopy(self.outer_series_dict)
+        self.x_outer_limits = xmin, xmax
+        self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
+        self.draw_curves(self.series_names, x_data, y_data)        
+         
         self.ui_ready = True
-#         self.on_current_index_changed(0)
+        self.on_current_function_changed(0)
         
-#     def accept(self):
-#         print(self.data)
-
     def fill_library(self):                
         for name in self.fn_dictionary:
             fn_ref = self.fn_dictionary[name][self.d_func]
@@ -191,41 +182,35 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             fn_str = self.fn_dictionary[name][self.d_expr]
             self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
                     
-    def _get_selected_series(self):
+    def get_selected_series_names(self):
         selected = []
         for irow in range(1, self.tbl_params.rowCount()):
             cname = self.tbl_params.verticalHeaderItem(irow).text()
-            if cname in self.curve_names: # superfluous, but just in case...
+            if cname in self.series_names: # superfluous, but just in case...
                 in_fit = self.tbl_params.item(irow, 0)
                 if in_fit.checkState() == qt.Qt.Checked:
                     selected.append(cname)
         return selected
             
-   
-    def _get_selected_data(self, series_names):
-        self.x_limits = sorted((self.line0.get_x(), self.line1.get_x()))
-        indmin, indmax = np.searchsorted(self.data['time'], self.x_limits)
-        selection = cp.deepcopy(self.data[indmin:indmax])
+    def get_data_for_fitting(self, series_names):
+        self.x_inner_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         data = []
-        for tid in series_names:
-            x = cp.deepcopy(selection['time'])
-            y = cp.deepcopy(selection[tid])
-            curve = np.vstack((x,y))
+        for sid in series_names:
+#             selection = self.inner_series_dict[sid].as_matrix().transpose()
+            indmin, indmax = np.searchsorted(self.outer_series_dict[sid][self.x_name], self.x_inner_limits)
+            selection = cp.deepcopy(self.outer_series_dict[sid][indmin:indmax]).as_matrix().transpose()
             if len(data) == 0:
-                data = [curve]
+                data = [selection]
             else:
-                data.append(curve)
+                data.append(selection)
         return data
 
-    def _get_all_param_values(self, series_names):
+    def get_param_values_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns 
-        parallel to self.curve_names and self.fn_dictionary[fn][self.d_pnames], 
+        parallel to self.series_names and self.fn_dictionary[fn][self.d_pnames], 
         respectively) with values for each parameter in each curve).  
         """
-#         ncol_per_param = 2
-#         if self.chk_global.checkState() == qt.Qt.Checked:
-#             ncol_per_param = 3
         ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
             ncol_per_param += 1                 
@@ -234,12 +219,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
         
         p_locs = np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_param_val
-        p_vals = np.zeros((len(self.curve_names), len(param_names)))
+        p_vals = np.zeros((len(self.series_names), len(param_names)))
         
         for irow in range(1, self.tbl_params.rowCount()):
             cname = self.tbl_params.verticalHeaderItem(irow).text()
-            if cname in self.curve_names:
-                cind = self.curve_names.index(cname)
+            if cname in self.series_names:
+                cind = self.series_names.index(cname)
                 pval = []
                 for ploc in p_locs:
                     txt = self.tbl_params.item(irow, ploc).text()
@@ -249,19 +234,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         pval.append(float(txt))
                 p_vals[cind] = np.array(pval)
                 
-        selected = [self.curve_names.index(name) for name in series_names] 
+        selected = [self.series_names.index(name) for name in series_names] 
         return p_vals[selected]   
     
-    def _get_constant_params(self, series_names):
+    def get_constant_params_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array of Boolean values 
-        (with rows and columns parallel to self.curve_names and 
+        (with rows and columns parallel to self.series_names and 
         self.fn_dictionary[fn][self.d_pnames], respectively); if True, 
         parameter values is constant, if False, parameter value is variable.
         """
-#         ncol_per_param = 2
-#         if self.chk_global.checkState() == qt.Qt.Checked:
-#             ncol_per_param = 3
         ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
             ncol_per_param += 1                 
@@ -270,22 +252,22 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
         
         cnst_locs = np.arange(0, len(param_names) * ncol_per_param, ncol_per_param) + self.head_constant
-        const_params = np.zeros((len(self.curve_names), len(param_names)), dtype = bool)
+        const_params = np.zeros((len(self.series_names), len(param_names)), dtype = bool)
         for irow in range(1, self.tbl_params.rowCount()):
             cname = self.tbl_params.verticalHeaderItem(irow).text()
-            if cname in self.curve_names: 
-                cind = self.curve_names.index(cname)
+            if cname in self.series_names: 
+                cind = self.series_names.index(cname)
                 for pname, cloc in zip(param_names, cnst_locs):
                     pind = param_names.index(pname)
                     const_params[cind, pind] = self.tbl_params.item(irow, cloc).checkState() == qt.Qt.Checked
                     
-        selected = [self.curve_names.index(name) for name in series_names]    
+        selected = [self.series_names.index(name) for name in series_names]    
         return const_params[selected]
     
-    def _get_linked_params(self, series_names):
+    def get_linked_params_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns parallel 
-        to self.curve_names and self.fn_dictionary[fn][self.d_pnames], respectively)
+        to self.series_names and self.fn_dictionary[fn][self.d_pnames], respectively)
         of integers, in which linked parameters are grouped by their values.
         Example for 4 curves and 3 parameters:
               p0    p1    p2
@@ -298,9 +280,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. 
         """
-#         ncol_per_param = 2
-#         if self.chk_global.checkState() == qt.Qt.Checked:
-#             ncol_per_param = 3
         ncol_per_param = len(self.params_table_headers) - 2 #3
         if self.chk_global.checkState() == qt.Qt.Checked:
             ncol_per_param += 1                 
@@ -309,7 +288,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
         
         nparams = len(param_names)
-        ncurves = len(self.curve_names) 
+        ncurves = len(self.series_names) 
         links = np.arange(nparams * ncurves, dtype=int)
         links = np.reshape(links, (nparams, ncurves))
         
@@ -321,10 +300,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 mlinks = np.identity(ncurves, dtype=int) # Make matrix reflexive
                 for irow in range(self.tbl_params.rowCount()):
                     cname = self.tbl_params.verticalHeaderItem(irow).text()
-                    if cname in self.curve_names:
+                    if cname in self.series_names:
                         linked = self.tbl_params.cellWidget(irow, lloc).currentText()
-                        cind = self.curve_names.index(cname)
-                        lind = self.curve_names.index(linked)
+                        cind = self.series_names.index(cname)
+                        lind = self.series_names.index(linked)
                         mlinks[cind, lind] = 1
                         mlinks[lind, cind] = 1 # Make matrix symmetrical
                 # Warshall-Floyd to make matrix transitive 
@@ -341,24 +320,31 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         eq_classes.append(ec[0])
                         scrap[ec] = False
                 # Number the individual equivalence classes
-                ind_params = np.empty_like(self.curve_names, dtype=int)
+                ind_params = np.empty_like(self.series_names, dtype=int)
                 for i in eq_classes:
                     ind_params[i] = indpcount
                     indpcount += 1
                 links[pcount] = ind_params
                 pcount += 1
         
-        selected = [self.curve_names.index(name) for name in series_names]        
+        selected = [self.series_names.index(name) for name in series_names]        
         return links.transpose()[selected]
                                 
     def on_calc(self):
-        funcname = self.cmb_fit_function.currentText()
-        func = self.fn_dictionary[funcname][self.d_func]
-        selected_series = self._get_selected_series()
-        data = self._get_selected_data(selected_series) 
-        param_values = self._get_all_param_values(selected_series)
-        const_params = self._get_constant_params(selected_series)
-        links = self._get_linked_params(selected_series)
+        func = self.library[self.current_function].fn_ref
+#        p_names = self.library[self.current_function].param_names
+#       param_values = {}
+        series_names = self.get_selected_series_names()
+        data = self.get_data_for_fitting(series_names)
+        
+#         funcname = self.cmb_fit_function.currentText()
+#         func = self.fn_dictionary[funcname][self.d_func]
+#        selected_series = self.get_selected_series_names()
+#        self._set_selected_series(selected_series)
+#        data = self.get_data_for_fitting(selected_series)
+        param_values = self.get_param_values_from_table(series_names)
+        const_params = self.get_constant_params_from_table(series_names)
+        links = self.get_linked_params_from_table(series_names)
         fitted_params = cp.deepcopy(param_values)
         sigmas = np.empty_like(fitted_params)
         confidence_intervals = np.empty_like(fitted_params)
@@ -389,11 +375,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 n += 1
         
         
+        # prepare for output
         fitted_curves = cp.deepcopy(data) # data is a list of arrays in which [:-1] are x-values and [-1] is y
         x_data, y_data, y_fit_data, y_res_data = [], [], [], []
         fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}, {}
         
-        for sid, series, params, sigma, conf_intv in zip(selected_series, 
+        for sid, series, params, sigma, conf_intv in zip(series_names, 
                                                   fitted_curves, 
                                                   fitted_params, 
                                                   sigmas,
@@ -405,40 +392,56 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             y_res = y - y_fit
             dw_stat = durbin_watson(y_res, 0)
 
-            x_data.append(x)
-            y_data.append(y)
-            y_fit_data.append(y_fit)
-            y_res_data.append(y_res)
             fitted_param_dict[sid] = params
             sigma_dict[sid] = sigma
             conf_intv_dict[sid] = conf_intv
             dw_stat_dict[sid] = dw_stat
 
-        self.draw_curves(selected_series, x_data, y_data, y_fit_data, y_res_data)
         self.set_tbl_param_values(fitted_param_dict)
         self.set_tbl_qual_values(fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict)
+            
+        for sid, series, params, sigma, conf_intv in zip(series_names, 
+                                                  fitted_curves, 
+                                                  fitted_params, 
+                                                  sigmas,
+                                                  confidence_intervals, 
+                                                  ):
+
+            # make the plotting package - should really be a separate procedure, but leave for now
+            # most likely, everything can be done much more efficiently in pandas,
+            # without unnecessary conversion between numpy and pandas
+            x = series[:-1]
+            y = series[-1]
+            y_fit = func(x, params)
+            y_res = y - y_fit
+            
+            x_data.append(x[0])
+            y_data.append(y)
+            y_fit_data.append(y_fit)
+            y_res_data.append(y_res)
+
+        self.draw_curves(series_names, x_data, y_data, y_fit_data, y_res_data)
         
             
     def draw_curves(self, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
         self.canvas.clear_plots()
-        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_limits)
-        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_limits)           
+        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
+        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
 
         for sid, x, y in zip(series_ids, x_data, y_data):            
-            self.canvas.draw_series(sid, x[0], y)
+            self.canvas.draw_series(sid, x, y)
         if y_fit_data != []:
             for sid, x, y_fit in zip(series_ids, x_data, y_fit_data):            
-                self.canvas.draw_series_fit(sid, x[0], y_fit)
+                self.canvas.draw_series_fit(sid, x, y_fit)
         if y_residual_data != []:
             for sid, x, y_res in zip(series_ids, x_data, y_residual_data):            
-                self.canvas.draw_series_residuals(sid, x[0], y_res)
-            
+                self.canvas.draw_series_residuals(sid, x, y_res)
             
 
     def on_toggle_global(self):
         self.prepare_params_table()
          
-    def on_current_index_changed(self, index):
+    def on_current_function_changed(self, index):
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
@@ -499,9 +502,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             ncol_per_param += 1 #3
         
         # Set vertical header (series names + colour icons)
-        if len(self.curve_names) != 0:
+        if len(self.series_names) != 0:
             labels = ['All',]
-            labels.extend(self.curve_names)
+            labels.extend(self.series_names)
             self.tbl_params.setRowCount(len(labels))
             row = 0
             for lbl in labels:
@@ -538,8 +541,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                             self.tbl_params.setItem(irow, icol, w) 
                         else: 
                             cb = widgets.QComboBox()
-                            cb.addItems(self.curve_names)
-                            cb.setCurrentText(self.curve_names[irow-1])
+                            cb.addItems(self.series_names)
+                            cb.setCurrentText(self.series_names[irow-1])
                             self.tbl_params.setCellWidget(irow, icol, cb)
                 elif (icol - 1) % ncol_per_param in (0, ) and irow != 0:
                     # initial estimate values
@@ -555,7 +558,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         for irow in range(self.tbl_params.rowCount()):
             sid = self.tbl_params.verticalHeaderItem(irow).text()
             if sid in param_val_dict:
-                params_for_series = param_val_dict[sid] #[self.curve_names[irow-1]]
+                params_for_series = param_val_dict[sid] #[self.series_names[irow-1]]
                 for icol in range(self.tbl_params.columnCount()):
                     if (icol - 1) % ncol_per_param in (0, ) and irow != 0:
                         w = self.tbl_params.item(irow, icol)
@@ -563,14 +566,19 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         w.setText('{:.2g}'.format(params_for_series[npar]))
         self.tbl_params.resizeColumnsToContents()
         self.tbl_params.resizeRowsToContents()
+                  
+    
                                 
     def get_p0s(self):
         p0_func = self.library[self.current_function].p0_fn_ref
-        x = self.data['time']
+        p_names = self.library[self.current_function].param_names
         param_values = {}
-        for tid in self.curve_names:
-            y = self.data[tid]
-            param_values[tid] = p0_func(x, y)
+        series_names = self.get_selected_series_names()
+        data = self.get_data_for_fitting(series_names)
+        i = 0
+        for sid in series_names:
+            param_values[sid] = p0_func(data[i], len(p_names))
+            i += 1
         return param_values
                                
     def prepare_results_table(self):
@@ -588,8 +596,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.tbl_results.setHorizontalHeaderLabels(labels)
         
         # Set vertical header (series names + colour icons)
-        if len(self.curve_names) != 0:
-            labels = self.curve_names
+        if len(self.series_names) != 0:
+            labels = self.series_names
             self.tbl_results.setRowCount(len(labels))
             row = 0
             for lbl in labels:
@@ -673,15 +681,15 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 #     def draw_all(self):
 #         if not self.data is None:
 #             x = self.data['time']
-#             y = self.data[self.curve_names]
+#             y = self.data[self.series_names]
 #             self.canvas.draw_data(x, y)
 #             self.line0, self.line1 = None, None
-#             self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
-#             self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
+#             self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+#             self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
 #             if not self.display_curves is None:
 #                 xd = self.display_curves['time']
-#                 yd = self.display_curves[self.curve_names]
+#                 yd = self.display_curves[self.series_names]
 #                 self.canvas.draw_fitted_data(xd, yd)
-#                 ryd = self.residuals[self.curve_names]
+#                 ryd = self.residuals[self.series_names]
 #                 self.canvas.draw_residuals(xd, ryd)
 
