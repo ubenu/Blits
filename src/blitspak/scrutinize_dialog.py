@@ -28,8 +28,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     # Function selection is a kind of stub: needs to go via dialog
     # and offer possibility for users to create their own function
-    available_functions = range(9)
-    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3, f_mich_ment, f_comp_inh = available_functions
+    available_functions = range(10)
+    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3, f_mich_ment, f_comp_inh, f_comp_bind = available_functions
     fn_names = {f_avg: "Average",
                 f_lin: "Straight line",
                 f_ex1: "Single exponential",
@@ -39,6 +39,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 f_ex3: "Triple exponential",
                 f_mich_ment: "Michaelis-Menten equation",
                 f_comp_inh: "Competitive inhibition equation",
+                f_comp_bind: "Competitive binding of two ligands"
                 }
 
     fd_fields = range(4)
@@ -83,6 +84,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                        fdefs.p0_fn_hill,
                                        ('ymax', 'xhalf', 'h'), 
                                        "ymax / ((xhalf/x)^h + 1 )"),
+                     "Competitive binding of two ligands": (fdefs.fn_comp_binding,
+                                                            fdefs.p0_fn_comp_binding,
+                                                            ('Kd(L)', 'Kd(N)', 'Eps(P)', 'Eps(L)', 'Eps(N)', 'Eps(PL)', 'Eps(PN)'),
+                                                            "P + L <=> PL, P + N <=> PN, uv-vis abs"),
                      }
     
     params_table_columns = range(4)
@@ -109,8 +114,13 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.setupUi(self)
         ## Create the plot area
         self.canvas = MplCanvas(self.mpl_window)
-        self.mpl_layout.addWidget(self.canvas)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
+        self.gbx_axis_selection = widgets.QGroupBox("Independent shown on X-axis")
+        self.axis_layout = widgets.QHBoxLayout()
+        self.gbx_axis_selection.setLayout(self.axis_layout)
+
+        self.mpl_layout.addWidget(self.canvas)
+        self.mpl_layout.addWidget(self.gbx_axis_selection)
         self.mpl_layout.addWidget(self.plot_toolbar)
         self.mpl_layout.setAlignment(qt.Qt.AlignHCenter)
         
@@ -141,38 +151,80 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         ## Add the data and draw them
         self.series_names = self.parent().blits_data.series_names.tolist()
         self.canvas.set_colours(self.series_names)
-        self.x_name = 'x0'
+        self.current_xaxis = 'x0'
         self.y_name = 'y'
         
         ##  Code below should go in separate procedure
         x_data, y_data = [], []
         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
-        self.outer_series_dict = {}
+        self.full_data = {}
         self.inner_series_dict = {}
+        self.axis_selector_buttons = {}
         
+        n_independents = 0
         for key in self.series_names:
             series = self.parent().blits_data.series_dict[key]
-            indmin, indmax = np.searchsorted(series[self.x_name],(start, stop))
+            indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
             selected = cp.deepcopy(series[indmin:indmax])
-            xmin_series, xmax_series = selected[self.x_name].min(), selected[self.x_name].max()
-            self.outer_series_dict[key] = selected
-#            self.inner_series_dict[key] = selected
+            self.full_data[key] = selected
+            n_independents = selected.shape[1] - 1
+            xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
             if xmin_series < xmin:
-                xmin = selected[self.x_name].min()
+                xmin = selected[self.current_xaxis].min()
             if xmax_series > xmax:
-                xmax = np.max(selected[self.x_name])
-            x = selected[self.x_name]
+                xmax = np.max(selected[self.current_xaxis])
+                
+            x = selected[self.current_xaxis]
             y = selected[self.y_name]
             x_data.append(x)
             y_data.append(y)
 
-#         self.inner_series_dict = cp.deepcopy(self.outer_series_dict)
         self.x_outer_limits = xmin, xmax
         self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
-        self.draw_curves(self.series_names, x_data, y_data)        
+        self.draw_curves(self.series_names, x_data, y_data)    
+        
+        for i in range(n_independents):
+            btn = widgets.QRadioButton()
+            btn.setText("x{0}".format(i))
+            if i == 0:
+                btn.toggle()
+                self.set_selected_xaxis(btn.text())
+                self.on_xaxis_toggled()
+            btn.toggled.connect(self.on_xaxis_toggled)
+            self.axis_layout.addWidget(btn)
+            self.axis_selector_buttons[btn.text()] = btn
          
         self.ui_ready = True
         self.on_current_function_changed(0)
+        
+    def on_xaxis_toggled(self):
+        for x in self.axis_selector_buttons:
+            if self.axis_selector_buttons[x].isChecked():
+                self.set_selected_xaxis(x)
+            else:
+                if len(self.axis_selector_buttons) == 1:
+                    self.axis_selector_buttons[x].toggle()
+                
+    def set_selected_xaxis(self, xaxis_id):
+        self.current_xaxis = xaxis_id
+        x_data = []
+        y_data = []
+        series = self.get_selected_series_names()
+        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
+        for key in series:
+            selected = self.full_data[key]
+            xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
+            if xmin_series < xmin:
+                xmin = selected[self.current_xaxis].min()
+            if xmax_series > xmax:
+                xmax = np.max(selected[self.current_xaxis])
+            x = selected[self.current_xaxis]
+            y = selected[self.y_name]
+            x_data.append(x)
+            y_data.append(y)
+        self.x_outer_limits = xmin, xmax
+        self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
+        self.draw_curves(self.series_names, x_data, y_data)    
         
     def fill_library(self):                
         for name in self.fn_dictionary:
@@ -196,9 +248,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.x_inner_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         data = []
         for sid in series_names:
-#             selection = self.inner_series_dict[sid].as_matrix().transpose()
-            indmin, indmax = np.searchsorted(self.outer_series_dict[sid][self.x_name], self.x_inner_limits)
-            selection = cp.deepcopy(self.outer_series_dict[sid][indmin:indmax]).as_matrix().transpose()
+            indmin, indmax = np.searchsorted(self.full_data[sid][self.current_xaxis], self.x_inner_limits)
+            if indmin == indmax:
+                indmax = -1
+            selection = cp.deepcopy(self.full_data[sid][indmin:indmax]).as_matrix().transpose()
             if len(data) == 0:
                 data = [selection]
             else:
@@ -332,16 +385,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                 
     def on_calc(self):
         func = self.library[self.current_function].fn_ref
-#        p_names = self.library[self.current_function].param_names
-#       param_values = {}
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
         
-#         funcname = self.cmb_fit_function.currentText()
-#         func = self.fn_dictionary[funcname][self.d_func]
-#        selected_series = self.get_selected_series_names()
-#        self._set_selected_series(selected_series)
-#        data = self.get_data_for_fitting(selected_series)
         param_values = self.get_param_values_from_table(series_names)
         const_params = self.get_constant_params_from_table(series_names)
         links = self.get_linked_params_from_table(series_names)
@@ -437,7 +483,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             for sid, x, y_res in zip(series_ids, x_data, y_residual_data):            
                 self.canvas.draw_series_residuals(sid, x, y_res)
             
-
     def on_toggle_global(self):
         self.prepare_params_table()
          
@@ -566,8 +611,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         w.setText('{:.2g}'.format(params_for_series[npar]))
         self.tbl_params.resizeColumnsToContents()
         self.tbl_params.resizeRowsToContents()
-                  
-    
                                 
     def get_p0s(self):
         p0_func = self.library[self.current_function].p0_fn_ref

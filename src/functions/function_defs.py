@@ -4,16 +4,17 @@ Created on 24 May 2017
 @author: SchilsM
 '''
 import numpy as np
+from scipy.optimize import brentq
 
 '''
-Template for fn_x(x, p)
+Template for fn_x(x, params)
 @x: a numpy array of shape (n_indi, n_points), 
     where n_indi is the number of independents, and
     n_points is the the number of points in each of the independents.
     Thus, x[0] is the first (and potentially only) independent.
     There should be at least one row for the independent, but currently
     this is not checked - potential crash point
-@p: a numpy array of shape (n_par, ) containing the current
+@params: a numpy array of shape (n_par, ) containing the current
     variable parameter values
 @return: the evaluated function values, a numpy array of shape (npoints, )
 
@@ -40,8 +41,8 @@ def data_valid(data, n_idependents):
         return x.shape[1] == y.shape[0] and n_x(data) >= n_idependents
     return False
     
-def fn_average(x, p):
-    a, = p
+def fn_average(x, params):
+    a, = params
     x0 = np.ones_like(x[0])
     return x0 * a
 
@@ -52,8 +53,8 @@ def p0_fn_average(data, n_parameters):
         return p0
     return None
 
-def fn_straight_line(x, p):
-    a, b = p
+def fn_straight_line(x, params):
+    a, b = params
     x0 = x[0]
     return a + b * x0
 
@@ -64,8 +65,8 @@ def p0_fn_straight_line(data, n_parameters):
         return p0
     return None
 
-def fn_1exp(x, p):
-    a0, a1, k1 = p
+def fn_1exp(x, params):
+    a0, a1, k1 = params
     t = x[0]
     return a0 + a1*np.exp(-t*k1)
 
@@ -83,8 +84,8 @@ def p0_fn_1exp(data, n_parameters):
         return None
     return None    
 
-def fn_1exp_strline(x, p):
-    a0, a1, k1, b = p
+def fn_1exp_strline(x, params):
+    a0, a1, k1, b = params
     t = x[0]
     return a0 + a1*np.exp(-t*k1) + b * t
 
@@ -103,8 +104,8 @@ def p0_fn_1exp_strline(data, n_parameters):
         return None
     return None    
     
-def fn_2exp(x, p):
-    a0, a1, k1, a2, k2 = p
+def fn_2exp(x, params):
+    a0, a1, k1, a2, k2 = params
     t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2)
 
@@ -124,8 +125,8 @@ def p0_fn_2exp(data, n_parameters):
         return None
     return None    
     
-def fn_2exp_strline(x, p):
-    a0, a1, k1, a2, k2, b = p
+def fn_2exp_strline(x, params):
+    a0, a1, k1, a2, k2, b = params
     t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + b * t
 
@@ -146,8 +147,8 @@ def p0_fn_2exp_strline(data, n_parameters):
         return None
     return None    
     
-def fn_3exp(x, p):
-    a0, a1, k1, a2, k2, a3, k3 = p
+def fn_3exp(x, params):
+    a0, a1, k1, a2, k2, a3, k3 = params
     t = x[0]
     return a0 + a1*np.exp(-t*k1) + a2*np.exp(-t*k2) + a3*np.exp(-t*k3)
 
@@ -169,8 +170,8 @@ def p0_fn_3exp(data, n_parameters):
         return None
     return None 
 
-def fn_mich_ment(x, p):
-    km, vmax = p
+def fn_mich_ment(x, params):
+    km, vmax = params
     s = x[0]
     return vmax * s / (km + s)
 
@@ -188,8 +189,8 @@ def p0_fn_mich_ment(data, n_parameters):
     return None  
 
 
-def fn_comp_inhibition(x, p):
-    km, ki, vmax = p
+def fn_comp_inhibition(x, params):
+    km, ki, vmax = params
     s = x[0]
     i = x[1]
     return vmax * s / (km * (1.0 + i / ki) + s)
@@ -209,8 +210,8 @@ def p0_fn_comp_inhibition(data, n_parameters):
     return None  
   
     
-def fn_hill(x, p):
-    ymax, xhalf, h = p
+def fn_hill(x, params):
+    ymax, xhalf, h = params
     x0 = x[0]
     return ymax / (np.power(xhalf/x0, h) + 1.0)
 
@@ -220,3 +221,33 @@ def p0_fn_hill(data, n_parameters):
         p0 = np.ones((n_parameters,), dtype=float)
         return p0
     return None
+
+def fn_comp_binding(x, params):
+    KdL, KdN, eP, eL, eN, ePL, ePN = params
+    p0 = x[0]
+    l0 = x[1]
+    n0 = x[2]
+#    fn = lambda xp: -p0 + xp * ( 1 + a0/(Ka+xp) + b0/(Kb+xp) )
+    p = np.empty_like(p0)
+    fn = root_fn_comp_bind
+    i = 0
+    for p0i, l0i, n0i in zip(p0, l0, n0):
+        p[i] = brentq(fn, 0, p0i, (KdL, KdN, p0i, l0i, n0i)) 
+        i += 1
+    pl = l0*p/(KdL+p)
+    pn = n0*p/(KdN+p)
+    l = l0 - pl
+    n = n0 - pn
+    return eL*l + eN*n + eP*p + ePL*pl + ePN*pn
+
+def root_fn_comp_bind(p, Kdl, Kdn, p0, l0, n0):
+    return p * ( 1 + l0/(Kdl+p) + n0/(Kdn+p) ) - p0
+
+def p0_fn_comp_binding(data, n_parameters):
+    n_independents = 3
+    if data_valid(data, n_independents):
+        p0 = np.ones((n_parameters,), dtype=float)
+        return p0
+    return None
+    
+    

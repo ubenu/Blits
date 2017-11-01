@@ -39,10 +39,16 @@ class Main(QMainWindow, Ui_MainWindow):
 
         self.scrutinize_dialog = None
         
+        self.frm_show_axis = widgets.QFrame()
+        self.axis_layout = widgets.QHBoxLayout()
+        self.frm_show_axis.setLayout(self.axis_layout)
+
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
+        self.mpl_layout.addWidget(self.frm_show_axis)
         self.mpl_layout.addWidget(self.plot_toolbar)
+
 
         self.span = SpanSelector(self.canvas.data_plot, self.on_select_span, 
         'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
@@ -89,10 +95,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 y = series['y']
                 self.canvas.draw_series(key, x, y)
 
-#             x = self.blits_data.get_data_x()
-#             y = self.blits_data.get_data_y()
             self.action_scrutinize.setEnabled(True)
-#            self.canvas.draw_data(x, y)
             self._data_open = True
             self._scrutinizing = False
             
@@ -160,27 +163,27 @@ class Main(QMainWindow, Ui_MainWindow):
         self.tabWidget.addTab(new_tab, phase_id)
         
             
-    def _draw_results(self):
-        x = self.blits_data.get_data_x()
-        y = self.blits_data.get_data_y()
-        self.canvas.draw_data(x, y)
-                                
-    def _draw_analysis(self):
-        if self.blits_data.results_acquired['baseline']:
-            if self.blits_data.results_acquired['loaded']:
-                load = self.blits_data.results['Sugar loading']
-                self.canvas.draw_sugar_loading(load)
-                if self.blits_data.results_acquired['association']:
-                    self.blits_data.set_fractional_saturation_results()
-                    if self.blits_data.results_acquired['fractional saturation']:
-                        params = self.blits_data.fractional_saturation_params
-                        mask = self.blits_data.results['success'] == 1.0
-                        obs = self.blits_data.results[['Sugar loading', 'Amplitude (obs)',
-                                                         'Amplitude (calc)']][mask]
-                        fit = self.blits_data.get_fractional_saturation_curve()
-                        res = obs['Amplitude (obs)'] - obs['Amplitude (calc)']
-                        self.canvas.draw_fractional_saturation(obs['Sugar loading'], obs['Amplitude (obs)'],
-                                                               res, fit['x'], fit['y'], params)
+#     def _draw_results(self):
+#         x = self.blits_data.get_data_x()
+#         y = self.blits_data.get_data_y()
+#         self.canvas.draw_data(x, y)
+#                                 
+#     def _draw_analysis(self):
+#         if self.blits_data.results_acquired['baseline']:
+#             if self.blits_data.results_acquired['loaded']:
+#                 load = self.blits_data.results['Sugar loading']
+#                 self.canvas.draw_sugar_loading(load)
+#                 if self.blits_data.results_acquired['association']:
+#                     self.blits_data.set_fractional_saturation_results()
+#                     if self.blits_data.results_acquired['fractional saturation']:
+#                         params = self.blits_data.fractional_saturation_params
+#                         mask = self.blits_data.results['success'] == 1.0
+#                         obs = self.blits_data.results[['Sugar loading', 'Amplitude (obs)',
+#                                                          'Amplitude (calc)']][mask]
+#                         fit = self.blits_data.get_fractional_saturation_curve()
+#                         res = obs['Amplitude (obs)'] - obs['Amplitude (calc)']
+#                         self.canvas.draw_fractional_saturation(obs['Sugar loading'], obs['Amplitude (obs)'],
+#                                                                res, fit['x'], fit['y'], params)
 
     def _write_results(self):
         r = self.blits_data.results
