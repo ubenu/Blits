@@ -152,6 +152,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.y_name = 'y'
         
         self.full_data = {}
+        self.fitted_data = {}
+        self.fit_residuals = {}
         self.axis_selector_buttons = {}
         n_independents = 1
 
@@ -409,48 +411,42 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         
         # prepare for output
         fitted_curves = cp.deepcopy(data) # data is a list of arrays in which [:-1] are x-values and [-1] is y
+        residuals = cp.deepcopy(data)
+        
         x_data, y_data, y_fit_data, y_res_data = [], [], [], []
         fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}, {}
         
-        for sid, series, params, sigma, conf_intv in zip(series_names, 
-                                                  fitted_curves, 
-                                                  fitted_params, 
-                                                  sigmas,
-                                                  confidence_intervals, 
-                                                  ):
-            x = series[:-1]
-            y = series[-1]
+        for sid, datum, series_fit, series_res, params, sigma, conf_intv in zip(series_names, 
+                                                                                data, 
+                                                                                fitted_curves, 
+                                                                                residuals, 
+                                                                                fitted_params, 
+                                                                                sigmas,
+                                                                                confidence_intervals, 
+                                                                                ):
+            x = datum[:-1]
+            y = datum[-1]
             y_fit = func(x, params)
             y_res = y - y_fit
             dw_stat = durbin_watson(y_res, 0)
+            
+            series_fit[-1] = y_fit
+            series_res[-1] = y_res
 
             fitted_param_dict[sid] = params
             sigma_dict[sid] = sigma
             conf_intv_dict[sid] = conf_intv
             dw_stat_dict[sid] = dw_stat
+            
+        self.fitted_data = {}
+        self.fit_residuals = {}
+        for key in series_names:
+            cols = self.full_data[key].columns
+            self.fitted_data[key] = pd.DataFrame(fitted_curves[series_names.index(key)].transpose(), columns = cols)
+            self.fit_residuals[key] = pd.DataFrame(residuals[series_names.index(key)].transpose(), columns = cols)
 
         self.set_tbl_param_values(fitted_param_dict)
         self.set_tbl_qual_values(fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict)
-            
-        for sid, series, params, sigma, conf_intv in zip(series_names, 
-                                                  fitted_curves, 
-                                                  fitted_params, 
-                                                  sigmas,
-                                                  confidence_intervals, 
-                                                  ):
-
-            # make the plotting package - should really be a separate procedure, but leave for now
-            # most likely, everything can be done much more efficiently in pandas,
-            # without unnecessary conversion between numpy and pandas
-            x = series[:-1]
-            y = series[-1]
-            y_fit = func(x, params)
-            y_res = y - y_fit
-            
-            x_data.append(x[0])
-            y_data.append(y)
-            y_fit_data.append(y_fit)
-            y_res_data.append(y_res)
 
         self.draw_curves() #series_names, x_data, y_data, y_fit_data, y_res_data)
         
@@ -460,9 +456,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         # lines have been cleared, so must be reconstructed
         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
-        # make data ready for plotting
-        x_data = []
-        y_data = []
         series = self.get_selected_series_names()
         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
         for key in series:
@@ -474,10 +467,18 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 xmax = np.max(selected[self.current_xaxis])
             x = selected[self.current_xaxis]
             y = selected[self.y_name]
-            x_data.append(x)
-            y_data.append(y)
-        for sid, x, y in zip(series, x_data, y_data):            
-            self.canvas.draw_series(sid, x, y)
+            self.canvas.draw_series(key, x, y)
+            if key in self.fitted_data:
+                x_fit = self.fitted_data[key][self.current_xaxis]
+                y_fit = self.fitted_data[key][self.y_name]
+                self.canvas.draw_series(key, x_fit, y_fit)
+                
+#             x_data.append(x)
+#             y_data.append(y)
+# 
+#         for sid, x, y in zip(series, x_data, y_data):            
+#             self.canvas.draw_series(sid, x, y)
+        
 # #         if y_fit_data != []:
 # #             for sid, x, y_fit in zip(series_ids, x_data, y_fit_data):            
 # #                 self.canvas.draw_series_fit(sid, x, y_fit)
