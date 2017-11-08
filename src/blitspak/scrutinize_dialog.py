@@ -130,9 +130,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.btn_calc.clicked.connect(self.on_calc)
         self.chk_global.clicked.connect(self.on_toggle_global)
         
-        # Call on_current_function_changed to populate the tables
-        self.on_current_function_changed(self.cmb_fit_function.currentIndex())
-
         ## Transfer the fitting functions from the (temporary) dictionary to ModellingFunction objects
         self.library = {}
         self.fill_library()
@@ -148,83 +145,72 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.display_curves = None
         self.residuals = None
         
-        ## Add the data and draw them
+        ## Add the data
         self.series_names = self.parent().blits_data.series_names.tolist()
         self.canvas.set_colours(self.series_names)
         self.current_xaxis = 'x0'
         self.y_name = 'y'
         
-        ##  Code below should go in separate procedure
-        x_data, y_data = [], []
-        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
         self.full_data = {}
-        self.inner_series_dict = {}
         self.axis_selector_buttons = {}
-        
-        n_independents = 0
+        n_independents = 1
+
+        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min        
         for key in self.series_names:
             series = self.parent().blits_data.series_dict[key]
             indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
-            selected = cp.deepcopy(series[indmin:indmax])
-            self.full_data[key] = selected
-            n_independents = selected.shape[1] - 1
-            xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
-            if xmin_series < xmin:
-                xmin = selected[self.current_xaxis].min()
-            if xmax_series > xmax:
-                xmax = np.max(selected[self.current_xaxis])
-                
-            x = selected[self.current_xaxis]
-            y = selected[self.y_name]
-            x_data.append(x)
-            y_data.append(y)
-
+            selected_range = cp.deepcopy(series[indmin:indmax])
+            xmin, xmax = min(selected_range[self.current_xaxis].min(), xmin), max(selected_range[self.current_xaxis].max(), xmax)
+            self.full_data[key] = selected_range
+            n_independents = selected_range.shape[1] - 1  # should be the same for all series; needs to be checked somewhere, though
         self.x_outer_limits = xmin, xmax
-        self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
-        self.draw_curves(self.series_names, x_data, y_data)    
+        self.x_inner_limits = xmin, xmax
+        # Lines are needed as we set self.inner_limits on the basis of their position
+        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
         
         for i in range(n_independents):
-            btn = widgets.QRadioButton()
+            btn = widgets.QCheckBox()
             btn.setText("x{0}".format(i))
-            if i == 0:
-                btn.toggle()
-                self.set_selected_xaxis(btn.text())
-                self.on_xaxis_toggled()
-            btn.toggled.connect(self.on_xaxis_toggled)
+            btn.toggled.connect(self.on_xaxis_state_changed)
             self.axis_layout.addWidget(btn)
             self.axis_selector_buttons[btn.text()] = btn
          
         self.ui_ready = True
-        self.on_current_function_changed(0)
+        self.on_current_function_changed() # Sets up the tables
+        self.axis_selector_buttons["x0"].setCheckState(qt.Qt.Checked)
+        self.draw_curves()
         
-    def on_xaxis_toggled(self):
-        for x in self.axis_selector_buttons:
-            if self.axis_selector_buttons[x].isChecked():
-                self.set_selected_xaxis(x)
-            else:
-                if len(self.axis_selector_buttons) == 1:
-                    self.axis_selector_buttons[x].toggle()
+    def on_xaxis_state_changed(self, checked):
+        if checked:
+            btn = self.sender()
+            xaxis = btn.text()
+            for x in self.axis_selector_buttons:
+                if not x == xaxis:
+                    self.axis_selector_buttons[x].setChecked(False)
+            self.current_xaxis = xaxis
+            self.draw_curves()
                 
-    def set_selected_xaxis(self, xaxis_id):
-        self.current_xaxis = xaxis_id
-        x_data = []
-        y_data = []
-        series = self.get_selected_series_names()
-        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
-        for key in series:
-            selected = self.full_data[key]
-            xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
-            if xmin_series < xmin:
-                xmin = selected[self.current_xaxis].min()
-            if xmax_series > xmax:
-                xmax = np.max(selected[self.current_xaxis])
-            x = selected[self.current_xaxis]
-            y = selected[self.y_name]
-            x_data.append(x)
-            y_data.append(y)
-        self.x_outer_limits = xmin, xmax
-        self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
-        self.draw_curves(self.series_names, x_data, y_data)    
+#     def set_selected_xaxis(self, xaxis_id):
+#         self.current_xaxis = xaxis_id
+#         x_data = []
+#         y_data = []
+#         series = self.get_selected_series_names()
+#         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
+#         for key in series:
+#             selected = self.full_data[key]
+#             xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
+#             if xmin_series < xmin:
+#                 xmin = selected[self.current_xaxis].min()
+#             if xmax_series > xmax:
+#                 xmax = np.max(selected[self.current_xaxis])
+#             x = selected[self.current_xaxis]
+#             y = selected[self.y_name]
+#             x_data.append(x)
+#             y_data.append(y)
+#         self.x_outer_limits = xmin, xmax
+#         self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
+#        self.draw_curves() #(self.series_names, x_data, y_data)    
         
     def fill_library(self):                
         for name in self.fn_dictionary:
@@ -466,33 +452,54 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             y_fit_data.append(y_fit)
             y_res_data.append(y_res)
 
-        self.draw_curves(series_names, x_data, y_data, y_fit_data, y_res_data)
+        self.draw_curves() #series_names, x_data, y_data, y_fit_data, y_res_data)
         
             
-    def draw_curves(self, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
-        self.canvas.clear_plots()
+    def draw_curves(self): #, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
+        self.canvas.clear_plots() 
+        # lines have been cleared, so must be reconstructed
         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
-
-        for sid, x, y in zip(series_ids, x_data, y_data):            
+        # make data ready for plotting
+        x_data = []
+        y_data = []
+        series = self.get_selected_series_names()
+        xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
+        for key in series:
+            selected = self.full_data[key]
+            xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
+            if xmin_series < xmin:
+                xmin = selected[self.current_xaxis].min()
+            if xmax_series > xmax:
+                xmax = np.max(selected[self.current_xaxis])
+            x = selected[self.current_xaxis]
+            y = selected[self.y_name]
+            x_data.append(x)
+            y_data.append(y)
+        for sid, x, y in zip(series, x_data, y_data):            
             self.canvas.draw_series(sid, x, y)
-        if y_fit_data != []:
-            for sid, x, y_fit in zip(series_ids, x_data, y_fit_data):            
-                self.canvas.draw_series_fit(sid, x, y_fit)
-        if y_residual_data != []:
-            for sid, x, y_res in zip(series_ids, x_data, y_residual_data):            
-                self.canvas.draw_series_residuals(sid, x, y_res)
-            
+# #         if y_fit_data != []:
+# #             for sid, x, y_fit in zip(series_ids, x_data, y_fit_data):            
+# #                 self.canvas.draw_series_fit(sid, x, y_fit)
+# #         if y_residual_data != []:
+# #             for sid, x, y_res in zip(series_ids, x_data, y_residual_data):            
+# #                 self.canvas.draw_series_residuals(sid, x, y_res)
+# # 
+                        
     def on_toggle_global(self):
         self.prepare_params_table()
          
-    def on_current_function_changed(self, index):
+    def on_current_function_changed(self): #, index):
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
             self.txt_function.setText(self.library[self.current_function].fn_str)
             self.txt_function.adjustSize()
+            
             self.prepare_params_table()
+            p0s = self.get_p0s()
+            self.set_tbl_param_values(p0s)
+            
             self.prepare_results_table()
             
     def on_item_changed(self, item):
@@ -521,17 +528,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                         cid = self.tbl_params.verticalHeaderItem(irow).text()
                     if not cb is None:
                         cb.setCurrentText(cid) 
-                        
-                                                    
-    def prepare_params_table(self):
-        # Set up table for global or non-global fit
-        global_fit = False
-        if self.chk_global.checkState() == qt.Qt.Checked:
-            global_fit = True
-        # Clear the table of all data
-        self.tbl_params.clear()
-
-        # Set the horizontal header for the current function
+      
+    def hor_header_params_table(self, global_fit):
         labels = [self.params_table_headers[self.head_infit], ]
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
@@ -540,30 +538,46 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 labels.append(self.params_table_headers[self.head_constant].format(name))
                 if global_fit:
                     labels.append(self.params_table_headers[self.head_share].format(name))
-        self.tbl_params.setColumnCount(len(labels))
-        self.tbl_params.setHorizontalHeaderLabels(labels)
+        return labels
+ 
+    def vert_header_params_table(self):
+        labels = ['All',]
+        if len(self.series_names) != 0:
+            labels.extend(self.series_names)
+            self.tbl_params.setRowCount(len(labels))
+        return labels
+                                                 
+    def prepare_params_table(self):
+        # Set up table for global or non-global fit
+        global_fit = self.chk_global.isChecked() # isChecked() returns a bool
+        # Clear the table of all data
+        self.tbl_params.clear()
+        # Get the horizontal and vertical header for the current function and series
+        hlabels = self.hor_header_params_table(global_fit)
+        vlabels = self.vert_header_params_table()
+        
+        # Set horizontal header
+        self.tbl_params.setColumnCount(len(hlabels))
+        self.tbl_params.setHorizontalHeaderLabels(hlabels)
         ncol_per_param = len(self.params_table_headers) - 2
         if global_fit:
             ncol_per_param += 1 #3
         
         # Set vertical header (series names + colour icons)
-        if len(self.series_names) != 0:
-            labels = ['All',]
-            labels.extend(self.series_names)
-            self.tbl_params.setRowCount(len(labels))
-            row = 0
-            for lbl in labels:
-                vhw = widgets.QTableWidgetItem()
-                vhw.setText(lbl)
-                vhw.setTextAlignment(qt.Qt.AlignRight)
-                self.tbl_params.setVerticalHeaderItem(row, vhw)
-                if row > 0:
-                    clr = self.canvas.curve_colours[lbl]
-                    ic = self.parent().line_icon(clr)
-                    vhw.setIcon(ic)
-                row += 1
+        self.tbl_params.setRowCount(len(vlabels))
+        row = 0
+        for lbl in vlabels:
+            vhw = widgets.QTableWidgetItem()
+            vhw.setText(lbl)
+            vhw.setTextAlignment(qt.Qt.AlignRight)
+            self.tbl_params.setVerticalHeaderItem(row, vhw)
+            if row > 0:
+                clr = self.canvas.curve_colours[lbl]
+                ic = self.parent().line_icon(clr)
+                vhw.setIcon(ic)
+            row += 1
 
-        # Set horizontal header
+        # Prepare the body of the table
         for irow in range(self.tbl_params.rowCount()):
             for icol in range(self.tbl_params.columnCount()):
                 # checkboxes under the in-fit header for each param
@@ -593,17 +607,16 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     # initial estimate values
                     w = widgets.QTableWidgetItem()
                     self.tbl_params.setItem(irow, icol, w)
-        p0s = self.get_p0s()
-        self.set_tbl_param_values(p0s)
         
     def set_tbl_param_values(self, param_val_dict):
-        ncol_per_param = len(self.params_table_headers) - 2 #3
-        if self.chk_global.checkState() == qt.Qt.Checked:
+        global_fit = self.chk_global.isChecked()
+        ncol_per_param = len(self.params_table_headers) - 2
+        if global_fit:
             ncol_per_param += 1                 
         for irow in range(self.tbl_params.rowCount()):
             sid = self.tbl_params.verticalHeaderItem(irow).text()
             if sid in param_val_dict:
-                params_for_series = param_val_dict[sid] #[self.series_names[irow-1]]
+                params_for_series = param_val_dict[sid] 
                 for icol in range(self.tbl_params.columnCount()):
                     if (icol - 1) % ncol_per_param in (0, ) and irow != 0:
                         w = self.tbl_params.item(irow, icol)
