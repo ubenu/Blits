@@ -95,30 +95,6 @@ class MplCanvas(FigureCanvas):
         if self.series_in_plot(series_name):
             self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
             self.fig.canvas.draw()        
-    
-#     def draw_data(self, x, y):
-#         self.data_plot.cla()
-#         self.data_res_plot.cla()
-#         dp = self.data_plot.plot(x, y)
-#         for i in range(len(dp)):
-#             cid = y.columns[i]
-#             col = self.colour_seq[i]
-#             dp[i].set_color(col)
-#             self.curve_colours[cid] = col
-#         self.set_fig_annotations()
-#         self.fig.canvas.draw()
-#         
-#     def draw_fitted_data(self, x, y):
-#         self.data_plot.plot(x, y, color='k',linestyle='--')
-#         self.set_fig_annotations()
-#         self.fig.canvas.draw()
-# 
-#     def draw_residuals(self, x, y):
-#         rp = self.data_res_plot.plot(x, y)
-#         for i in range(len(rp)):
-#             rp[i].set_color(self.colour_seq[i])
-#         self.set_fig_annotations()
-#         self.fig.canvas.draw()
  
     def clear_figure(self):
         self.data_plot.cla()

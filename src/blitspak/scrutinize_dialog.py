@@ -384,7 +384,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         confidence_intervals = np.empty_like(fitted_params)
         tol = None
         
-        self.set_tbl_qual_values() # no values; sets all cell contents to ""
+        self.set_tbl_qual_values() 
                 
         ffw = ff.FunctionsFramework()
         if self.chk_global.checkState() == qt.Qt.Checked:
@@ -412,8 +412,6 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         # prepare for output
         fitted_curves = cp.deepcopy(data) # data is a list of arrays in which [:-1] are x-values and [-1] is y
         residuals = cp.deepcopy(data)
-        
-        x_data, y_data, y_fit_data, y_res_data = [], [], [], []
         fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict = {}, {}, {}, {}
         
         for sid, datum, series_fit, series_res, params, sigma, conf_intv in zip(series_names, 
@@ -448,10 +446,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.set_tbl_param_values(fitted_param_dict)
         self.set_tbl_qual_values(fitted_param_dict, sigma_dict, conf_intv_dict, dw_stat_dict)
 
-        self.draw_curves() #series_names, x_data, y_data, y_fit_data, y_res_data)
+        self.draw_curves()
         
             
-    def draw_curves(self): #, series_ids, x_data, y_data, y_fit_data=[], y_residual_data=[]):
+    def draw_curves(self):
         self.canvas.clear_plots() 
         # lines have been cleared, so must be reconstructed
         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
@@ -471,26 +469,20 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             if key in self.fitted_data:
                 x_fit = self.fitted_data[key][self.current_xaxis]
                 y_fit = self.fitted_data[key][self.y_name]
-                self.canvas.draw_series(key, x_fit, y_fit)
+                self.canvas.draw_series_fit(key, x_fit, y_fit)
                 
-#             x_data.append(x)
-#             y_data.append(y)
-# 
-#         for sid, x, y in zip(series, x_data, y_data):            
-#             self.canvas.draw_series(sid, x, y)
-        
-# #         if y_fit_data != []:
-# #             for sid, x, y_fit in zip(series_ids, x_data, y_fit_data):            
-# #                 self.canvas.draw_series_fit(sid, x, y_fit)
-# #         if y_residual_data != []:
-# #             for sid, x, y_res in zip(series_ids, x_data, y_residual_data):            
-# #                 self.canvas.draw_series_residuals(sid, x, y_res)
-# # 
+            if key in self.fit_residuals:
+                x_res = self.fit_residuals[key][self.current_xaxis]
+                y_res = self.fit_residuals[key][self.y_name]
+                self.canvas.draw_series_residuals(key, x_res, y_res)
+                
                         
     def on_toggle_global(self):
         self.prepare_params_table()
-         
-    def on_current_function_changed(self): #, index):
+        p0s = self.get_p0s()
+        self.set_tbl_param_values(p0s)
+     
+    def on_current_function_changed(self):
         if self.ui_ready:
             self.txt_function.clear()
             self.current_function = self.cmb_fit_function.currentText()
@@ -735,18 +727,4 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
 #         return w                    
                     
 
-#     def draw_all(self):
-#         if not self.data is None:
-#             x = self.data['time']
-#             y = self.data[self.series_names]
-#             self.canvas.draw_data(x, y)
-#             self.line0, self.line1 = None, None
-#             self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
-#             self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
-#             if not self.display_curves is None:
-#                 xd = self.display_curves['time']
-#                 yd = self.display_curves[self.series_names]
-#                 self.canvas.draw_fitted_data(xd, yd)
-#                 ryd = self.residuals[self.series_names]
-#                 self.canvas.draw_residuals(xd, ryd)
 
