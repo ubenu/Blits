@@ -31,14 +31,14 @@ Template for p0_fn_x(data, n_parameters)
     for the variable parameter values
 '''
 
-def n_x(data):
+def n_independents(data):
     return data.shape[0] - 1
 
 def data_valid(data, n_idependents):
     if data.shape[0] > 1:
         x = data[:-1]
         y = data[-1]
-        return x.shape[1] == y.shape[0] and n_x(data) >= n_idependents
+        return x.shape[1] == y.shape[0] and n_independents(data) >= n_idependents
     return False
     
 def fn_average(x, params):
