@@ -209,6 +209,67 @@ def p0_fn_comp_inhibition(data, n_parameters):
         return None
     return None  
   
+def fn_uncomp_inhibition(x, params):
+    km, ki, vmax = params
+    s = x[0]
+    i = x[1]
+    return vmax * s / (km + s * (1.0 + i / ki))
+    
+def p0_fn_uncomp_inhibition(data, n_parameters):
+    n_independents = 2
+    if data_valid(data, n_independents):
+        x = data[:-1]
+        y = data[-1]
+        km = x.max()/2.0
+        ki = km
+        vmax = y.max()
+        p0 = np.array([km, ki, vmax])
+        if p0.shape[0] == n_parameters:
+            return p0
+        return None
+    return None  
+  
+def fn_noncomp_inhibition(x, params):
+    km, ki, vmax = params
+    s = x[0]
+    i = x[1]
+    return vmax * s / ((km + s) * (1.0 + i / ki))
+    
+def p0_fn_noncomp_inhibition(data, n_parameters):
+    n_independents = 2
+    if data_valid(data, n_independents):
+        x = data[:-1]
+        y = data[-1]
+        km = x.max()/2.0
+        ki = km
+        vmax = y.max()
+        p0 = np.array([km, ki, vmax])
+        if p0.shape[0] == n_parameters:
+            return p0
+        return None
+    return None  
+  
+def fn_mixed_inhibition(x, params):
+    km, ki, kis, vmax = params
+    s = x[0]
+    i = x[1]
+    return vmax * s / (km * (1.0 + i / ki) + s * (1.0 + i / kis))
+    
+def p0_fn_mixed_inhibition(data, n_parameters):
+    n_independents = 2
+    if data_valid(data, n_independents):
+        x = data[:-1]
+        y = data[-1]
+        km = x.max()/2.0
+        ki = km
+        kis = km
+        vmax = y.max()
+        p0 = np.array([km, ki, kis, vmax])
+        if p0.shape[0] == n_parameters:
+            return p0
+        return None
+    return None  
+  
     
 def fn_hill(x, params):
     ymax, xhalf, h = params
@@ -227,13 +288,12 @@ def fn_comp_binding(x, params):
     p0 = x[0]
     l0 = x[1]
     n0 = x[2]
-#    fn = lambda xp: -p0 + xp * ( 1 + a0/(Ka+xp) + b0/(Kb+xp) )
     p = np.empty_like(p0)
     fn = root_fn_comp_bind
     i = 0
     for p0i, l0i, n0i in zip(p0, l0, n0):
         p[i] = brentq(fn, 0, p0i, (KdL, KdN, p0i, l0i, n0i)) 
-        i += 1
+        i += 1        
     pl = l0*p/(KdL+p)
     pn = n0*p/(KdN+p)
     l = l0 - pl

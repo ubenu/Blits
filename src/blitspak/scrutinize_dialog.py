@@ -28,8 +28,22 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     # Function selection is a kind of stub: needs to go via dialog
     # and offer possibility for users to create their own function
-    available_functions = range(10)
-    f_avg, f_lin, f_ex1, f_lex1, f_ex2, f_lex2, f_ex3, f_mich_ment, f_comp_inh, f_comp_bind = available_functions
+    available_functions = range(14)
+    (f_avg, 
+    f_lin, 
+    f_ex1, 
+    f_lex1, 
+    f_ex2, 
+    f_lex2, 
+    f_ex3, 
+    f_mich_ment, 
+    f_hill,
+    f_comp_inh, 
+    f_uncomp_inh, 
+    f_noncomp_inh, 
+    f_mixed_inh, 
+    f_comp_bind) = available_functions
+    
     fn_names = {f_avg: "Average",
                 f_lin: "Straight line",
                 f_ex1: "Single exponential",
@@ -38,7 +52,11 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 f_lex2: "Double exponential and straight line",
                 f_ex3: "Triple exponential",
                 f_mich_ment: "Michaelis-Menten equation",
-                f_comp_inh: "Competitive inhibition equation",
+                f_hill: "Hill equation",
+                f_comp_inh: "Competitive enzyme inhibition",
+                f_uncomp_inh: "Uncompetitive enzyme inhibition",
+                f_noncomp_inh: "Noncompetitive enzyme inhibition",
+                f_mixed_inh: "Mixed enzyme inhibition",
                 f_comp_bind: "Competitive binding of two ligands"
                 }
 
@@ -76,10 +94,22 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                                                    fdefs.p0_fn_mich_ment,
                                                    ('Km', 'Vmax'), 
                                                    "Vmax . x / (Km + x)"),
-                     "Competitive inhibition equation": (fdefs.fn_comp_inhibition, 
+                     "Competitive enzyme inhibition": (fdefs.fn_comp_inhibition, 
                                                          fdefs.p0_fn_comp_inhibition,
                                                          ('Km', 'Ki', 'Vmax'), 
                                                          "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1)"), 
+                     "Uncompetitive enzyme inhibition": (fdefs.fn_uncomp_inhibition, 
+                                                         fdefs.p0_fn_uncomp_inhibition,
+                                                         ('Km', 'Ki', 'Vmax'), 
+                                                         "Vmax . x0 / (Km + x1 . (1.0 + x1 / Ki))"), 
+                     "Noncompetitive enzyme inhibition": (fdefs.fn_noncomp_inhibition, 
+                                                         fdefs.p0_fn_noncomp_inhibition,
+                                                         ('Km', 'Ki', 'Vmax'), 
+                                                         "Vmax . x0 / ((Km + x1).(1.0 + x1 / Ki))"), 
+                     "Mixed enzyme inhibition": (fdefs.fn_mixed_inhibition, 
+                                                         fdefs.p0_fn_mixed_inhibition,
+                                                         ('Km', 'Ki', 'Kis', 'Vmax'), 
+                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1 . (1.0 + x1 / Kis))"), 
                      "Hill equation": (fdefs.fn_hill, 
                                        fdefs.p0_fn_hill,
                                        ('ymax', 'xhalf', 'h'), 
@@ -134,6 +164,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.library = {}
         self.fill_library()
         self.current_function = ""
+        self.x_outer_limits = {}
         self.param_values_fit, self.conf_intervals_fit, self.dw_statistic_fit = {}, {}, {}
         
         # Prepare the UI
@@ -155,21 +186,20 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.fitted_data = {}
         self.fit_residuals = {}
         self.axis_selector_buttons = {}
-        n_independents = 1
 
         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min        
         for key in self.series_names:
-            series = self.parent().blits_data.series_dict[key]
+            series = self.parent().blits_data.series_dict[key] # the full data set
             indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
             selected_range = cp.deepcopy(series[indmin:indmax])
             xmin, xmax = min(selected_range[self.current_xaxis].min(), xmin), max(selected_range[self.current_xaxis].max(), xmax)
             self.full_data[key] = selected_range
-            n_independents = selected_range.shape[1] - 1  # should be the same for all series; needs to be checked somewhere, though
-        self.x_outer_limits = xmin, xmax
-        self.x_inner_limits = xmin, xmax
-        # Lines are needed as we set self.inner_limits on the basis of their position
-        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
-        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
+
+        unx = self.get_n_independents()
+        if len(unx) == 1:
+            n_independents = unx[0]
+        else:
+            print("Varying number of independent axes in data")
         
         for i in range(n_independents):
             btn = widgets.QCheckBox()
@@ -183,36 +213,24 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.axis_selector_buttons["x0"].setCheckState(qt.Qt.Checked)
         self.draw_curves()
         
+    def get_n_independents(self):
+        nx = []
+        for key in self.full_data:
+            nx.append(self.full_data[key].shape[1] - 1)
+        anx = np.array(nx)
+        return np.unique(anx)
+        
     def on_xaxis_state_changed(self, checked):
+        btn = self.sender()
+        xaxis = btn.text()
         if checked:
-            btn = self.sender()
-            xaxis = btn.text()
-            for x in self.axis_selector_buttons:
-                if not x == xaxis:
-                    self.axis_selector_buttons[x].setChecked(False)
             self.current_xaxis = xaxis
-            self.draw_curves()
-                
-#     def set_selected_xaxis(self, xaxis_id):
-#         self.current_xaxis = xaxis_id
-#         x_data = []
-#         y_data = []
-#         series = self.get_selected_series_names()
-#         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
-#         for key in series:
-#             selected = self.full_data[key]
-#             xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
-#             if xmin_series < xmin:
-#                 xmin = selected[self.current_xaxis].min()
-#             if xmax_series > xmax:
-#                 xmax = np.max(selected[self.current_xaxis])
-#             x = selected[self.current_xaxis]
-#             y = selected[self.y_name]
-#             x_data.append(x)
-#             y_data.append(y)
-#         self.x_outer_limits = xmin, xmax
-#         self.x_inner_limits = cp.deepcopy(self.x_outer_limits)
-#        self.draw_curves() #(self.series_names, x_data, y_data)    
+            self.draw_curves()   
+        elif xaxis == self.current_xaxis:
+            btn.setChecked(True)
+        for x in self.axis_selector_buttons:
+            if not x == xaxis and self.axis_selector_buttons[x].isChecked() :
+                self.axis_selector_buttons[x].setChecked(False)
         
     def fill_library(self):                
         for name in self.fn_dictionary:
@@ -233,13 +251,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         return selected
             
     def get_data_for_fitting(self, series_names):
-        self.x_inner_limits = sorted((self.line0.get_x(), self.line1.get_x()))
         data = []
         for sid in series_names:
-            indmin, indmax = np.searchsorted(self.full_data[sid][self.current_xaxis], self.x_inner_limits)
-            if indmin == indmax:
-                indmax = -1
-            selection = cp.deepcopy(self.full_data[sid][indmin:indmax]).as_matrix().transpose()
+            selection = cp.deepcopy(self.full_data[sid]).as_matrix().transpose()
             if len(data) == 0:
                 data = [selection]
             else:
@@ -452,8 +466,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     def draw_curves(self):
         self.canvas.clear_plots() 
         # lines have been cleared, so must be reconstructed
-        self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
-        self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
+#         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
+#         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
         series = self.get_selected_series_names()
         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
         for key in series:
@@ -710,7 +724,12 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.tbl_results.resizeRowsToContents()
         
         
-
+        
+#### Discarded for the moment; may be implemented later
+#         self.x_inner_limits = xmin, xmax
+#         # Lines are needed as we set self.inner_limits on the basis of their position
+#         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[0], lw=1, ls='--', color='k'), self.x_outer_limits)
+#         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_outer_limits[1], lw=1, ls='--', color='k'), self.x_outer_limits)           
         
 #     def centred_checkbox(self, checked=False):
 #         w = widgets.QWidget() 
