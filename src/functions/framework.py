@@ -176,12 +176,15 @@ class FunctionsFramework():
         x, y = flat_data[:-1], flat_data[-1]
         # Get the variables array
         variables = np.logical_not(keep_constant)
-        if np.any(variables): # There must be something to fit
+        gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
+        pars, sigmas, conf_ints = None, None, None
+        parameter_matrix, sigma_matrix, confidence_matrix = None, None, None
+        if np.any(variables): # There is something to fit
             # Get the correct function for global fitting and a first estimate for the variable params
-            gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
+            # gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
             # Perform the global fit
-            pars, sigmas, conf_ints = None, None, None
-            parameter_matrix, sigma_matrix, confidence_matrix = None, None, None
+            # pars, sigmas, conf_ints = None, None, None
+            # parameter_matrix, sigma_matrix, confidence_matrix = None, None, None
             ftol, xtol = 1.0e-9, 1.0e-9
             while pars is None and ftol < 1.0:
                 try:
@@ -206,7 +209,9 @@ class FunctionsFramework():
                 except:
                     log_entry = "\nOther error (ass)"
                     process_log += log_entry
-        
+        else: # Nothing to fit; all parameters are constant
+            pass # For now, but we need to be able to see what the function returns with all params constant
+            
         # Reconstruct and return the full parameter matrix 
         if not pars is None:
             ug, first_occurrence, inverse_indices = np.unique(groups.flatten(), return_index= True, return_inverse=True)

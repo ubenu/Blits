@@ -301,7 +301,8 @@ def fn_comp_binding(x, params):
     return eL*l + eN*n + eP*p + ePL*pl + ePN*pn
 
 def root_fn_comp_bind(p, Kdl, Kdn, p0, l0, n0):
-    return p * ( 1 + l0/(Kdl+p) + n0/(Kdn+p) ) - p0
+    result = p*p*p + (Kdl+Kdn+l0+n0-p0)*p*p + (Kdl*Kdn+l0*Kdn+n0*Kdl-(Kdl+Kdn)*p0)*p - Kdl*Kdn*p0
+    return result #p * ( 1 + l0/(Kdl+p) + n0/(Kdn+p) ) - p0
 
 def p0_fn_comp_binding(data, n_parameters):
     n_independents = 3
