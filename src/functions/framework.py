@@ -175,6 +175,7 @@ class FunctionsFramework():
         # Create the input x and y from flat_data
         x, y = flat_data[:-1], flat_data[-1]
         # Get the variables array
+        ftol, xtol = 0., 0.
         variables = np.logical_not(keep_constant)
         gfunc, p_est = self.make_func_global(func, x_splits, param_values, variables, groups)
         pars, sigmas, conf_ints = None, None, None
@@ -186,7 +187,7 @@ class FunctionsFramework():
             # pars, sigmas, conf_ints = None, None, None
             # parameter_matrix, sigma_matrix, confidence_matrix = None, None, None
             ftol, xtol = 1.0e-9, 1.0e-9
-            while pars is None and ftol < 1.0:
+            while ftol < 1.0 and pars is None:
                 try:
                     ftol *= 10.
                     xtol *= 10.
@@ -201,16 +202,12 @@ class FunctionsFramework():
                 except ValueError as e:
                     log_entry = "\nValue Error (ass):" + str(e)
                     process_log += log_entry
-#                    print(log_entry)
                 except RuntimeError as e:
                     log_entry = "\nRuntime Error (ass):" + str(e)
                     process_log += log_entry
-#                    print(log_entry)
                 except:
                     log_entry = "\nOther error (ass)"
                     process_log += log_entry
-        else: # Nothing to fit; all parameters are constant
-            pass # For now, but we need to be able to see what the function returns with all params constant
             
         # Reconstruct and return the full parameter matrix 
         if not pars is None:
@@ -225,140 +222,13 @@ class FunctionsFramework():
             parameter_matrix = fitted_params[inverse_indices].reshape(param_values.shape)
             sigma_matrix = sigma[inverse_indices].reshape(param_values.shape)
             confidence_matrix = confidence[inverse_indices].reshape(param_values.shape)
-#        return parameter_matrix, confidence_matrix, ftol, process_log
+        else: # There was nothing to fit; all parameters are constant
+            parameter_matrix = param_values
+            sigma_matrix = np.zeros_like(parameter_matrix)
+            confidence_matrix = np.zeros_like(parameter_matrix)
+            
         return parameter_matrix, sigma_matrix, confidence_matrix, ftol, process_log
                 
-        
-################################################################################################
-## Tests
-################################################################################################
-
-# def test_global():
-#     # NOTE: not adapted to latest version of make_func_global, so does not work
-#     # Keep for example of function with 2 independent axes
-#     import matplotlib.pyplot as plt
-#     # Create the independent (x)
-#     fn = fdefs.fn_comp_inhibition # has 3 params: km, ki, vm, in that order  
-#     km = 2.0
-#     ki = 5.0
-#     vm = 100.
-#     p = np.array([km, ki, vm])
-#     
-#     n_points, n_curves = 7, 4 
-#     x0 = np.ones((n_curves, n_points))
-#     x0_template = np.array([1,2,4,6,10,15,20], dtype=float)
-#     x0 = (x0 * x0_template).flatten()
-#     x1 = np.ones((n_points, n_curves))
-#     x1_template = np.array([0,5,10,20], dtype=float)
-#     x1 = (x1 * x1_template).transpose().flatten()
-#     x = np.vstack((x0, x1)).transpose()
-#     xs = np.split(x, np.arange(n_points, n_points*n_curves, n_points), axis=0)
-#     x = []
-#     for x_i in xs:
-#         x.append(x_i.transpose())
-#     
-#     # Create the dependent 
-#     std = 0.02
-#     y = []
-#     for x_i in x:
-#         y_i = fn(x_i, p) # compute the value
-#         y_i = y_i + np.random.normal(0.0, std * y_i.max(), y_i.shape) # add some noise
-#         y.append(y_i)
-#     ay = np.array(y)
-# 
-#     # Do a fit to the individual curves using a different model
-#     ffn = fdefs.fn_comp_inhibition #fdefs.fn_mich_ment
-#     npars = 3
-#     fit_y, fit_p, conf_ints = [], [], []
-#     fp_in = np.ones((npars,))
-#     c = {}
-#     for i in range(len(x)):
-#         fp0 = np.ones_like(fp_in)
-#         c={1:5.0}
-#         m = [not (i in c) for i in range(fp0.shape[0])]
-#         p_est = np.ones(fp0[m].shape, dtype=float)
-#         pvar, pcov = curve_fit(FunctionsFramework.make_func(FunctionsFramework, fn=ffn, params=fp_in, const=c), x[i], y[i], p0=p_est)
-#         cis = FunctionsFramework.confidence_intervals(FunctionsFramework, x[i].shape[1], pvar, pcov, 0.95)
-#         fit_y.append(ffn(x[i], fp_in))
-#         fit_p.append(fp_in.copy())
-#         conf_ints.append(cis)
-#     print(np.array(fit_p))
-#     print(np.array(conf_ints))
-#     afit_y = np.array(fit_y)
-#         
-#     # Do a global fit
-#     c = {}
-#     l_shape = (n_curves, npars)
-#     groups = np.zeros(l_shape, dtype=int)
-#     groups[:,1] += 1
-#     groups[:,2] += 2 # all 3 params are linked in all curves (here)
-#     splits = np.arange(n_points, n_curves * n_points, n_points)
-#     
-#     flat_x = x[0]
-#     for x_i in x[1:]:
-#         flat_x = np.hstack((flat_x, x_i))
-#     flat_y = y[0]
-#     for y_i in y[1:]:
-#         flat_y = np.concatenate((flat_y, y_i))
-#     ups = np.unique(groups)
-#     c = {1:5.}
-#     m = [not (i in c) for i in ups]
-#     p0 = np.ones_like(ups, dtype=float)[m]
-#     out = curve_fit(FunctionsFramework.make_func_global(FunctionsFramework, ffn, splits, groups, keep_constant=c), flat_x, flat_y, p0=p0)
-#     cis = FunctionsFramework.confidence_intervals(FunctionsFramework, flat_y.shape[0], out[0], out[1], 0.95)
-#     p_fin = np.zeros_like(ups, dtype=float)
-#     p_fin[m] = out[0]
-#     for i in c:
-#         p_fin[i] = c[i]
-#     print(p_fin)
-#     p_shape = groups.shape
-#     flinks = groups.flatten()
-#     fparams = np.zeros_like(flinks, dtype=float)
-#     for i in range(fparams.shape[0]):
-#         fparams[i] = p_fin[flinks[i]]
-#     fparams = fparams.reshape(p_shape)
-#     gfit_y = []
-#     for i in range(len(x)):
-#         gfit_y.append(ffn(x[i], fparams[i]))
-#     agfit_y = np.array(gfit_y)
-# 
-#     plt.plot(x[0][0], ay.transpose(), 'bo', x[0][0], afit_y.transpose(), 'k-', x[0][0], agfit_y.transpose(), 'r-') 
-#     plt.show()    
-#    
-# 
-# def test_func():   
-# #     import matplotlib.pyplot as plt
-#     
-#     x = np.arange(0, 1, 0.001)
-#     x = x.reshape((1, x.shape[0]))
-#     print(x)
-#     f = fdefs.fn_3exp
-#     p = np.array([1.0, 0.5, 10.0, 0.25, 1.0, 0.0, 1.0])
-# #     c = {5: 0.0, 6: 1.0}
-# #     m = [not (i in c) for i in range(p.shape[0])] # mask only showing variable params
-# #     n_free_params = len(p[m])
-# #     p_est = np.ones(n_free_params, dtype=float)
-#     data = f(x, p)
-#     print(data)
-#     n_points = data.shape[0]
-#     ndata = data + np.random.normal(0.0, 0.02*data[0], n_points)
-#     
-#     print(ndata)
-# #     fnc = FunctionsFramework.make_func(FunctionsFramework, f, p, c)
-#     
-# #     pvar, pcov = curve_fit(fnc, x[0], ndata[0], p0=p_est)
-# #     
-# #     cis = FunctionsFramework.confidence_intervals(FunctionsFramework, n_points, pvar, pcov, 0.95)
-# #     
-# #     plt.plot(x[0], ndata[0], 'ro', x[0], f(x, p)[0], 'k-')
-# #     plt.show()
-# 
-# if __name__ == '__main__':
-#     test_func()
-
-
-
-
 
 
 """

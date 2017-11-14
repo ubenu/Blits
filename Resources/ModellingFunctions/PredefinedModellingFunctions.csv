@@ -1,0 +1,70 @@
+@Name,Mean
+@Short description,Mean of data in y
+@Long description,Returns the mean of observed data (y)
+@Function,"f(x, a) = y/y * a"
+@Observed dependent,y
+@Calculated dependent,"f(x, a)"
+@Independents,x
+@Parameters,a
+@First estimates,a = 1.0
+,
+@Name,Straight line
+@Short description,y = a.x + b
+@Long description,Returns the parameters for the best fit of the observed  data (y) with a straight line 
+@Function,"f(x, a, b) = a * x + b"
+@Observed dependent,y
+@Calculated dependent,"f(x, a, b)"
+@Independents,x
+@Parameters,"a, b"
+@First estimates,"a = 1.0, b = 1.0"
+,
+@Name,Single exponential decay
+@Short description,y0 + A.exp(-x.k) 
+@Long description,Returns the parameters for the best fit of the observed  data (y) with a single exponential decay 
+@Function,"f(x, y0 , A , k ) = y0 + A * exp(-x * k)"
+@Observed dependent,y
+@Calculated dependent,"f(x, y0, A, k)"
+@Independents,x
+@Parameters,"y0, A, k"
+@First estimates,"y0 = last(y), A = first(y) - last(y), k = 0.1 * last(x)"
+,
+@Name,Single exponential decay and straight line
+@Short description,y0 + A.exp(-x.k) + slope.x
+@Long description,Returns the parameters for the best fit of the observed  data (y) with a single exponential decay on top of a straight line
+@Function,"f(x, y0 , A , k, slope ) = y0 + A * exp(-x * k) = slope * x"
+@Observed dependent,y
+@Calculated dependent,"f(x, y0, A, k, slope)"
+@Independents,x
+@Parameters,"y0, A, k, slope"
+@First estimates,"y0 = last(y), A = first(y) - last(y), k = 0.1 * last(x), slope = 0.0"
+,
+@Name,Double exponential decay
+@Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2)
+@Long description,Returns the parameters for the best fit of the observed  data (y) with a double exponential decay 
+@Function,"f(x, y0 , A1 , k1, A2, k2 ) = y0 + A1 * exp(-x * k1) + A2 * exp(-x * k2)"
+@Observed dependent,y
+@Calculated dependent,"f(x, y0, A1, k1, A2, k2)"
+@Independents,x
+@Parameters,"y0, A1, k1, A2, k2"
+@First estimates,"y0 = last(y), A1 = first(y) - last(y), k1 = 10.0 / last(x), A2 = first(y) - last(y), k2 = 1.0 / last(x)"
+,
+@Name,Triple exponential decay
+@Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2) + A3.exp(-x.k3)
+@Long description,Returns the parameters for the best fit of the observed  data (y) with a triple exponential decay 
+@Function,"f(x, y0 , A1 , k1, A2, k2 , A3, k3) = y0 + A1 * exp(-x * k1) + A2 * exp(-x * k2)  + A3 * exp(-x * k3)"
+@Observed dependent,y
+@Calculated dependent,"f(x, y0, A1, k1, A2, k2, A3, k3)"
+@Independents,x
+@Parameters,"y0, A1, k1, A2, k2, A3, k3"
+@First estimates,"y0 = last(y), A1 = first(y) - last(y), k1 = 10.0 / last(x), A2 = first(y) - last(y), k2 = 1.0 / last(x), A3 =  first(y) - last(y), k3 = 0.1 / last(x)"
+,
+@Name,Competitive 2-ligand binding (Absorbance/Florescence)
+@Short description,"P + L <=> PL, P + N <=> PN"
+@Long description,Returns the parameters that describe the competitive binding of two ligands to a protein (protein and ligand comcentration measured by absorbance or fluorescence)
+@Function,"f(Ptot, Ltot, Ntot, KdL, KdN, epsP, epsL, epsN, epsPL, epsPN) = epsP*[P] + epsL*[L] + epsN*[N] + epsPL*[PL] + epsPN*[PN], where  [P] = @FindRoot(KdL, KdN, Ptot, Ltot, Ntot) between (0, Ptot), [PL] = Ltot * [P] / (KdL * [P]), [PN] = Ntot * [P] / (KdN * [P]), [L] = Ltot - [PN], [N] = Ntot - [PN]"
+@FindRoot,solve for concP: concP*concP*concP + (KdL+KdL+Ltot+Ntot-Ptot)*concP*concP + (KdL*KdN+Ltot*KdN+Ntot*KdL-(KdL+KdN)*Ptot)*concP - KdL*KdN*Ptot = 0
+@Observed dependent,Signal
+@Calculated dependent,"f(Ptot, Ltot, Ntot, KdL, KdN, epsP, epsL, epsN, epsPL, epsPN)"
+@Independents,"Ptot, Ltot, Ntot"
+@Parameters,"KdL, KdN, epsP, epsL, epsN, epsPL, epsPN"
+@First estimates,"KdL = (max(Ltot) + min(Ltot))/2, KdN = (max(Ntot) + min(Ntot))/2, epsP = 0.0, epsL = max(signal) * Ltot, epsN = 0.0, epsPL = max(signal) * Ptot, epsPN = 0.0"

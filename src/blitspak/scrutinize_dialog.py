@@ -536,7 +536,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     if not cb is None:
                         cb.setCurrentText(cid) 
       
-    def hor_header_params_table(self, global_fit):
+    def get_hor_header_params_table(self, global_fit):
         labels = [self.params_table_headers[self.head_infit], ]
         if self.current_function != "":
             param_names = self.library[self.current_function].param_names 
@@ -547,7 +547,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                     labels.append(self.params_table_headers[self.head_share].format(name))
         return labels
  
-    def vert_header_params_table(self):
+    def get_vert_header_params_table(self):
         labels = ['All',]
         if len(self.series_names) != 0:
             labels.extend(self.series_names)
@@ -560,8 +560,8 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         # Clear the table of all data
         self.tbl_params.clear()
         # Get the horizontal and vertical header for the current function and series
-        hlabels = self.hor_header_params_table(global_fit)
-        vlabels = self.vert_header_params_table()
+        hlabels = self.get_hor_header_params_table(global_fit)
+        vlabels = self.get_vert_header_params_table()
         
         # Set horizontal header
         self.tbl_params.setColumnCount(len(hlabels))
