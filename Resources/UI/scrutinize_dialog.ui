@@ -308,7 +308,7 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok|QDialogButtonBox::Save</set>
      </property>
      <property name="centerButtons">
       <bool>false</bool>
@@ -316,40 +316,31 @@
     </widget>
    </item>
   </layout>
+  <action name="action_ok">
+   <property name="text">
+    <string>OK</string>
+   </property>
+   <property name="toolTip">
+    <string>Save and display fittting results in first page</string>
+   </property>
+  </action>
+  <action name="action_cancel">
+   <property name="text">
+    <string>Cancel</string>
+   </property>
+   <property name="toolTip">
+    <string>Return to first page without saving</string>
+   </property>
+  </action>
+  <action name="action_save">
+   <property name="text">
+    <string>Save</string>
+   </property>
+   <property name="toolTip">
+    <string>Save current fitting results to a csv file</string>
+   </property>
+  </action>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>ScrutinizeDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>ScrutinizeDialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

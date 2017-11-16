@@ -21,6 +21,7 @@ import functions.function_defs as fdefs
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
+from PyQt5.Qt import QDialogButtonBox
 
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
@@ -155,6 +156,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.mpl_layout.setAlignment(qt.Qt.AlignHCenter)
         
         ## Connect signals to slots
+        self.buttonBox.clicked.connect(self.on_ok)
+        self.buttonBox.clicked.connect(self.on_cancel)
+        self.buttonBox.clicked.connect(self.on_save_current)
         self.cmb_fit_function.currentIndexChanged.connect(self.on_current_function_changed)
         self.tbl_params.itemChanged.connect(self.on_item_changed)
         self.btn_calc.clicked.connect(self.on_calc)
@@ -194,6 +198,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             selected_range = cp.deepcopy(series[indmin:indmax])
             xmin, xmax = min(selected_range[self.current_xaxis].min(), xmin), max(selected_range[self.current_xaxis].max(), xmax)
             self.full_data[key] = selected_range
+            self.full_data[key].index = range(len(self.full_data[key]))
 
         unx = self.get_n_independents()
         if len(unx) == 1:
@@ -213,6 +218,41 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.axis_selector_buttons["x0"].setCheckState(qt.Qt.Checked)
         self.draw_curves()
         
+        
+    def on_ok(self, button):
+        if button == self.buttonBox.button(widgets.QDialogButtonBox.Ok):
+            print('Ok')
+            self.accept()
+
+    def on_cancel(self, button):
+        if button == self.buttonBox.button(widgets.QDialogButtonBox.Cancel):
+            print('Cancel')
+            self.reject()
+        
+    def on_save_current(self, button):
+        if button == self.buttonBox.button(widgets.QDialogButtonBox.Save):
+            file_path = widgets.QFileDialog.getSaveFileName(self, 'Save current fit', filter="CSV data files (*.csv);;All files (*.*)")
+            data = pd.DataFrame([])
+            for key in self.get_selected_series_names():
+                if self.get_selected_series_names().index(key) == 0:
+                    data = data.join(self.full_data[key].set_index(self.current_xaxis).y, how='outer')
+                    data = data.join(self.full_data[key].set_index(self.current_xaxis).y, lsuffix=' - ' + 'obs-' + key, how='outer')
+                else:
+                    data = data.join(self.full_data[key].set_index(self.current_xaxis).y, lsuffix=' - ' + 'obs-' + key, how='outer')
+            for key in self.get_selected_series_names():
+                if key in self.fitted_data:
+                    data = data.join(self.fitted_data[key].set_index(self.current_xaxis).y, lsuffix=' - ' + 'calc-' + key, how='outer')
+            for key in self.get_selected_series_names():
+                if key in self.fit_residuals:
+                    data = data.join(self.fit_residuals[key].set_index(self.current_xaxis).y, lsuffix=' - ' + 'res-' + key, how='outer')
+            cols = data.columns.tolist()
+            if 'y' in cols:
+                data.drop('y', axis=1, inplace=True)
+            data_csv = data.to_csv()
+            with open(file_path[0], 'w') as file:
+                file.write(data_csv)
+
+                
     def get_n_independents(self):
         nx = []
         for key in self.full_data:
@@ -472,6 +512,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
         for key in series:
             selected = self.full_data[key]
+            selected.sort_values(by=self.current_xaxis, inplace=True)
             xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
             if xmin_series < xmin:
                 xmin = selected[self.current_xaxis].min()
@@ -481,11 +522,13 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             y = selected[self.y_name]
             self.canvas.draw_series(key, x, y)
             if key in self.fitted_data:
+                self.fitted_data[key].sort_values(by=self.current_xaxis, inplace=True)
                 x_fit = self.fitted_data[key][self.current_xaxis]
                 y_fit = self.fitted_data[key][self.y_name]
                 self.canvas.draw_series_fit(key, x_fit, y_fit)
                 
             if key in self.fit_residuals:
+                self.fit_residuals[key].sort_values(by=self.current_xaxis, inplace=True)
                 x_res = self.fit_residuals[key][self.current_xaxis]
                 y_res = self.fit_residuals[key][self.y_name]
                 self.canvas.draw_series_residuals(key, x_res, y_res)
