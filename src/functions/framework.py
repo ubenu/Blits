@@ -5,7 +5,7 @@ Created on 24 May 2017
 '''
 
 import sys
-import numpy as np
+import numpy as np, pandas as pd
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
@@ -31,14 +31,20 @@ class FunctionsFramework():
                   
     def __init__(self):
         pass
-
-    def display_curve(self, fn, x, params):
-        """
-        @fn is a function with signature fn(x, p), where p is a 1D array of parameters
-        @x is a (k, m) shaped array, where k is the number of independents and m is the number of points
-        @paramsis the full input array for fn; same length as p (fn argument)
-        """
-        return fn(x, params)
+    
+    def read_modelling_functions(self, file_path):
+        self.raw_data = pd.read_csv(file_path)
+        self.raw_data.dropna(inplace=True)
+        self.raw_data['Id'] = np.nan
+        
+        names = self.raw_data.loc[self.raw_data['Attribute']=='@Name']
+        # iteration incorrect; need to study iteration process and iterators for df in more detail
+        for row in self.raw_data.iloc[1:]:
+            if row in names:
+                print(row.Value)
+            
+            
+            
         
     def confidence_intervals(self, n, params, covar, conf_level):
         """

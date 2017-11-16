@@ -218,6 +218,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
         self.axis_selector_buttons["x0"].setCheckState(qt.Qt.Checked)
         self.draw_curves()
         
+        ffw = ff.FunctionsFramework()
+        mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
+        
         
     def on_ok(self, button):
         if button == self.buttonBox.button(widgets.QDialogButtonBox.Ok):

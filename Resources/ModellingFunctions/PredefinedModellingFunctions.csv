@@ -1,3 +1,4 @@
+Attribute,Value
 @Name,Mean
 @Short description,Mean of data in y
 @Long description,Returns the mean of observed data (y)
@@ -37,6 +38,7 @@
 @Independents,x
 @Parameters,"y0, A, k, slope"
 @First estimates,"y0 = last(y), A = first(y) - last(y), k = 0.1 * last(x), slope = 0.0"
+@End,
 ,
 @Name,Double exponential decay
 @Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2)
@@ -58,7 +60,7 @@
 @Parameters,"y0, A1, k1, A2, k2, A3, k3"
 @First estimates,"y0 = last(y), A1 = first(y) - last(y), k1 = 10.0 / last(x), A2 = first(y) - last(y), k2 = 1.0 / last(x), A3 =  first(y) - last(y), k3 = 0.1 / last(x)"
 ,
-@Name,Competitive 2-ligand binding (Absorbance/Florescence)
+@Name,Competitive 2-ligand binding (Absorbance/Fluorescence)
 @Short description,"P + L <=> PL, P + N <=> PN"
 @Long description,Returns the parameters that describe the competitive binding of two ligands to a protein (protein and ligand comcentration measured by absorbance or fluorescence)
 @Function,"f(Ptot, Ltot, Ntot, KdL, KdN, epsP, epsL, epsN, epsPL, epsPN) = epsP*[P] + epsL*[L] + epsN*[N] + epsPL*[PL] + epsPN*[PN], where  [P] = @FindRoot(KdL, KdN, Ptot, Ltot, Ntot) between (0, Ptot), [PL] = Ltot * [P] / (KdL * [P]), [PN] = Ntot * [P] / (KdN * [P]), [L] = Ltot - [PN], [N] = Ntot - [PN]"
