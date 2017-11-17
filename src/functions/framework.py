@@ -9,6 +9,8 @@ import numpy as np, pandas as pd
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
+from statsmodels.genmod.tests.results.elastic_net_generate_tests import lin_pred
+#from Cython.Debugger.libpython import BuiltInMethodProxy #?? how did that get here?
 #from astropy.modeling.tests.test_projections import pars
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
@@ -16,8 +18,8 @@ import functions.function_defs as fdefs
 class ModellingFunction():
     
     def __init__(self, name, fn_ref, p0_fn_ref, param_names, fn_str):
-        self.id = id
         self.name = name
+
         self.fn_ref = fn_ref
         self.p0_fn_ref = p0_fn_ref
         self.param_names = param_names
@@ -26,6 +28,46 @@ class ModellingFunction():
     def __str__(self):
         return self.fn_str
     
+class LibraryFunction():
+    
+    def __init__(self, fn_id, 
+                 name='', 
+                 short_description='', 
+                 long_description='', 
+                 fn_def=None, 
+                 find_root=None,
+                 obs_dependent_name='', 
+                 calc_dependent_name='', 
+                 independent_names='', 
+                 parameter_names='', 
+                 first_estimates=None
+                 ):
+        self.fn_id = fn_id
+        self.name = name
+        self.short_description = short_description
+        self.long_description = long_description
+        self.fn_def = fn_def
+        self.find_root = find_root,
+        self.obs_dependent_name = obs_dependent_name
+        self.calc_dependent_name = calc_dependent_name
+        if not independent_names is None:
+            self.set_independents(independent_names)
+        if not parameter_names is None:
+            self.set_parameters(parameter_names)
+        self.first_estimates = first_estimates
+        self.independents = []
+        self.parameters = []
+        
+    def set_independents(self, independent_names=''):
+        if independent_names != '':
+            self.independents = [x.strip() for x in independent_names.split(sep=',')]
+            
+    def set_parameters(self, parameter_names=''):
+        self.parameters = [p.strip() for p in parameter_names.split(sep=',')]
+        
+    def __str__(self):
+        return self.fn_def
+    
 
 class FunctionsFramework():     
                   
@@ -33,16 +75,49 @@ class FunctionsFramework():
         pass
     
     def read_modelling_functions(self, file_path):
-        self.raw_data = pd.read_csv(file_path)
-        self.raw_data.dropna(inplace=True)
-        self.raw_data['Id'] = np.nan
+        self.modfunc_data = pd.read_csv(file_path)
+        self.modfunc_data.dropna(inplace=True)
+        self.modfunc_data['Id'] = np.nan
         
-        names = self.raw_data.loc[self.raw_data['Attribute']=='@Name']
-        # iteration incorrect; need to study iteration process and iterators for df in more detail
-        for row in self.raw_data.iloc[1:]:
-            if row in names:
-                print(row.Value)
+        # names = self.modfunc_data.loc[self.modfunc_data['Attribute']=='@Name']
+        fn_id = 0
+        ids = []
+        for row in self.modfunc_data.itertuples():
+            if row.Attribute == '@Name':
+                fn_id += 1
+            ids.append(fn_id)
+        self.modfunc_data.Id = ids
+        unique_ids = np.unique(np.array(self.modfunc_data.Id.tolist()), return_index=True, return_inverse=True, return_counts=True)
+        for i in unique_ids[0]: # the actual unique fn_ids
+            info = self.modfunc_data.loc[self.modfunc_data['Id']==i]
+            name = info.loc[info['Attribute'] == '@Name']['Value'].values[0]
+            sd = info.loc[info['Attribute'] == '@Short description']['Value'].values[0]
+            ld = info.loc[info['Attribute'] == '@Long description']['Value'].values[0]
+            fn = info.loc[info['Attribute'] == '@Function']['Value'].values[0]
+            rt = info.loc[info['Attribute'] == '@FindRoot']['Value']
+            odp = info.loc[info['Attribute'] == '@Observed dependent']['Value'].values[0]
+            cdp = info.loc[info['Attribute'] == '@Calculated dependent']['Value'].values[0]
+            idp = info.loc[info['Attribute'] == '@Independents']['Value'].values[0]
+            par = info.loc[info['Attribute'] == '@Parameters']['Value'].values[0]
+            est = info.loc[info['Attribute'] == '@First estimates']['Value'].values[0]
+
+            lib_func = LibraryFunction(i)
+            lib_func.name = name
+            lib_func.short_description = sd
+            lib_func.long_description = ld
+            lib_func.fn_def = fn
+            if len(rt):
+                lib_func.find_root = rt
+            lib_func.obs_dependent_name = odp
+            lib_func.calc_dependent_name = cdp
+            lib_func.set_independents(idp) 
+            lib_func.set_parameters(par)
+            lib_func.first_estimates = est
             
+                                       
+            print(lib_func.independents, lib_func.parameters)
+            
+                
             
             
         
