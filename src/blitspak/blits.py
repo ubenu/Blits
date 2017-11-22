@@ -21,6 +21,9 @@ from blitspak.scrutinize_dialog import ScrutinizeDialog
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
+import functions.framework as ff
+import functions.function_defs as fdefs
+
 # Original:
 # To avoid using .ui file (from QtDesigner) and loadUIType, 
 # created a python-version of the .ui file using pyuic5 from command line
@@ -76,6 +79,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
         self.action_scrutinize.setEnabled(False)
+        
+        ffw = ff.FunctionsFramework()
+        mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
+
 
                 
     def on_open(self):

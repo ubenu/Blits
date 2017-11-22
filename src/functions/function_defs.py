@@ -310,5 +310,84 @@ def p0_fn_comp_binding(data, n_parameters):
         p0 = np.ones((n_parameters,), dtype=float)
         return p0
     return None
+
+def fn_chem_unfold(x, params):
+    """
+Let DeltaG0NU = A(1): Let mNU = A(2): Let IntN = A(3): Let SlopeN = A(4)
+Let IntU = A(5): Let SlopeU = A(6): Let TempC = A(7)
+
+Let RT = 0.0019872 * (TempC + 273)
+Let DeltaGNU = DeltaG0NU + mNU * Denat
+Let KNU = Exp(-DeltaGNU / RT)
+Let FractionN = 1 / (1 + KNU)
+Let FractionU = 1 - FractionN
+   
+Let CalculatedY = (IntN + SlopeN * Denat) * FractionN + (IntU + SlopeU * Denat) * FractionU
+ 
+    """
+    dG0NU, mNU, intN, slopeN, intU, slopeU, tempC = params
+    denat = x[0]
+    rt = 0.0019872 * (tempC + 273.)
+    dGNU = dG0NU + mNU * denat
+    kNU = np.exp(-dGNU / rt)
+    frN = 1. / (1. + kNU)
+    frU = 1. - frN
+    return (intN + slopeN * denat) * frN + (intU + slopeU * denat) * frU
+    
+def p0_fn_chem_unfold(data, n_parameters):
+    n_independents = 1
+    if data_valid(data, n_independents):
+        y = data[-1]
+        dG0NU = 1.0
+        mNU = -1. 
+        intN = y[0] 
+        slopeN = 0.0 
+        intU = y[-1] 
+        slopeU = 0.0 
+        tempC = 25.0
+        p0 = np.array([dG0NU, mNU, intN, slopeN, intU, slopeU, tempC])
+        return p0
+    return None
+
+def fn_therm_unfold(x, params):
+    """
+Let DeltaHmNU = A(1): Let TmNU = A(2): Let IntN = A(3):
+Let SlopeN = A(4): Let IntU = A(5): Let SlopeU = A(6): Let DeltaCpNU = A(7)
+ 
+Let RT = 0.0019872 * (TempC + 273)
+Let DeltaGNU = DeltaHmNU * (1 - (273 + TempC) / (TmNU + 273)) + DeltaCpNU * (TempC - TmNU - (TempC + 273) * Log((TempC + 273) / (TmNU + 273)))
+Let KNU = Exp(-DeltaGNU / RT)
+Let FractionN = 1 / (1 + KNU)
+FractionU = 1 - FractionN
+   
+Let CalculatedY = (IntN + SlopeN * TempC + extra * TempC * TempC) * FractionN + (IntU + SlopeU _
+* TempC) * FractionU
+    """
+    dHmNU, tmNU, intN, slopeN, intU, slopeU, dCpNU = params
+    tempC = x[0]
+    tempK = tempC + 273.
+    tmKNU = tmNU + 273.
+    rt = 0.0019872 * tempK
+    dGNU = dHmNU * (1. - tempK/tmKNU) + dCpNU * (tempK - tmKNU - tempK * np.log(tempK / tmKNU))
+    kNU = np.exp(-dGNU / rt)
+    frN = 1. / (1. + kNU)
+    frU = 1. - frN
+    return (intN + slopeN * tempC) * frN + (intU + slopeU * tempC) * frU
+
+def p0_fn_therm_unfold(data, n_parameters):
+    n_independents = 1
+    if data_valid(data, n_independents):
+        x = data[:-1]
+        y = data[-1]
+        dHmNU = 1.0
+        tmNU = (x[0][-1] + x[0][0]) / 2.0 
+        intN = y[0] 
+        slopeN = 0.0 
+        intU = y[-1] 
+        slopeU = 0.0 
+        dCpNU = 0.0
+        p0 = np.array([dHmNU, tmNU, intN, slopeN, intU, slopeU, dCpNU])
+        return p0
+    return None
     
     

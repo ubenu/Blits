@@ -29,7 +29,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
     # Function selection is a kind of stub: needs to go via dialog
     # and offer possibility for users to create their own function
-    available_functions = range(14)
+    available_functions = range(16)
     (f_avg, 
     f_lin, 
     f_ex1, 
@@ -43,7 +43,10 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     f_uncomp_inh, 
     f_noncomp_inh, 
     f_mixed_inh, 
-    f_comp_bind) = available_functions
+    f_comp_bind,
+    f_chem_denat,
+    f_therm_denat,
+    ) = available_functions
     
     fn_names = {f_avg: "Average",
                 f_lin: "Straight line",
@@ -58,7 +61,9 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                 f_uncomp_inh: "Uncompetitive enzyme inhibition",
                 f_noncomp_inh: "Noncompetitive enzyme inhibition",
                 f_mixed_inh: "Mixed enzyme inhibition",
-                f_comp_bind: "Competitive binding of two ligands"
+                f_comp_bind: "Competitive binding of two ligands",
+                f_chem_denat: "Chemical denaturation",
+                f_therm_denat: "Thermal denaturation",
                 }
 
     fd_fields = range(4)
@@ -66,51 +71,63 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     fn_dictionary = {"Average": (fdefs.fn_average, 
                                  fdefs.p0_fn_average,
                                  ('a',), 
-                                 "Series average"),
+                                 "Series average"
+                                 ),
                      "Straight line": (fdefs.fn_straight_line, 
                                        fdefs.p0_fn_straight_line,
                                        ('a', 'b'), 
-                                       "a + b.x"), 
+                                       "a + b.x"
+                                       ), 
                      "Single exponential": (fdefs.fn_1exp, 
                                             fdefs.p0_fn_1exp,
                                             ('a0', 'a1', 'k1'), 
-                                            "a0 + a1.exp(-x.k1)"),
+                                            "a0 + a1.exp(-x.k1)"
+                                            ),
                      "Single exponential and straight line": (fdefs.fn_1exp_strline, 
                                             fdefs.p0_fn_1exp_strline,
                                             ('a0', 'a1', 'k1', 'b'), 
-                                            "a0 + a1.exp(-x.k1) + b.x"), 
+                                            "a0 + a1.exp(-x.k1) + b.x"
+                                            ), 
                      "Double exponential": (fdefs.fn_2exp, 
                                             fdefs.p0_fn_2exp,
                                             ('a0', 'a1', 'k1', 'a2', 'k2'), 
-                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2)"), 
+                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2)"
+                                            ), 
                      "Double exponential and straight line": (fdefs.fn_2exp_strline, 
                                             fdefs.p0_fn_2exp_strline,
                                             ('a0', 'a1', 'k1', 'a2', 'k2', 'b'), 
-                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + b.x"), 
+                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + b.x"
+                                            ), 
                      "Triple exponential": (fdefs.fn_3exp, 
                                             fdefs.p0_fn_3exp,
                                             ('a0', 'a1', 'k1', 'a2', 'k2', 'a3', 'k3'), 
-                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + a3.exp(-x.k3)"),
+                                            "a0 + a1.exp(-x.k1) + a2.exp(-x.k2) + a3.exp(-x.k3)"
+                                            ),
                      "Michaelis-Menten equation": (fdefs.fn_mich_ment,
                                                    fdefs.p0_fn_mich_ment,
                                                    ('Km', 'Vmax'), 
-                                                   "Vmax . x / (Km + x)"),
+                                                   "Vmax . x / (Km + x)"
+                                                   ),
                      "Competitive enzyme inhibition": (fdefs.fn_comp_inhibition, 
                                                          fdefs.p0_fn_comp_inhibition,
                                                          ('Km', 'Ki', 'Vmax'), 
-                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1)"), 
+                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1)"
+                                                         ), 
                      "Uncompetitive enzyme inhibition": (fdefs.fn_uncomp_inhibition, 
                                                          fdefs.p0_fn_uncomp_inhibition,
                                                          ('Km', 'Ki', 'Vmax'), 
-                                                         "Vmax . x0 / (Km + x1 . (1.0 + x1 / Ki))"), 
+                                                         "Vmax . x0 / (Km + x1 . (1.0 + x1 / Ki))"
+                                                         ), 
                      "Noncompetitive enzyme inhibition": (fdefs.fn_noncomp_inhibition, 
                                                          fdefs.p0_fn_noncomp_inhibition,
                                                          ('Km', 'Ki', 'Vmax'), 
-                                                         "Vmax . x0 / ((Km + x1).(1.0 + x1 / Ki))"), 
+                                                         "Vmax . x0 / ((Km + x1).(1.0 + x1 / Ki))"
+                                                         ), 
                      "Mixed enzyme inhibition": (fdefs.fn_mixed_inhibition, 
                                                          fdefs.p0_fn_mixed_inhibition,
                                                          ('Km', 'Ki', 'Kis', 'Vmax'), 
-                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1 . (1.0 + x1 / Kis))"), 
+                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1 . (1.0 + x1 / Kis))"
+                                                         ), 
                      "Hill equation": (fdefs.fn_hill, 
                                        fdefs.p0_fn_hill,
                                        ('ymax', 'xhalf', 'h'), 
@@ -118,7 +135,19 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                      "Competitive binding of two ligands": (fdefs.fn_comp_binding,
                                                             fdefs.p0_fn_comp_binding,
                                                             ('Kd(L)', 'Kd(N)', 'Eps(P)', 'Eps(L)', 'Eps(N)', 'Eps(PL)', 'Eps(PN)'),
-                                                            "P + L <=> PL, P + N <=> PN, uv-vis abs"),
+                                                            "P + L <=> PL, P + N <=> PN, uv-vis abs"
+                                                            ),
+                     "Chemical denaturation": (fdefs.fn_chem_unfold,
+                                               fdefs.p0_fn_chem_unfold,
+                                               ('deltaG0(N->U)', 'm(N->U)', 'Intercept(N)', 'Slope(N)', 'Intercept(U)', 'Slope(U)', 'Temperature (oC)'),
+                                               "(int(N) + slp(N) * [denat]) * fr(N) + (int(U) + slp(U) * [denat]) * fr(U)"
+                                               ),
+                     "Thermal denaturation": (fdefs.fn_therm_unfold,
+                                              fdefs.p0_fn_therm_unfold,
+                                              ('deltaHm(N->U)', 'Tm(N->U) (oC)', 'Intercept(N)', 'Slope(N)', 'Intercept(U)', 'Slope(U)', 'deltaCp(N->U)'),
+                                              "(int(N) + slp(N) * T(K)) * fr(N) + (int(U) + slp(U) * T(K)) * fr(U)"
+                                              ),
+                                               
                      }
     
     params_table_columns = range(4)
