@@ -17,6 +17,7 @@ from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
+from blitspak.simulate_dialog import SimulateDialog
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
@@ -61,6 +62,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.triggered.connect(self.on_close)
         self.action_quit.triggered.connect(self.close)     
         self.action_scrutinize.triggered.connect(self.on_scrutinize)
+        self.action_simulate.triggered.connect(self.on_simulate)
 
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -79,9 +81,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
         self.action_scrutinize.setEnabled(False)
+        self.action_simulate.setEnabled(True)
         
         ffw = ff.FunctionsFramework()
-        mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
+#         mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
 
 
                 
@@ -111,6 +114,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_close.setEnabled(True)
             self.action_quit.setEnabled(True)
             self.action_scrutinize.setEnabled(True)
+            self.action_simulate.setEnabled(False)
             
     def on_save(self):
         file_path = widgets.QFileDialog.getSaveFileName(self, 
@@ -123,12 +127,14 @@ class Main(QMainWindow, Ui_MainWindow):
         self.canvas.clear_figure()
         self._data_open = False
         self._scrutinizing = False
+        self._simulating = False
         
         self.action_open.setEnabled(True)
         self.action_save.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_quit.setEnabled(True)
         self.action_scrutinize.setEnabled(False)
+        self.action_simulate.setEnabled(False)
         
     def on_scrutinize(self):
         if self.action_scrutinize.isChecked():
@@ -137,7 +143,18 @@ class Main(QMainWindow, Ui_MainWindow):
             self.span.set_active(True)   
         else:
             self._scrutinizing = False
-            self.span.set_active(False)             
+            self.span.set_active(False)  
+            
+    def on_simulate(self):           
+        if self.action_simulate.isChecked():
+            self._simulating = True
+            self.simulate_dialog = SimulateDialog(main) 
+            flags = self.simulate_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
+            self.simulate_dialog.setWindowFlags(flags)
+            if self.simulate_dialog.show() == widgets.QDialog.Accepted:
+                print(self.simulate_dialog.data)
+        else:
+            self._simulating = False
         
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
@@ -169,59 +186,37 @@ class Main(QMainWindow, Ui_MainWindow):
         
         self.tabWidget.addTab(new_tab, phase_id)
         
-            
-#     def _draw_results(self):
-#         x = self.blits_data.get_data_x()
-#         y = self.blits_data.get_data_y()
-#         self.canvas.draw_data(x, y)
-#                                 
-#     def _draw_analysis(self):
-#         if self.blits_data.results_acquired['baseline']:
-#             if self.blits_data.results_acquired['loaded']:
-#                 load = self.blits_data.results['Sugar loading']
-#                 self.canvas.draw_sugar_loading(load)
-#                 if self.blits_data.results_acquired['association']:
-#                     self.blits_data.set_fractional_saturation_results()
-#                     if self.blits_data.results_acquired['fractional saturation']:
-#                         params = self.blits_data.fractional_saturation_params
-#                         mask = self.blits_data.results['success'] == 1.0
-#                         obs = self.blits_data.results[['Sugar loading', 'Amplitude (obs)',
-#                                                          'Amplitude (calc)']][mask]
-#                         fit = self.blits_data.get_fractional_saturation_curve()
-#                         res = obs['Amplitude (obs)'] - obs['Amplitude (calc)']
-#                         self.canvas.draw_fractional_saturation(obs['Sugar loading'], obs['Amplitude (obs)'],
-#                                                                res, fit['x'], fit['y'], params)
 
-    def _write_results(self):
-        r = self.blits_data.results
-        tbr = self.tblResults
-        tbr.setColumnCount(len(r.columns))
-        tbr.setRowCount(len(r.index))
-        tbr.setVerticalHeaderLabels(r.index)
-        tbr.setHorizontalHeaderLabels(r.columns)
-        for i in range(len(r.index)):
-            for j in range(len(r.columns)):
-                tbr.setItem(i,j,widgets.QTableWidgetItem(str(r.iat[i, j])))
-
-        if self.blits_data.results_acquired['fractional saturation']:
-            p = self.blits_data.get_fractional_saturation_params_dataframe()
-            tbp = self.tblFitParams
-            tbp.setColumnCount(len(p.columns))
-            tbp.setRowCount(len(p.index))
-            tbp.setVerticalHeaderLabels(p.index)
-            tbp.setHorizontalHeaderLabels(p.columns)
-            for i in range(len(p.index)):
-                for j in range(len(p.columns)):
-                    tbp.setItem(i,j,widgets.QTableWidgetItem(str(p.iat[i, j])))
-            
-            f = self.blits_data.get_fractional_saturation_curve()
-            tbf = self.tblFittedCurve
-            tbf.setColumnCount(len(f.columns))
-            tbf.setRowCount(len(f.index))
-            tbf.setHorizontalHeaderLabels(f.columns)
-            for i in range(len(f.index)):
-                for j in range(len(f.columns)):
-                    tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))
+#     def _write_results(self):
+#         r = self.blits_data.results
+#         tbr = self.tblResults
+#         tbr.setColumnCount(len(r.columns))
+#         tbr.setRowCount(len(r.index))
+#         tbr.setVerticalHeaderLabels(r.index)
+#         tbr.setHorizontalHeaderLabels(r.columns)
+#         for i in range(len(r.index)):
+#             for j in range(len(r.columns)):
+#                 tbr.setItem(i,j,widgets.QTableWidgetItem(str(r.iat[i, j])))
+# 
+#         if self.blits_data.results_acquired['fractional saturation']:
+#             p = self.blits_data.get_fractional_saturation_params_dataframe()
+#             tbp = self.tblFitParams
+#             tbp.setColumnCount(len(p.columns))
+#             tbp.setRowCount(len(p.index))
+#             tbp.setVerticalHeaderLabels(p.index)
+#             tbp.setHorizontalHeaderLabels(p.columns)
+#             for i in range(len(p.index)):
+#                 for j in range(len(p.columns)):
+#                     tbp.setItem(i,j,widgets.QTableWidgetItem(str(p.iat[i, j])))
+#             
+#             f = self.blits_data.get_fractional_saturation_curve()
+#             tbf = self.tblFittedCurve
+#             tbf.setColumnCount(len(f.columns))
+#             tbf.setRowCount(len(f.index))
+#             tbf.setHorizontalHeaderLabels(f.columns)
+#             for i in range(len(f.index)):
+#                 for j in range(len(f.columns)):
+#                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))
             
     def line_icon(self, color):
         pixmap = gui.QPixmap(50,10)

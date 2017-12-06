@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1161</width>
-    <height>916</height>
+    <width>1129</width>
+    <height>802</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -60,7 +60,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1161</width>
+     <width>1129</width>
      <height>21</height>
     </rect>
    </property>
@@ -78,6 +78,8 @@
      <string>&amp;Analysis</string>
     </property>
     <addaction name="action_scrutinize"/>
+    <addaction name="separator"/>
+    <addaction name="action_simulate"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="enabled">
@@ -107,10 +109,11 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_open"/>
-   <addaction name="action_save"/>
+   <addaction name="action_simulate"/>
    <addaction name="separator"/>
    <addaction name="action_scrutinize"/>
    <addaction name="separator"/>
+   <addaction name="action_save"/>
   </widget>
   <action name="action_open">
    <property name="icon">
@@ -153,7 +156,7 @@
      <normaloff>:/TraceScrutinizer.png</normaloff>:/TraceScrutinizer.png</iconset>
    </property>
    <property name="text">
-    <string>Analyze traces</string>
+    <string>Select data range to fit</string>
    </property>
    <property name="toolTip">
     <string>Analyze traces</string>
@@ -165,6 +168,19 @@
    </property>
    <property name="toolTip">
     <string>Close data</string>
+   </property>
+  </action>
+  <action name="action_simulate">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normalon>:/TraceScrutinizer.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Simulate experiment</string>
    </property>
   </action>
  </widget>
