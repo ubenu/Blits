@@ -15,18 +15,31 @@ import functions.function_defs as fdefs
 #from functions import function_defs
 #from statsmodels.nonparametric.kernels import d_gaussian
 
-class ModellingFunction():
+# class ModellingFunction():
+#     
+#     def __init__(self, name, fn_ref, p0_fn_ref, param_names, fn_str):
+#         self.name = name
+# 
+#         self.fn_ref = fn_ref
+#         self.p0_fn_ref = p0_fn_ref
+#         self.param_names = param_names
+#         self.fn_str = fn_str
+#     
+#     def __str__(self):
+#         return self.fn_str
+#     
+# class FunctionLibrary():
+#     
+#     def __init__(self):
+#         pass
+#     
+#     def add_function(self, fn):
+#         pass
+#     
+#     def remove_function(self, fn_id):
+#         pass
+#     
     
-    def __init__(self, name, fn_ref, p0_fn_ref, param_names, fn_str):
-        self.name = name
-
-        self.fn_ref = fn_ref
-        self.p0_fn_ref = p0_fn_ref
-        self.param_names = param_names
-        self.fn_str = fn_str
-    
-    def __str__(self):
-        return self.fn_str
     
 class LibraryFunction():
     

@@ -18,6 +18,7 @@ from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.simulate_dialog import SimulateDialog
+from blitspak.funcion_dialog import FunctionSelectionDialog
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
@@ -42,6 +43,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         self.scrutinize_dialog = None
+        self.function_dialog = None
         
 
         self.canvas = MplCanvas(self.mpl_window)
@@ -175,7 +177,13 @@ class Main(QMainWindow, Ui_MainWindow):
         self.span.set_active(True)
     
     def on_function(self):
-        pass
+        self.function_dialog = FunctionSelectionDialog()
+        self.function_dialog.show()
+        
+#         if self.function_dialog.show() == widgets.QDialog.accepted():
+#             print("Accepted")
+#         else:
+#             print("Cancelled")
             
     def on_analyze(self):
         if self.action_analyze.isChecked():
