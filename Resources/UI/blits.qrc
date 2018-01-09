@@ -1,8 +1,11 @@
 <RCC>
   <qresource>
-    <file>mjs-open-data.png</file>
     <file>mjs-save-data.png</file>
-    <file>TraceScrutinizer.png</file>
-    <file>Scrutinize.png</file>
+    <file>mjs_open_data.png</file>
+    <file>mjs_create_data.png</file>
+    <file>function.png</file>
+    <file>analyze.png</file>
+    <file>range.png</file>
+    <file>mjs_close_data.png</file>
   </qresource>
 </RCC>

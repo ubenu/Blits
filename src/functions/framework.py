@@ -119,7 +119,7 @@ class FunctionsFramework():
             lib_func.set_parameters(par)
             lib_func.first_estimates = est
                                 
-            lib_func.test_fn()
+#             lib_func.test_fn()
             
                 
             

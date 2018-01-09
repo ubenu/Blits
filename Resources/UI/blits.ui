@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Blits - BLI Trace Scrutinizer</string>
+   <string>The Crux of the Biscuit</string>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -37,7 +37,18 @@
        <attribute name="title">
         <string>Main</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QFrame" name="params_window">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QGridLayout" name="gridLayout"/>
+         </widget>
+        </item>
         <item>
          <widget class="QWidget" name="mpl_window" native="true">
           <property name="sizePolicy">
@@ -69,6 +80,9 @@
      <string>File</string>
     </property>
     <addaction name="action_open"/>
+    <addaction name="action_create"/>
+    <addaction name="action_close"/>
+    <addaction name="separator"/>
     <addaction name="action_save"/>
     <addaction name="separator"/>
     <addaction name="action_quit"/>
@@ -77,9 +91,10 @@
     <property name="title">
      <string>&amp;Analysis</string>
     </property>
-    <addaction name="action_scrutinize"/>
+    <addaction name="action_range"/>
     <addaction name="separator"/>
-    <addaction name="action_simulate"/>
+    <addaction name="action_function"/>
+    <addaction name="action_analyze"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="enabled">
@@ -109,24 +124,26 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_open"/>
-   <addaction name="action_simulate"/>
    <addaction name="separator"/>
-   <addaction name="action_scrutinize"/>
+   <addaction name="action_create"/>
+   <addaction name="separator"/>
+   <addaction name="action_close"/>
+   <addaction name="separator"/>
+   <addaction name="separator"/>
+   <addaction name="action_function"/>
+   <addaction name="separator"/>
+   <addaction name="action_range"/>
+   <addaction name="separator"/>
+   <addaction name="separator"/>
+   <addaction name="action_analyze"/>
+   <addaction name="separator"/>
    <addaction name="separator"/>
    <addaction name="action_save"/>
+   <addaction name="separator"/>
   </widget>
-  <action name="action_open">
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/mjs-open-data.png</normaloff>:/mjs-open-data.png</iconset>
-   </property>
-   <property name="text">
-    <string>Open data</string>
-   </property>
-  </action>
   <action name="action_save">
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="icon">
     <iconset resource="blits.qrc">
@@ -144,43 +161,85 @@
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="action_scrutinize">
+  <action name="action_range">
    <property name="checkable">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="blits.qrc">
+     <normaloff>:/range.png</normaloff>:/range.png</iconset>
+   </property>
+   <property name="text">
+    <string>Restrict range</string>
+   </property>
+   <property name="iconText">
+    <string>Restrict range</string>
+   </property>
+   <property name="toolTip">
+    <string>Restrict range</string>
+   </property>
+  </action>
+  <action name="action_function">
+   <property name="checkable">
     <bool>false</bool>
    </property>
    <property name="icon">
     <iconset resource="blits.qrc">
-     <normaloff>:/TraceScrutinizer.png</normaloff>:/TraceScrutinizer.png</iconset>
+     <normaloff>:/function.png</normaloff>:/function.png</iconset>
    </property>
    <property name="text">
-    <string>Select data range to fit</string>
+    <string>Select function</string>
+   </property>
+  </action>
+  <action name="action_create">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="blits.qrc">
+     <normaloff>:/mjs_create_data.png</normaloff>:/mjs_create_data.png</iconset>
+   </property>
+   <property name="text">
+    <string>Create data set</string>
    </property>
    <property name="toolTip">
-    <string>Analyze traces</string>
+    <string>Create data set</string>
+   </property>
+  </action>
+  <action name="action_open">
+   <property name="icon">
+    <iconset resource="blits.qrc">
+     <normaloff>:/mjs_open_data.png</normaloff>:/mjs_open_data.png</iconset>
+   </property>
+   <property name="text">
+    <string>Open data set</string>
+   </property>
+   <property name="toolTip">
+    <string>Open data set</string>
+   </property>
+  </action>
+  <action name="action_analyze">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="blits.qrc">
+     <normaloff>:/analyze.png</normaloff>:/analyze.png</iconset>
+   </property>
+   <property name="text">
+    <string>Analyze</string>
    </property>
   </action>
   <action name="action_close">
-   <property name="text">
-    <string>Close</string>
-   </property>
-   <property name="toolTip">
-    <string>Close data</string>
-   </property>
-  </action>
-  <action name="action_simulate">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
    <property name="icon">
-    <iconset>
-     <normalon>:/TraceScrutinizer.png</normalon>
-    </iconset>
+    <iconset resource="blits.qrc">
+     <normaloff>:/mjs_close_data.png</normaloff>:/mjs_close_data.png</iconset>
    </property>
    <property name="text">
-    <string>Simulate experiment</string>
+    <string>Close data set</string>
    </property>
   </action>
  </widget>

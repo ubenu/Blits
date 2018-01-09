@@ -43,26 +43,37 @@ class Main(QMainWindow, Ui_MainWindow):
 
         self.scrutinize_dialog = None
         
-        self.frm_show_axis = widgets.QFrame()
-        self.axis_layout = widgets.QHBoxLayout()
-        self.frm_show_axis.setLayout(self.axis_layout)
 
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
+        self.frm_show_axis = widgets.QFrame()
+        self.axis_layout = widgets.QHBoxLayout()
+        self.frm_show_axis.setLayout(self.axis_layout)
         self.mpl_layout.addWidget(self.frm_show_axis)
         self.mpl_layout.addWidget(self.plot_toolbar)
 
+        self.action_open.triggered.connect(self.on_open)
+        self.action_create.triggered.connect(self.on_create)
+        self.action_close.triggered.connect(self.on_close_data)
+        self.action_save.triggered.connect(self.on_save)
+        self.action_function.triggered.connect(self.on_function)
+        self.action_range.triggered.connect(self.on_range)
+        self.action_analyze.triggered.connect(self.on_analyze)
+        self.action_quit.triggered.connect(self.close)     
 
         self.span = SpanSelector(self.canvas.data_plot, self.on_select_span, 
         'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
         
-        self.action_open.triggered.connect(self.on_open)
-        self.action_save.triggered.connect(self.on_save)
-        self.action_close.triggered.connect(self.on_close)
-        self.action_quit.triggered.connect(self.close)     
-        self.action_scrutinize.triggered.connect(self.on_scrutinize)
-        self.action_simulate.triggered.connect(self.on_simulate)
+        self.action_open.setEnabled(True)
+        self.action_create.setEnabled(True)
+        self.action_close.setEnabled(False)
+        self.action_save.setEnabled(False)
+        self.action_function.setEnabled(False)
+        self.action_range.setEnabled(False)
+        self.action_analyze.setEnabled(False)
+        self.action_quit.setEnabled(True)     
+        self.span.set_active(False)
 
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -71,19 +82,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_name = "Phase"
         self.phase_list = []
 
-        self.span.set_active(False)
-
         self._data_open = False
         self._scrutinizing = False
-        
-        self.action_open.setEnabled(True)
-        self.action_save.setEnabled(False)
-        self.action_close.setEnabled(False)
-        self.action_quit.setEnabled(True)
-        self.action_scrutinize.setEnabled(False)
-        self.action_simulate.setEnabled(True)
-        
-        ffw = ff.FunctionsFramework()
+                
+#         ffw = ff.FunctionsFramework()
 #         mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
 
 
@@ -105,57 +107,93 @@ class Main(QMainWindow, Ui_MainWindow):
                 y = series['y']
                 self.canvas.draw_series(key, x, y)
 
-            self.action_scrutinize.setEnabled(True)
+            self.action_analyze.setEnabled(True)
             self._data_open = True
             self._scrutinizing = False
             
-            self.action_open.setEnabled(True)
-            self.action_save.setEnabled(False)
+            self.action_open.setEnabled(False)        
+            self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
-            self.action_quit.setEnabled(True)
-            self.action_scrutinize.setEnabled(True)
-            self.action_simulate.setEnabled(False)
+            self.action_save.setEnabled(True)
+            self.action_function.setEnabled(True)
+            self.action_range.setEnabled(True)
+            self.action_analyze.setEnabled(True)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
             
-    def on_save(self):
-        file_path = widgets.QFileDialog.getSaveFileName(self, 
-        "Save Results File", "", "CSV data files (*.csv);;All files (*.*)")[0]
-        if file_path:
-            self.blits_data.export_results(file_path)
-        
-    def on_close(self):
+    def on_create(self):   
+        # code to create (simulate) data set here 
+        # needs a bit more thinking
+        self.action_open.setEnabled(False)        
+        self.action_create.setEnabled(False)
+        self.action_close.setEnabled(True)
+        self.action_save.setEnabled(True)
+        self.action_function.setEnabled(True)
+        self.action_range.setEnabled(True)
+        self.action_analyze.setEnabled(True)
+        self.action_quit.setEnabled(True)     
+        self.span.set_active(False)
+
+#         if self.action_simulate.isChecked():
+#             self._simulating = True
+#             self.simulate_dialog = SimulateDialog(main) 
+#             flags = self.simulate_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
+#             self.simulate_dialog.setWindowFlags(flags)
+#             if self.simulate_dialog.show() == widgets.QDialog.Accepted:
+#                 print(self.simulate_dialog.data)
+#         else:
+#             self._simulating = False
+ 
+ 
+    def on_close_data(self):
         self.blits_data = BlitsData()
         self.canvas.clear_figure()
         self._data_open = False
         self._scrutinizing = False
         self._simulating = False
-        
+            
         self.action_open.setEnabled(True)
-        self.action_save.setEnabled(False)
+        self.action_create.setEnabled(True)
         self.action_close.setEnabled(False)
-        self.action_quit.setEnabled(True)
-        self.action_scrutinize.setEnabled(False)
-        self.action_simulate.setEnabled(False)
-        
-    def on_scrutinize(self):
-        if self.action_scrutinize.isChecked():
+        self.action_save.setEnabled(False)
+        self.action_function.setEnabled(False)
+        self.action_range.setEnabled(False)
+        self.action_analyze.setEnabled(False)
+        self.action_quit.setEnabled(True)     
+        self.span.set_active(False)
+
+
+    def on_range(self):
+        self.action_open.setEnabled(False)        
+        self.action_create.setEnabled(False)
+        self.action_close.setEnabled(True)
+        self.action_save.setEnabled(True)
+        self.action_function.setEnabled(True)
+        self.action_range.setEnabled(True)
+        self.action_analyze.setEnabled(True)
+        self.action_quit.setEnabled(True)     
+        self.span.set_active(True)
+    
+    def on_function(self):
+        pass
+            
+    def on_analyze(self):
+        if self.action_analyze.isChecked():
             self.plot_toolbar.switch_off_pan_zoom()
             self._scrutinizing = True
             self.span.set_active(True)   
         else:
             self._scrutinizing = False
             self.span.set_active(False)  
-            
-    def on_simulate(self):           
-        if self.action_simulate.isChecked():
-            self._simulating = True
-            self.simulate_dialog = SimulateDialog(main) 
-            flags = self.simulate_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
-            self.simulate_dialog.setWindowFlags(flags)
-            if self.simulate_dialog.show() == widgets.QDialog.Accepted:
-                print(self.simulate_dialog.data)
-        else:
-            self._simulating = False
+
+    def on_save(self):
+        file_path = widgets.QFileDialog.getSaveFileName(self, 
+        "Save Results File", "", "CSV data files (*.csv);;All files (*.*)")[0]
+        if file_path:
+            self.blits_data.export_results(file_path)
         
+        
+            
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
         if self._scrutinizing:  
@@ -173,8 +211,8 @@ class Main(QMainWindow, Ui_MainWindow):
                     m_string = model + ': ' + model_expr
                     tbl_results = self.scrutinize_dialog.tbl_results
                     self._create_results_tab(phase_id, m_string, tbl_results)
-                self.action_scrutinize.setChecked(False)
-                self.on_scrutinize()
+                self.action_analyze.setChecked(False)
+                self.on_analyze()
                 
     def _create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()
