@@ -91,7 +91,6 @@
     <property name="title">
      <string>&amp;Analysis</string>
     </property>
-    <addaction name="action_range"/>
     <addaction name="separator"/>
     <addaction name="action_function"/>
     <addaction name="action_analyze"/>
@@ -129,25 +128,17 @@
    <addaction name="separator"/>
    <addaction name="action_close"/>
    <addaction name="separator"/>
+   <addaction name="action_save"/>
+   <addaction name="separator"/>
    <addaction name="separator"/>
    <addaction name="action_function"/>
    <addaction name="separator"/>
-   <addaction name="action_range"/>
-   <addaction name="separator"/>
-   <addaction name="separator"/>
    <addaction name="action_analyze"/>
-   <addaction name="separator"/>
-   <addaction name="separator"/>
-   <addaction name="action_save"/>
    <addaction name="separator"/>
   </widget>
   <action name="action_save">
    <property name="enabled">
     <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/mjs-save-data.png</normaloff>:/mjs-save-data.png</iconset>
    </property>
    <property name="text">
     <string>Save results</string>
@@ -161,34 +152,9 @@
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="action_range">
-   <property name="checkable">
-    <bool>false</bool>
-   </property>
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/range.png</normaloff>:/range.png</iconset>
-   </property>
-   <property name="text">
-    <string>Restrict range</string>
-   </property>
-   <property name="iconText">
-    <string>Restrict range</string>
-   </property>
-   <property name="toolTip">
-    <string>Restrict range</string>
-   </property>
-  </action>
   <action name="action_function">
    <property name="checkable">
     <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/function.png</normaloff>:/function.png</iconset>
    </property>
    <property name="text">
     <string>Select function</string>
@@ -198,10 +164,6 @@
    <property name="checkable">
     <bool>false</bool>
    </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/mjs_create_data.png</normaloff>:/mjs_create_data.png</iconset>
-   </property>
    <property name="text">
     <string>Create data set</string>
    </property>
@@ -210,10 +172,6 @@
    </property>
   </action>
   <action name="action_open">
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/mjs_open_data.png</normaloff>:/mjs_open_data.png</iconset>
-   </property>
    <property name="text">
     <string>Open data set</string>
    </property>
@@ -225,19 +183,11 @@
    <property name="checkable">
     <bool>false</bool>
    </property>
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/analyze.png</normaloff>:/analyze.png</iconset>
-   </property>
    <property name="text">
     <string>Analyze</string>
    </property>
   </action>
   <action name="action_close">
-   <property name="icon">
-    <iconset resource="blits.qrc">
-     <normaloff>:/mjs_close_data.png</normaloff>:/mjs_close_data.png</iconset>
-   </property>
    <property name="text">
     <string>Close data set</string>
    </property>

@@ -17,14 +17,15 @@ from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
-from blitspak.simulate_dialog import SimulateDialog
-from blitspak.funcion_dialog import FunctionSelectionDialog
+from blitspak.function_dialog import FunctionSelectionDialog
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
-import functions.framework as ff
-import functions.function_defs as fdefs
+
+# from blitspak.simulate_dialog import SimulateDialog
+# import functions.framework as ff
+# import functions.function_defs as fdefs
 
 # Original:
 # To avoid using .ui file (from QtDesigner) and loadUIType, 
@@ -45,7 +46,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.scrutinize_dialog = None
         self.function_dialog = None
         
-
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
@@ -60,7 +60,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.triggered.connect(self.on_close_data)
         self.action_save.triggered.connect(self.on_save)
         self.action_function.triggered.connect(self.on_function)
-        self.action_range.triggered.connect(self.on_range)
         self.action_analyze.triggered.connect(self.on_analyze)
         self.action_quit.triggered.connect(self.close)     
 
@@ -72,7 +71,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.setEnabled(False)
         self.action_save.setEnabled(False)
         self.action_function.setEnabled(False)
-        self.action_range.setEnabled(False)
         self.action_analyze.setEnabled(False)
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
@@ -83,15 +81,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_number = 0
         self.phase_name = "Phase"
         self.phase_list = []
+        self.current_function = ""
+        self.function_dialog = FunctionSelectionDialog(self.current_function)
 
         self._data_open = False
         self._scrutinizing = False
-                
-#         ffw = ff.FunctionsFramework()
-#         mod_funcs = ffw.read_modelling_functions('..\\..\\Resources\\ModellingFunctions\\PredefinedModellingFunctions.csv')
-
-
-                
+                                
     def on_open(self):
         file_path = widgets.QFileDialog.getOpenFileName(self, 
         "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
@@ -118,7 +113,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_close.setEnabled(True)
             self.action_save.setEnabled(True)
             self.action_function.setEnabled(True)
-            self.action_range.setEnabled(True)
             self.action_analyze.setEnabled(True)
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
@@ -131,21 +125,9 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.setEnabled(True)
         self.action_save.setEnabled(True)
         self.action_function.setEnabled(True)
-        self.action_range.setEnabled(True)
         self.action_analyze.setEnabled(True)
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
-
-#         if self.action_simulate.isChecked():
-#             self._simulating = True
-#             self.simulate_dialog = SimulateDialog(main) 
-#             flags = self.simulate_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
-#             self.simulate_dialog.setWindowFlags(flags)
-#             if self.simulate_dialog.show() == widgets.QDialog.Accepted:
-#                 print(self.simulate_dialog.data)
-#         else:
-#             self._simulating = False
- 
  
     def on_close_data(self):
         self.blits_data = BlitsData()
@@ -159,31 +141,18 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_close.setEnabled(False)
         self.action_save.setEnabled(False)
         self.action_function.setEnabled(False)
-        self.action_range.setEnabled(False)
         self.action_analyze.setEnabled(False)
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
-
-
-    def on_range(self):
-        self.action_open.setEnabled(False)        
-        self.action_create.setEnabled(False)
-        self.action_close.setEnabled(True)
-        self.action_save.setEnabled(True)
-        self.action_function.setEnabled(True)
-        self.action_range.setEnabled(True)
-        self.action_analyze.setEnabled(True)
-        self.action_quit.setEnabled(True)     
-        self.span.set_active(True)
     
     def on_function(self):
-        self.function_dialog = FunctionSelectionDialog()
-        self.function_dialog.show()
-        
-#         if self.function_dialog.show() == widgets.QDialog.accepted():
-#             print("Accepted")
-#         else:
-#             print("Cancelled")
+        if self.function_dialog.show() == widgets.QDialog.Accepted:
+            self.current_function = self.function_dialog.selected_fn_name
+            ## This doesn't work yet
+            print(self.current_function)
+            
+                   
+
             
     def on_analyze(self):
         if self.action_analyze.isChecked():

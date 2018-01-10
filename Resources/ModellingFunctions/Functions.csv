@@ -38,7 +38,6 @@ Calculated dependent,ycalc
 Independents,x
 Parameters,"y0, A, k, slope"
 First estimates,"y0 = last(y), A = first(y) - last(y), k = 0.1 * last(x), slope = 0.0"
-End,
 ,
 Name,Double exponential decay
 Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2)
