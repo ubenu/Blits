@@ -46,7 +46,7 @@
           <property name="frameShadow">
            <enum>QFrame::Raised</enum>
           </property>
-          <layout class="QGridLayout" name="gridLayout"/>
+          <layout class="QVBoxLayout" name="params_layout"/>
          </widget>
         </item>
         <item>
@@ -91,9 +91,10 @@
     <property name="title">
      <string>&amp;Analysis</string>
     </property>
-    <addaction name="separator"/>
     <addaction name="action_function"/>
+    <addaction name="separator"/>
     <addaction name="action_analyze"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="enabled">
@@ -128,12 +129,13 @@
    <addaction name="separator"/>
    <addaction name="action_close"/>
    <addaction name="separator"/>
-   <addaction name="action_save"/>
-   <addaction name="separator"/>
    <addaction name="separator"/>
    <addaction name="action_function"/>
    <addaction name="separator"/>
    <addaction name="action_analyze"/>
+   <addaction name="separator"/>
+   <addaction name="separator"/>
+   <addaction name="action_save"/>
    <addaction name="separator"/>
   </widget>
   <action name="action_save">
@@ -184,7 +186,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Analyze</string>
+    <string>Fit data</string>
    </property>
   </action>
   <action name="action_close">

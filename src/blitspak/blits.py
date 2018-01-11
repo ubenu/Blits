@@ -74,8 +74,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_analyze.setEnabled(False)
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
-
-
+        
         self.blits_data = BlitsData()
         self.file_name = ""
         self.file_path = ""
@@ -153,6 +152,17 @@ class Main(QMainWindow, Ui_MainWindow):
             print("Funcion: " + self.current_function.name)
         else:
             print("Funcion: None")
+        
+        self.model = ParametersTableModel(self.current_function)
+        self.tableview = widgets.QTableView()
+        table_label = widgets.QLabel(self.current_function.name)
+        table_label.setBuddy(self.tableview)
+        self.tableview.setModel(self.model)
+        self.params_layout.addWidget(self.tableview)
+
+
+
+
             
     def on_analyze(self):
         if self.action_analyze.isChecked():
@@ -202,6 +212,117 @@ class Main(QMainWindow, Ui_MainWindow):
         self.tabWidget.addTab(new_tab, phase_id)
         
 
+            
+    def line_icon(self, color):
+        pixmap = gui.QPixmap(50,10)
+        pixmap.fill(gui.QColor(color))
+        icon = gui.QIcon(pixmap)
+        return icon  
+    
+    def circle_icon(self, color):
+        pix = gui.QPixmap(30,30)
+        pix.fill(gui.QColor("transparent"))
+        paint = gui.QPainter()
+        paint.begin(pix)
+        paint.setBrush(gui.QColor(color))
+        paint.setPen(gui.QColor("transparent"))
+        paint.drawEllipse(0,0,30,30)
+        paint.end()
+        icon = gui.QIcon(pix)
+        return icon        
+
+    def is_number(self, s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False    
+        
+class ParametersTableModel(qt.QAbstractTableModel):
+    
+    def __init__(self, modfunc):  
+        super(ParametersTableModel, self).__init__() 
+        self.modfunc = modfunc 
+        self.pnames = self.modfunc.parameters
+        
+    def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
+        # Implementation of super.headerData
+        if role == qt.Qt.TextAlignmentRole:
+            if orientation == qt.Qt.Horizontal:
+                return qt.QVariant(int(qt.Qt.AlignLeft|qt.Qt.AlignVCenter))
+            return qt.QVariant(int(qt.Qt.AlignRight|qt.Qt.AlignVCenter))
+        if role != qt.Qt.DisplayRole:
+            return qt.QVariant()
+        if orientation == qt.Qt.Vertical:
+            for i in range(len(self.pnames)):
+                if section == i:
+                    return qt.QVariant(self.pnames[i])
+#             if section == 0:
+#                 return qt.QVariant("p0")
+#             elif section == 1:
+#                 return qt.QVariant("p1")
+#             elif section == 2:
+#                 return qt.QVariant("p2")
+        
+        
+#             if section == FNAME:
+#                 return qt.QVariant("Name")
+#             elif section == INDEPENDENTS:
+#                 return qt.QVariant("Independents")
+#             elif section == PARAMS:
+#                 return qt.QVariant("Parameters")
+#             elif section == DESCRIPTION:
+#                 return qt.QVariant("Description")
+#             elif section == DEFINITION:
+#                 return qt.QVariant("Definition")
+        return qt.QVariant(int(section + 1))
+
+    def rowCount(self, index=qt.QModelIndex()):
+        return len(self.modfunc.parameters) 
+
+    def columnCount(self, index=qt.QModelIndex()):
+        return 2
+    
+    def data(self, index, role=qt.Qt.DisplayRole):
+        pass
+#         if not index.isValid() or \
+#            not (0 <= index.row() < len(self.modfuncs)):
+#             return qt.QVariant()
+#         column = index.column()
+#         if role == qt.Qt.DisplayRole:
+#             if column == 0:
+#                 return qt.QVariant(self.parameters[0])
+#             if column == 1:
+#                 return qt.QVariant(self.parameters[1])
+#             if column == 2:
+#                 return qt.QVariant(self.parameters[2])
+        
+        
+#         if role == qt.Qt.DisplayRole:
+#             if column == FNAME:
+#                 return qt.QVariant(modfunc.name)
+#             elif column == INDEPENDENTS:
+#                 return qt.QVariant(modfunc.independents)
+#             elif column == PARAMS:
+#                 return qt.QVariant(modfunc.parameters)
+#             elif column == DESCRIPTION:
+#                 return qt.QVariant(modfunc.description)
+#             elif column == DEFINITION:
+#                 return qt.QVariant(modfunc.definition)
+#         elif role == qt.Qt.ToolTipRole:
+#             if column == FNAME:
+#                 return qt.QVariant(modfunc.name)
+#             elif column == INDEPENDENTS:
+#                 return qt.QVariant(modfunc.independents)
+#             elif column == PARAMS:
+#                 return qt.QVariant(modfunc.parameters)
+#             elif column == DESCRIPTION:
+#                 return qt.QVariant(modfunc.long_description)
+#             elif column == DEFINITION:
+#                 return qt.QVariant(modfunc.definition)
+        return qt.QVariant()        
+  
+
 #     def _write_results(self):
 #         r = self.blits_data.results
 #         tbr = self.tblResults
@@ -231,33 +352,7 @@ class Main(QMainWindow, Ui_MainWindow):
 #             tbf.setHorizontalHeaderLabels(f.columns)
 #             for i in range(len(f.index)):
 #                 for j in range(len(f.columns)):
-#                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))
-            
-    def line_icon(self, color):
-        pixmap = gui.QPixmap(50,10)
-        pixmap.fill(gui.QColor(color))
-        icon = gui.QIcon(pixmap)
-        return icon  
-    
-    def circle_icon(self, color):
-        pix = gui.QPixmap(30,30)
-        pix.fill(gui.QColor("transparent"))
-        paint = gui.QPainter()
-        paint.begin(pix)
-        paint.setBrush(gui.QColor(color))
-        paint.setPen(gui.QColor("transparent"))
-        paint.drawEllipse(0,0,30,30)
-        paint.end()
-        icon = gui.QIcon(pix)
-        return icon        
-
-    def is_number(self, s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False      
-        
+#                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))        
 # Standard main loop code
 if __name__ == '__main__':
     import sys
@@ -266,3 +361,5 @@ if __name__ == '__main__':
     main = Main()
     main.show()
     sys.exit(app.exec_())
+
+

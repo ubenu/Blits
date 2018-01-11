@@ -220,7 +220,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             modfunc.obs_dependent_name = odp
             modfunc.calc_dependent_name = cdp
             modfunc.independents = idp 
-            modfunc.parameters = par
+            modfunc.parameters = par.strip().split(',')
             modfunc.first_estimates = est
             modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
             modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
@@ -250,7 +250,6 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
 
     def rowCount(self, index=qt.QModelIndex()):
         return len(self.modfuncs)
-
 
     def columnCount(self, index=qt.QModelIndex()):
         return NCOLS
