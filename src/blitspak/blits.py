@@ -75,6 +75,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
 
+
         self.blits_data = BlitsData()
         self.file_name = ""
         self.file_path = ""
@@ -82,11 +83,11 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_name = "Phase"
         self.phase_list = []
         self.current_function = ""
-        self.function_dialog = FunctionSelectionDialog(self.current_function)
+        self.function_dialog = FunctionSelectionDialog(self, self.current_function)
 
         self._data_open = False
         self._scrutinizing = False
-                                
+                                        
     def on_open(self):
         file_path = widgets.QFileDialog.getOpenFileName(self, 
         "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
@@ -146,13 +147,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.span.set_active(False)
     
     def on_function(self):
-        if self.function_dialog.show() == widgets.QDialog.Accepted:
-            self.current_function = self.function_dialog.selected_fn_name
-            ## This doesn't work yet
-            print(self.current_function)
-            
-                   
-
+        if widgets.QDialog.Accepted == self.function_dialog.exec():
+            self.current_function = self.function_dialog.get_selected_function()
+        if not self.current_function is None:
+            print("Funcion: " + self.current_function.name)
+        else:
+            print("Funcion: None")
             
     def on_analyze(self):
         if self.action_analyze.isChecked():

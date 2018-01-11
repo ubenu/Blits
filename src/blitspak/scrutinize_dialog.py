@@ -21,7 +21,7 @@ import functions.function_defs as fdefs
 #import scrutinize_dialog_ui as ui
 
 from PyQt5.uic import loadUiType
-from PyQt5.Qt import QDialogButtonBox
+#from PyQt5.Qt import QDialogButtonBox
 
 Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
 
@@ -111,7 +111,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
                      "Competitive enzyme inhibition": (fdefs.fn_comp_inhibition, 
                                                          fdefs.p0_fn_comp_inhibition,
                                                          ('Km', 'Ki', 'Vmax'), 
-                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x1)"
+                                                         "Vmax . x0 / (Km . (1.0 + x1 / Ki) + x0)"
                                                          ), 
                      "Uncompetitive enzyme inhibition": (fdefs.fn_uncomp_inhibition, 
                                                          fdefs.p0_fn_uncomp_inhibition,
@@ -310,7 +310,7 @@ class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
             p0_fn_ref = self.fn_dictionary[name][self.d_p0]
             param_names = self.fn_dictionary[name][self.d_pnames]
             fn_str = self.fn_dictionary[name][self.d_expr]
-            self.library[name] = ff.ModellingFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
+            self.library[name] = ff.LibraryFunction(name, fn_ref, p0_fn_ref, param_names, fn_str)    
                     
     def get_selected_series_names(self):
         selected = []

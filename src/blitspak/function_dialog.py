@@ -9,6 +9,7 @@ from PyQt5 import QtWidgets as widgets
 
 import pandas as pd, numpy as np
 
+import functions.function_defs as fdefs
 
 NCOLS = 5
 FNAME, INDEPENDENTS, PARAMS, DESCRIPTION, DEFINITION = range(NCOLS)
@@ -18,20 +19,22 @@ if __name__ == '__main__':
     pass
 
 
+
 class FunctionSelectionDialog(widgets.QDialog):
     
-    def __init__(self, selected_fn_name="", parent=None):
+    def __init__(self, parent, selected_fn_name=""):
         super(FunctionSelectionDialog, self).__init__(parent)
+        self.setModal(False)
         
-        self.model = FunctionLibrary()
+        self.model = FunctionLibraryTableModel()
         
         self.setWindowTitle("Select modelling function")
         main_layout = widgets.QVBoxLayout()
         self.button_box = widgets.QDialogButtonBox()
-        self.button_box.addButton(widgets.QDialogButtonBox.Ok)
         self.button_box.addButton(widgets.QDialogButtonBox.Cancel)
-        self.button_box.clicked.connect(self.on_ok)
-        self.button_box.clicked.connect(self.on_cancel)
+        self.button_box.addButton(widgets.QDialogButtonBox.Ok)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
          
         table_label = widgets.QLabel("Available functions")
         self.tableview = widgets.QTableView()
@@ -54,25 +57,30 @@ class FunctionSelectionDialog(widgets.QDialog):
         proxy.setFilterFixedString(item_text)
         matching_index = proxy.mapToSource(proxy.index(0,0))
         return matching_index
+    
+    def set_selected_function_name(self):
+        row, col = self.tableview.selectionModel().currentIndex().row(), FNAME
+        inx = self.tableview.model().index(row, col, qt.QModelIndex())
+        self.selected_fn_name = self.tableview.model().data(inx).value()
+     
+    def get_selected_function(self):
+        if self.selected_fn_name in self.model.funcion_dictionary:
+            return self.model.funcion_dictionary[self.selected_fn_name]
+        return None
+    
+    def accept(self):
+        self.set_selected_function_name()
+        widgets.QDialog.accept(self)
         
-    def on_ok(self, button):
-        if button == self.button_box.button(widgets.QDialogButtonBox.Ok):
-            row = self.tableview.selectionModel().currentIndex().row()
-            col = FNAME
-            item = self.tableview.model().index(row, col, qt.QModelIndex())
-            self.selected_fn_name = self.tableview.model().data(item).value()
-            self.accept()
-
-    def on_cancel(self, button):
-        if button == self.button_box.button(widgets.QDialogButtonBox.Cancel):
-            self.reject()
+    def reject(self):
+        widgets.QDialog.reject(self)
           
  
 class ModellingFunction(object):
     
     def __init__(self, uid):
         """
-        @uid: unique identifier
+        @uid: unique identifier (int)
         """
         super(ModellingFunction, self).__init__()
         
@@ -86,23 +94,95 @@ class ModellingFunction(object):
         self.calc_dependent_name = ""
         self.independents = "" 
         self.parameters = ""
-        self.first_estimates = ""        
+        self.first_estimates = ""
+        self.func = None 
+        self.p0 = None       
 
  
-class FunctionLibrary(qt.QAbstractTableModel):
-    
+class FunctionLibraryTableModel(qt.QAbstractTableModel):
+
+    M_FUNC, M_P0 = range(2)
+    fn_dictionary = {
+        "Mean": (
+            fdefs.fn_average,
+            fdefs.p0_fn_average,
+            ),
+        "Straight line": (
+            fdefs.fn_straight_line,
+            fdefs.p0_fn_straight_line,
+            ),
+        "Single exponential decay": (
+            fdefs.fn_1exp, 
+            fdefs.p0_fn_1exp,
+            ),
+        "Single exponential decay and straight line": (
+            fdefs.fn_1exp_strline, 
+            fdefs.p0_fn_1exp_strline,
+            ),
+        "Double exponential decay": (
+            fdefs.fn_2exp,
+            fdefs.p0_fn_2exp,
+            ),
+        "Double exponential and straight line": (
+            fdefs.fn_2exp_strline,
+            fdefs.p0_fn_2exp_strline,
+            ), 
+        "Triple exponential decay": (
+            fdefs.fn_3exp, 
+            fdefs.p0_fn_3exp,
+            ),
+        "Michaelis-Menten model (initial rates)": (
+            fdefs.fn_mich_ment,
+            fdefs.p0_fn_mich_ment,
+            ),
+        "Competitive enzyme inhibition model (initial rates)": (
+            fdefs.fn_comp_inhibition,
+            fdefs.p0_fn_comp_inhibition,
+            ), 
+        "Uncompetitive enzyme inhibition": (
+            fdefs.fn_uncomp_inhibition,
+            fdefs.p0_fn_uncomp_inhibition,
+            ),
+        "Noncompetitive enzyme inhibition": (
+            fdefs.fn_noncomp_inhibition,
+            fdefs.p0_fn_noncomp_inhibition,
+            ),
+        "Mixed enzyme inhibition": (
+            fdefs.fn_mixed_inhibition,
+            fdefs.p0_fn_mixed_inhibition,
+            ),
+        "Hill equation": (
+            fdefs.fn_hill,
+            fdefs.p0_fn_hill,
+            ),
+        "Competitive 2-ligand binding (Absorbance/Fluorescence)": (
+            fdefs.fn_comp_binding,
+            fdefs.p0_fn_comp_binding,
+            ),
+        "Chemical denaturation": (
+            fdefs.fn_chem_unfold,
+            fdefs.p0_fn_chem_unfold,
+            ),
+        "Thermal denaturation": (
+            fdefs.fn_therm_unfold,
+            fdefs.p0_fn_therm_unfold,
+            ),
+        }
+        
     def __init__(self, filepath="..\\..\\Resources\\ModellingFunctions\\Functions.csv"):
-        super(FunctionLibrary, self).__init__()
+        super(FunctionLibraryTableModel, self).__init__()
         
         self.filepath = filepath
         self.raw_data = None
         self.dirty = False
         
-        self.load_lib()
-        
+        self.modfuncs = []
+        self.funcion_dictionary = {}
+        self.load_lib()        
     
     def load_lib(self):    
         self.modfuncs = []
+        self.funcion_dictionary = {}
         
         self.raw_data = pd.read_csv(self.filepath)
         self.raw_data.dropna(inplace=True)
@@ -142,7 +222,10 @@ class FunctionLibrary(qt.QAbstractTableModel):
             modfunc.independents = idp 
             modfunc.parameters = par
             modfunc.first_estimates = est
+            modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
+            modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
             self.modfuncs.append(modfunc)
+            self.funcion_dictionary[modfunc.name] = modfunc
             
     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
         # Implementation of super.headerData
@@ -166,12 +249,10 @@ class FunctionLibrary(qt.QAbstractTableModel):
         return qt.QVariant(int(section + 1))
 
     def rowCount(self, index=qt.QModelIndex()):
-        # Implementation of super.rowCount
         return len(self.modfuncs)
 
 
     def columnCount(self, index=qt.QModelIndex()):
-        # Implementation of super.columnCount
         return NCOLS
     
     def data(self, index, role=qt.Qt.DisplayRole):
@@ -203,3 +284,5 @@ class FunctionLibrary(qt.QAbstractTableModel):
             elif column == DEFINITION:
                 return qt.QVariant(modfunc.definition)
         return qt.QVariant()
+
+       
