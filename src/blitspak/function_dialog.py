@@ -18,16 +18,12 @@ FNAME, INDEPENDENTS, PARAMS, DESCRIPTION, DEFINITION = range(NCOLS)
 if __name__ == '__main__':
     pass
 
-
-
 class FunctionSelectionDialog(widgets.QDialog):
     
     def __init__(self, parent, selected_fn_name=""):
         super(FunctionSelectionDialog, self).__init__(parent)
         self.setModal(False)
-        
-        self.model = FunctionLibraryTableModel()
-        
+                
         self.setWindowTitle("Select modelling function")
         main_layout = widgets.QVBoxLayout()
         self.button_box = widgets.QDialogButtonBox()
@@ -35,10 +31,11 @@ class FunctionSelectionDialog(widgets.QDialog):
         self.button_box.addButton(widgets.QDialogButtonBox.Ok)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
-         
+        
         table_label = widgets.QLabel("Available functions")
         self.tableview = widgets.QTableView()
         table_label.setBuddy(self.tableview)
+        self.model = FunctionLibraryTableModel()
         self.tableview.setModel(self.model)
         self.tableview.setSelectionBehavior(widgets.QAbstractItemView.SelectRows)
         self.tableview.setSelectionMode(widgets.QAbstractItemView.SingleSelection)
@@ -60,8 +57,8 @@ class FunctionSelectionDialog(widgets.QDialog):
     
     def set_selected_function_name(self):
         row, col = self.tableview.selectionModel().currentIndex().row(), FNAME
-        inx = self.tableview.model().index(row, col, qt.QModelIndex())
-        self.selected_fn_name = self.tableview.model().data(inx).value()
+        i = self.tableview.model().index(row, col, qt.QModelIndex())
+        self.selected_fn_name = self.tableview.model().data(i).value()
      
     def get_selected_function(self):
         if self.selected_fn_name in self.model.funcion_dictionary:

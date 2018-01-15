@@ -13,19 +13,18 @@ from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
 from PyQt5 import QtGui as gui
 
+import pandas as pd, numpy as np
+
+
 from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
+from blitspak.create_data_set_dialog import CreateDataSetDialog
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
-
-
-# from blitspak.simulate_dialog import SimulateDialog
-# import functions.framework as ff
-# import functions.function_defs as fdefs
 
 # Original:
 # To avoid using .ui file (from QtDesigner) and loadUIType, 
@@ -45,6 +44,7 @@ class Main(QMainWindow, Ui_MainWindow):
 
         self.scrutinize_dialog = None
         self.function_dialog = None
+        self.create_data_set_dialog = None
         
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
@@ -67,10 +67,10 @@ class Main(QMainWindow, Ui_MainWindow):
         'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
         
         self.action_open.setEnabled(True)
-        self.action_create.setEnabled(True)
+        self.action_create.setEnabled(False)
         self.action_close.setEnabled(False)
         self.action_save.setEnabled(False)
-        self.action_function.setEnabled(False)
+        self.action_function.setEnabled(True)
         self.action_analyze.setEnabled(False)
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
@@ -81,8 +81,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_number = 0
         self.phase_name = "Phase"
         self.phase_list = []
-        self.current_function = ""
-        self.function_dialog = FunctionSelectionDialog(self, self.current_function)
+        self.current_function = None
 
         self._data_open = False
         self._scrutinizing = False
@@ -117,9 +116,46 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
             
+    def on_close_data(self):
+        self.blits_data = BlitsData()
+        self.canvas.clear_figure()
+        self._data_open = False
+        self._scrutinizing = False
+        self._simulating = False
+            
+        self.action_open.setEnabled(True)
+        self.action_create.setEnabled(False)
+        self.action_close.setEnabled(False)
+        self.action_save.setEnabled(False)
+        self.action_function.setEnabled(True)
+        self.action_analyze.setEnabled(False)
+        self.action_quit.setEnabled(True)     
+        self.span.set_active(False)
+    
+    def on_function(self):
+        name = ""
+        if not self.current_function is None:
+            name = self.current_function.name
+        self.function_dialog = FunctionSelectionDialog(self, name)
+        if widgets.QDialog.Accepted == self.function_dialog.exec():
+            self.current_function = self.function_dialog.get_selected_function()
+        if not self.current_function is None:
+            self.model = ParametersTableModel(self.current_function)
+            self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
+            self.txt_description.setText(self.current_function.long_description)
+            self.table_view.setModel(self.model)
+            
+            self.action_create.setEnabled(True) # needs a proper state transition model
+
     def on_create(self):   
         # code to create (simulate) data set here 
         # needs a bit more thinking
+        if not self.current_function is None:
+            self.create_data_set_dialog = CreateDataSetDialog(self, self.current_function)
+            if widgets.QDialog.Accepted == self.create_data_set_dialog(self.current_function).exec():
+                print('Done')
+            else:
+                print('Not done')
         self.action_open.setEnabled(False)        
         self.action_create.setEnabled(False)
         self.action_close.setEnabled(True)
@@ -129,40 +165,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_quit.setEnabled(True)     
         self.span.set_active(False)
  
-    def on_close_data(self):
-        self.blits_data = BlitsData()
-        self.canvas.clear_figure()
-        self._data_open = False
-        self._scrutinizing = False
-        self._simulating = False
-            
-        self.action_open.setEnabled(True)
-        self.action_create.setEnabled(True)
-        self.action_close.setEnabled(False)
-        self.action_save.setEnabled(False)
-        self.action_function.setEnabled(False)
-        self.action_analyze.setEnabled(False)
-        self.action_quit.setEnabled(True)     
-        self.span.set_active(False)
-    
-    def on_function(self):
-        if widgets.QDialog.Accepted == self.function_dialog.exec():
-            self.current_function = self.function_dialog.get_selected_function()
-        if not self.current_function is None:
-            print("Funcion: " + self.current_function.name)
-        else:
-            print("Funcion: None")
-        
-        self.model = ParametersTableModel(self.current_function)
-        self.tableview = widgets.QTableView()
-        table_label = widgets.QLabel(self.current_function.name)
-        table_label.setBuddy(self.tableview)
-        self.tableview.setModel(self.model)
-        self.params_layout.addWidget(self.tableview)
-
-
-
-
             
     def on_analyze(self):
         if self.action_analyze.isChecked():
@@ -178,8 +180,6 @@ class Main(QMainWindow, Ui_MainWindow):
         "Save Results File", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if file_path:
             self.blits_data.export_results(file_path)
-        
-        
             
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
@@ -242,8 +242,12 @@ class ParametersTableModel(qt.QAbstractTableModel):
     
     def __init__(self, modfunc):  
         super(ParametersTableModel, self).__init__() 
-        self.modfunc = modfunc 
-        self.pnames = self.modfunc.parameters
+        self.modfunc = modfunc
+        x1 = np.linspace(0, 10.0, 0.1)
+        y1 = np.sin(x1)
+        y2 = np.cos(2*x1)
+        d = {'X1': x1, 'Y1': y1, 'X2': x1, 'Y2': y2}
+        self.dummydata = pd.DataFrame(d)
         
     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
         # Implementation of super.headerData
@@ -254,75 +258,39 @@ class ParametersTableModel(qt.QAbstractTableModel):
         if role != qt.Qt.DisplayRole:
             return qt.QVariant()
         if orientation == qt.Qt.Vertical:
-            for i in range(len(self.pnames)):
+            for i in range(len(self.modfunc.parameters)):
                 if section == i:
-                    return qt.QVariant(self.pnames[i])
-#             if section == 0:
-#                 return qt.QVariant("p0")
-#             elif section == 1:
-#                 return qt.QVariant("p1")
-#             elif section == 2:
-#                 return qt.QVariant("p2")
-        
-        
-#             if section == FNAME:
-#                 return qt.QVariant("Name")
-#             elif section == INDEPENDENTS:
-#                 return qt.QVariant("Independents")
-#             elif section == PARAMS:
-#                 return qt.QVariant("Parameters")
-#             elif section == DESCRIPTION:
-#                 return qt.QVariant("Description")
-#             elif section == DEFINITION:
-#                 return qt.QVariant("Definition")
+                    return qt.QVariant(self.modfunc.parameters[i])
+        if orientation == qt.Qt.Horizontal:
+            pass
         return qt.QVariant(int(section + 1))
 
     def rowCount(self, index=qt.QModelIndex()):
         return len(self.modfunc.parameters) 
 
     def columnCount(self, index=qt.QModelIndex()):
-        return 2
+        return int(len(self.dummydata.columns)/2)
     
     def data(self, index, role=qt.Qt.DisplayRole):
-        pass
-#         if not index.isValid() or \
-#            not (0 <= index.row() < len(self.modfuncs)):
-#             return qt.QVariant()
-#         column = index.column()
-#         if role == qt.Qt.DisplayRole:
-#             if column == 0:
-#                 return qt.QVariant(self.parameters[0])
-#             if column == 1:
-#                 return qt.QVariant(self.parameters[1])
-#             if column == 2:
-#                 return qt.QVariant(self.parameters[2])
-        
-        
-#         if role == qt.Qt.DisplayRole:
-#             if column == FNAME:
-#                 return qt.QVariant(modfunc.name)
-#             elif column == INDEPENDENTS:
-#                 return qt.QVariant(modfunc.independents)
-#             elif column == PARAMS:
-#                 return qt.QVariant(modfunc.parameters)
-#             elif column == DESCRIPTION:
-#                 return qt.QVariant(modfunc.description)
-#             elif column == DEFINITION:
-#                 return qt.QVariant(modfunc.definition)
-#         elif role == qt.Qt.ToolTipRole:
-#             if column == FNAME:
-#                 return qt.QVariant(modfunc.name)
-#             elif column == INDEPENDENTS:
-#                 return qt.QVariant(modfunc.independents)
-#             elif column == PARAMS:
-#                 return qt.QVariant(modfunc.parameters)
-#             elif column == DESCRIPTION:
-#                 return qt.QVariant(modfunc.long_description)
-#             elif column == DEFINITION:
-#                 return qt.QVariant(modfunc.definition)
+        if not index.isValid() or not (0 <= index.row() < len(self.modfunc.parameters)):
+            return qt.QVariant()
+        column, row = index.column(), index.row()
+        if role == qt.Qt.DisplayRole:
+            return qt.QVariant(str(row) + ", " + str(column) )
         return qt.QVariant()        
   
 
+# Standard main loop code
+if __name__ == '__main__':
+    import sys
+#    sys.tracbacklimit = 10
+    app = widgets.QApplication(sys.argv)
+    main = Main()
+    main.show()
+    sys.exit(app.exec_())
+
+
+### Old
 #     def _write_results(self):
 #         r = self.blits_data.results
 #         tbr = self.tblResults
@@ -353,13 +321,5 @@ class ParametersTableModel(qt.QAbstractTableModel):
 #             for i in range(len(f.index)):
 #                 for j in range(len(f.columns)):
 #                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))        
-# Standard main loop code
-if __name__ == '__main__':
-    import sys
-#    sys.tracbacklimit = 10
-    app = widgets.QApplication(sys.argv)
-    main = Main()
-    main.show()
-    sys.exit(app.exec_())
 
 
