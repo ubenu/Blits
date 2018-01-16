@@ -38,6 +38,12 @@ Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 
 class Main(QMainWindow, Ui_MainWindow):
+    
+    NSTATES = 6
+    START, DATA_ONLY, FUNCTION_ONLY, READY_FOR_FITTING, FITTED, REJECT = range(NSTATES)
+#     readiness = (1, 2)
+#     DATA_SET, FUNCTION_SET = readiness
+
     def __init__(self, ):
         super(Main, self).__init__()
         self.setupUi(self)
@@ -59,21 +65,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_create.triggered.connect(self.on_create)
         self.action_close.triggered.connect(self.on_close_data)
         self.action_save.triggered.connect(self.on_save)
-        self.action_function.triggered.connect(self.on_function)
+        self.action_select_function.triggered.connect(self.on_select_function)
         self.action_analyze.triggered.connect(self.on_analyze)
         self.action_quit.triggered.connect(self.close)     
 
         self.span = SpanSelector(self.canvas.data_plot, self.on_select_span, 
         'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
-        
-        self.action_open.setEnabled(True)
-        self.action_create.setEnabled(False)
-        self.action_close.setEnabled(False)
-        self.action_save.setEnabled(False)
-        self.action_function.setEnabled(True)
-        self.action_analyze.setEnabled(False)
-        self.action_quit.setEnabled(True)     
-        self.span.set_active(False)
         
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -81,125 +78,109 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_number = 0
         self.phase_name = "Phase"
         self.phase_list = []
+        self.current_state = self.START
         self.current_function = None
-
-        self._data_open = False
-        self._scrutinizing = False
-                                        
+        
+        self.update_ui()
+        
     def on_open(self):
-        file_path = widgets.QFileDialog.getOpenFileName(self, 
-        "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
-        if file_path:
-            self.file_path = file_path
-            info = qt.QFileInfo(file_path)
-            self.blits_data.file_name = info.fileName()
-            if self._data_open:
-                self.on_close()
-            self.blits_data.import_data(file_path)
-            self.canvas.set_colours(self.blits_data.series_names.tolist())
-            for key in self.blits_data.series_names:
-                series = self.blits_data.series_dict[key]
-                x = series.iloc[:, 0]
-                y = series['y']
-                self.canvas.draw_series(key, x, y)
-
-            self.action_analyze.setEnabled(True)
-            self._data_open = True
-            self._scrutinizing = False
+        if self.current_state in (self.START, self.FUNCTION_ONLY, ):
+            file_path = widgets.QFileDialog.getOpenFileName(self, 
+            "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
+            if file_path:
+                self.file_path = file_path
+                info = qt.QFileInfo(file_path)
+                self.blits_data.file_name = info.fileName()
+                self.blits_data.import_data(file_path)
+                self.canvas.set_colours(self.blits_data.series_names.tolist())
+                for key in self.blits_data.series_names:
+                    series = self.blits_data.series_dict[key]
+                    x = series.iloc[:, 0]
+                    y = series['y']
+                    self.canvas.draw_series(key, x, y)
+                if self.current_state == self.START:
+                    self.current_state = self.DATA_ONLY
+                elif self.current_state == self.FUNCTION_ONLY:
+                    self.current_state = self.READY_FOR_FITTING
+                self.update_ui()
             
-            self.action_open.setEnabled(False)        
-            self.action_create.setEnabled(False)
-            self.action_close.setEnabled(True)
-            self.action_save.setEnabled(True)
-            self.action_function.setEnabled(True)
-            self.action_analyze.setEnabled(True)
-            self.action_quit.setEnabled(True)     
-            self.span.set_active(False)
-            
-    def on_close_data(self):
-        self.blits_data = BlitsData()
-        self.canvas.clear_figure()
-        self._data_open = False
-        self._scrutinizing = False
-        self._simulating = False
-            
-        self.action_open.setEnabled(True)
-        self.action_create.setEnabled(False)
-        self.action_close.setEnabled(False)
-        self.action_save.setEnabled(False)
-        self.action_function.setEnabled(True)
-        self.action_analyze.setEnabled(False)
-        self.action_quit.setEnabled(True)     
-        self.span.set_active(False)
-    
-    def on_function(self):
-        name = ""
-        if not self.current_function is None:
-            name = self.current_function.name
-        self.function_dialog = FunctionSelectionDialog(self, name)
-        if widgets.QDialog.Accepted == self.function_dialog.exec():
-            self.current_function = self.function_dialog.get_selected_function()
-        if not self.current_function is None:
-            self.model = ParametersTableModel(self.current_function)
-            self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
-            self.txt_description.setText(self.current_function.long_description)
-            self.table_view.setModel(self.model)
-            
-            self.action_create.setEnabled(True) # needs a proper state transition model
-
-    def on_create(self):   
-        # code to create (simulate) data set here 
-        # needs a bit more thinking
-        if not self.current_function is None:
-            self.create_data_set_dialog = CreateDataSetDialog(self, self.current_function)
-            if widgets.QDialog.Accepted == self.create_data_set_dialog(self.current_function).exec():
-                print('Done')
+    def on_create(self):  
+        if self.current_state in (self.FUNCTION_ONLY, ):
+            self.create_data_set_dialog = CreateDataSetDialog(None, self.current_function)
+            if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
+                print('Simulated data created')
+                self.current_state = self.READY_FOR_FITTING
+                self.update_ui()
             else:
-                print('Not done')
-        self.action_open.setEnabled(False)        
-        self.action_create.setEnabled(False)
-        self.action_close.setEnabled(True)
-        self.action_save.setEnabled(True)
-        self.action_function.setEnabled(True)
-        self.action_analyze.setEnabled(True)
-        self.action_quit.setEnabled(True)     
-        self.span.set_active(False)
- 
+                print('No data created')
+
+    def on_close_data(self):
+        if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
+            self.blits_data = BlitsData()
+            self.canvas.clear_figure()
+            if self.current_state == self.DATA_ONLY:
+                self.current_state = self.START
+            else:
+                self.current_state = self.FUNCTION_ONLY
+            self.update_ui()
+
+    def on_select_function(self):
+        if self.current_state in range(self.NSTATES):  # should work from all states
+            name = ""
+            if not self.current_state in (self.START, self.DATA_ONLY):  # a current function exists
+                name = self.current_function.name
+            self.function_dialog = FunctionSelectionDialog(self, name)
+            if self.function_dialog.exec() == widgets.QDialog.Accepted:
+                self.current_function = self.function_dialog.get_selected_function()
+                self.model = ParametersTableModel(self.current_function)
+                self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
+                self.txt_description.setText(self.current_function.long_description)
+                self.table_view.setModel(self.model)
+                if self.current_state in (self.START, self.FUNCTION_ONLY):
+                    self.current_state = self.FUNCTION_ONLY
+                else:
+                    self.current_state = self.READY_FOR_FITTING
+                self.update_ui()
             
     def on_analyze(self):
-        if self.action_analyze.isChecked():
-            self.plot_toolbar.switch_off_pan_zoom()
-            self._scrutinizing = True
-            self.span.set_active(True)   
-        else:
-            self._scrutinizing = False
-            self.span.set_active(False)  
+        if self.current_state in (self.READY_FOR_FITTING, ):
+#         if self.action_analyze.isChecked():
+#             self.plot_toolbar.switch_off_pan_zoom()
+#             self.span.set_active(True)   
+#         else:
+#             self.span.set_active(False)  
+            self.current_state = self.FITTED
+            self.update_ui()
 
     def on_save(self):
-        file_path = widgets.QFileDialog.getSaveFileName(self, 
-        "Save Results File", "", "CSV data files (*.csv);;All files (*.*)")[0]
+        file_path = ""
+        if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, ):
+            file_path = widgets.QFileDialog.getSaveFileName(self, 
+            "Save data", "", "CSV data files (*.csv);;All files (*.*)")[0]
+        if self.current_state in (self.FITTED, ):
+            file_path = widgets.QFileDialog.getSaveFileName(self, 
+            "Save data and fit", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if file_path:
-            self.blits_data.export_results(file_path)
+            pass
+#             self.blits_data.export_results(file_path)
             
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
-        if self._scrutinizing:  
-            if (xmin != xmax):
-                phase_id = self.phase_name + '{:0d}'.format(self.phase_number + 1)
-                self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax) 
-                flags = self.scrutinize_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
-                self.scrutinize_dialog.setWindowFlags(flags)
-                if self.scrutinize_dialog.show() == widgets.QDialog.Accepted:
-                    print(self.scrutinize_dialog.data)
-                    self.phase_number += 1
-                    self.phase_list.append(phase_id)
-                    model = self.scrutinize_dialog.current_function
-                    model_expr = self.scrutinize_dialog.fn_dictionary[model][self.scrutinize_dialog.d_expr]
-                    m_string = model + ': ' + model_expr
-                    tbl_results = self.scrutinize_dialog.tbl_results
-                    self._create_results_tab(phase_id, m_string, tbl_results)
-                self.action_analyze.setChecked(False)
-                self.on_analyze()
+        if (xmin != xmax):
+            phase_id = self.phase_name + '{:0d}'.format(self.phase_number + 1)
+            self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax) 
+            flags = self.scrutinize_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
+            self.scrutinize_dialog.setWindowFlags(flags)
+            if self.scrutinize_dialog.show() == widgets.QDialog.Accepted:
+                self.phase_number += 1
+                self.phase_list.append(phase_id)
+                model = self.scrutinize_dialog.current_function
+                model_expr = self.scrutinize_dialog.fn_dictionary[model][self.scrutinize_dialog.d_expr]
+                m_string = model + ': ' + model_expr
+                tbl_results = self.scrutinize_dialog.tbl_results
+                self._create_results_tab(phase_id, m_string, tbl_results)
+            self.action_analyze.setChecked(False)
+            self.on_analyze()
                 
     def _create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()
@@ -211,8 +192,6 @@ class Main(QMainWindow, Ui_MainWindow):
         
         self.tabWidget.addTab(new_tab, phase_id)
         
-
-            
     def line_icon(self, color):
         pixmap = gui.QPixmap(50,10)
         pixmap.fill(gui.QColor(color))
@@ -236,7 +215,57 @@ class Main(QMainWindow, Ui_MainWindow):
             float(s)
             return True
         except ValueError:
-            return False    
+            return False  
+        
+    def update_ui(self):
+        if self.current_state == self.START:
+            self.action_open.setEnabled(True)
+            self.action_create.setEnabled(False)
+            self.action_close.setEnabled(False)
+            self.action_save.setEnabled(False)
+            self.action_select_function.setEnabled(True)
+            self.action_analyze.setEnabled(False)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
+        elif self.current_state == self.DATA_ONLY:
+            self.action_open.setEnabled(False)
+            self.action_create.setEnabled(False)
+            self.action_close.setEnabled(True)
+            self.action_save.setEnabled(True)
+            self.action_select_function.setEnabled(True)
+            self.action_analyze.setEnabled(False)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
+        elif self.current_state == self.FUNCTION_ONLY:
+            self.action_open.setEnabled(True)
+            self.action_create.setEnabled(True)
+            self.action_close.setEnabled(False)
+            self.action_save.setEnabled(False)
+            self.action_select_function.setEnabled(True)
+            self.action_analyze.setEnabled(False)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
+        elif self.current_state == self.READY_FOR_FITTING:
+            self.action_open.setEnabled(False)
+            self.action_create.setEnabled(False)
+            self.action_close.setEnabled(True)
+            self.action_save.setEnabled(True)
+            self.action_select_function.setEnabled(True)
+            self.action_analyze.setEnabled(True)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
+        elif self.current_state == self.FITTED:
+            self.action_open.setEnabled(False)
+            self.action_create.setEnabled(False)
+            self.action_close.setEnabled(True)
+            self.action_save.setEnabled(True)
+            self.action_select_function.setEnabled(True)
+            self.action_analyze.setEnabled(True)
+            self.action_quit.setEnabled(True)     
+            self.span.set_active(False)
+        else:
+            print('Illegal state')
+                                          
         
 class ParametersTableModel(qt.QAbstractTableModel):
     

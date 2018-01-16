@@ -144,7 +144,7 @@
     <property name="title">
      <string>&amp;Analysis</string>
     </property>
-    <addaction name="action_function"/>
+    <addaction name="action_select_function"/>
     <addaction name="separator"/>
     <addaction name="action_analyze"/>
     <addaction name="separator"/>
@@ -183,7 +183,7 @@
    <addaction name="action_close"/>
    <addaction name="separator"/>
    <addaction name="separator"/>
-   <addaction name="action_function"/>
+   <addaction name="action_select_function"/>
    <addaction name="separator"/>
    <addaction name="action_analyze"/>
    <addaction name="separator"/>
@@ -207,7 +207,7 @@
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="action_function">
+  <action name="action_select_function">
    <property name="checkable">
     <bool>false</bool>
    </property>

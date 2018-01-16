@@ -11,9 +11,6 @@ import pandas as pd, numpy as np
 
 import functions.function_defs as fdefs
 
-NCOLS = 5
-FNAME, INDEPENDENTS, PARAMS, DESCRIPTION, DEFINITION = range(NCOLS)
-
 
 if __name__ == '__main__':
     pass
@@ -56,7 +53,7 @@ class FunctionSelectionDialog(widgets.QDialog):
         return matching_index
     
     def set_selected_function_name(self):
-        row, col = self.tableview.selectionModel().currentIndex().row(), FNAME
+        row, col = self.tableview.selectionModel().currentIndex().row(), self.model.FNAME
         i = self.tableview.model().index(row, col, qt.QModelIndex())
         self.selected_fn_name = self.tableview.model().data(i).value()
      
@@ -98,6 +95,8 @@ class ModellingFunction(object):
  
 class FunctionLibraryTableModel(qt.QAbstractTableModel):
 
+    NCOLS = 5
+    FNAME, INDEPENDENTS, PARAMS, DESCRIPTION, DEFINITION = range(NCOLS)
     M_FUNC, M_P0 = range(2)
     fn_dictionary = {
         "Mean": (
@@ -233,15 +232,15 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
         if role != qt.Qt.DisplayRole:
             return qt.QVariant()
         if orientation == qt.Qt.Horizontal:
-            if section == FNAME:
+            if section == self.FNAME:
                 return qt.QVariant("Name")
-            elif section == INDEPENDENTS:
+            elif section == self.INDEPENDENTS:
                 return qt.QVariant("Independents")
-            elif section == PARAMS:
+            elif section == self.PARAMS:
                 return qt.QVariant("Parameters")
-            elif section == DESCRIPTION:
+            elif section == self.DESCRIPTION:
                 return qt.QVariant("Description")
-            elif section == DEFINITION:
+            elif section == self.DEFINITION:
                 return qt.QVariant("Definition")
         return qt.QVariant(int(section + 1))
 
@@ -249,7 +248,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
         return len(self.modfuncs)
 
     def columnCount(self, index=qt.QModelIndex()):
-        return NCOLS
+        return self.NCOLS
     
     def data(self, index, role=qt.Qt.DisplayRole):
         if not index.isValid() or \
@@ -258,26 +257,26 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
         modfunc = self.modfuncs[index.row()]
         column = index.column()
         if role == qt.Qt.DisplayRole:
-            if column == FNAME:
+            if column == self.FNAME:
                 return qt.QVariant(modfunc.name)
-            elif column == INDEPENDENTS:
+            elif column == self.INDEPENDENTS:
                 return qt.QVariant(modfunc.independents)
-            elif column == PARAMS:
+            elif column == self.PARAMS:
                 return qt.QVariant(modfunc.parameters)
-            elif column == DESCRIPTION:
+            elif column == self.DESCRIPTION:
                 return qt.QVariant(modfunc.description)
-            elif column == DEFINITION:
+            elif column == self.DEFINITION:
                 return qt.QVariant(modfunc.definition)
         elif role == qt.Qt.ToolTipRole:
-            if column == FNAME:
+            if column == self.FNAME:
                 return qt.QVariant(modfunc.name)
-            elif column == INDEPENDENTS:
+            elif column == self.INDEPENDENTS:
                 return qt.QVariant(modfunc.independents)
-            elif column == PARAMS:
+            elif column == self.PARAMS:
                 return qt.QVariant(modfunc.parameters)
-            elif column == DESCRIPTION:
+            elif column == self.DESCRIPTION:
                 return qt.QVariant(modfunc.long_description)
-            elif column == DEFINITION:
+            elif column == self.DEFINITION:
                 return qt.QVariant(modfunc.definition)
         return qt.QVariant()
 
