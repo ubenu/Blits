@@ -213,10 +213,14 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             modfunc.definition = fn
             if len(rt):
                 modfunc.find_root = rt
-            modfunc.obs_dependent_name = odp
-            modfunc.calc_dependent_name = cdp
-            modfunc.independents = idp 
-            modfunc.parameters = par.strip().split(',')
+            modfunc.obs_dependent_name = odp.strip()
+            modfunc.calc_dependent_name = cdp.strip()
+            modfunc.independents = [i.strip() for i in idp.split(',')]
+            if '' in modfunc.independents:
+                modfunc.independents.remove('')
+            modfunc.parameters = [i.strip() for i in par.split(',')]
+            if '' in modfunc.parameters:
+                modfunc.parameters.remove('')
             modfunc.first_estimates = est
             modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
             modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
@@ -279,5 +283,3 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             elif column == self.DEFINITION:
                 return qt.QVariant(modfunc.definition)
         return qt.QVariant()
-
-       
