@@ -90,6 +90,12 @@ class CreateDataSetDialog(widgets.QDialog):
         vlo.addWidget(tbl_series)
         self.lo_series.addLayout(vlo)
         
+    def create_x(self):
+        for i in range(len(self.all_series)):
+            info = self.all_series[i].df_data
+            # to do next
+        
+        
     def accept(self):
         for i in range(len(self.all_series)):
             print(self.series_names[i].text())

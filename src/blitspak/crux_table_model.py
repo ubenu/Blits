@@ -37,8 +37,6 @@ class CruxTableModel(qt.QAbstractTableModel):
         if index.isValid() and role == qt.Qt.EditRole:
             row, col = index.row(), index.column()
             if row in range(self.df_data.shape[0]) and col in range(self.df_data.shape[1]):
-                print(type(self.df_data.iloc[row][col]))
-                print(type(value))
                 try:
                     self.df_data.iloc[row][col] = value
                     self.dataChanged.emit(index, index)
