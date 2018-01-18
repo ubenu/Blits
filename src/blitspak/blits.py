@@ -107,6 +107,7 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_create(self):  
         if self.current_state in (self.FUNCTION_ONLY, ):
             self.create_data_set_dialog = CreateDataSetDialog(None, self.current_function)
+#             self.create_data_set_dialog.show()
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
                 print('Simulated data created')
                 self.current_state = self.READY_FOR_FITTING
