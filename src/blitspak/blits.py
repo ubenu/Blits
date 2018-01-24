@@ -21,7 +21,7 @@ from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
-from blitspak.create_data_set_dialog import CreateDataSetDialog
+from blitspak.data_creation_dialog import DataCreationDialog
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
@@ -106,10 +106,9 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_create(self):  
         if self.current_state in (self.FUNCTION_ONLY, ):
-            self.create_data_set_dialog = CreateDataSetDialog(None, self.current_function)
-#             self.create_data_set_dialog.show()
+            self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
-                print('Simulated data created')
+#                 print(self.create_data_set_dialog.df_data)
                 self.current_state = self.READY_FOR_FITTING
                 self.update_ui()
             else:

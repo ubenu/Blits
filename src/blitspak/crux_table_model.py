@@ -28,22 +28,27 @@ class CruxTableModel(qt.QAbstractTableModel):
     
     def data(self, index, role=qt.Qt.DisplayRole):
         if index.isValid():
-            if role == qt.Qt.DisplayRole:
+            if role in (qt.Qt.DisplayRole, qt.Qt.EditRole):
                 return str(self.df_data.iloc[index.row(), index.column()])
             return qt.QVariant()
         return qt.QVariant()
 
     def setData(self, index, value, role):
         if index.isValid() and role == qt.Qt.EditRole:
-            row, col = index.row(), index.column()
-            if row in range(self.df_data.shape[0]) and col in range(self.df_data.shape[1]):
-                try:
-                    self.df_data.iloc[row][col] = value
+            row, col = self.df_data.index[index.row()], self.df_data.columns[index.column()]
+            try:
+                if isinstance(self.df_data.loc[row, col], str) and self.df_data.loc[row, col] != "":
+                    self.df_data.loc[row, col] = value # has to be done via .loc to avoid working on a copy; see: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
                     self.dataChanged.emit(index, index)
                     return True
-                except ValueError:
-                    return False
-            return False
+                elif isinstance(self.df_data.loc[row, col], float):
+                    self.df_data.loc[row, col] = float(value) 
+                    self.dataChanged.emit(index, index)
+                    return True                    
+                return False
+            except Exception as e:
+#                 print(e)
+                return False
         return False
  
     def flags(self, index):

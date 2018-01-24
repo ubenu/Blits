@@ -10,19 +10,23 @@ import pandas as pd, numpy as np
 
 from blitspak.crux_table_model import CruxTableModel
 
-class CreateDataSetDialog(widgets.QDialog):
+class DataCreationDialog(widgets.QDialog):
 
     def __init__(self, parent, selected_fn):
         self.function = selected_fn
         self.all_series = []
+        self.all_series_names = []
         self.series_names = []
         
-        super(CreateDataSetDialog, self).__init__(parent)
+        super(DataCreationDialog, self).__init__(parent)
         self.setWindowTitle("Create a data set")
         main_layout = widgets.QVBoxLayout()
         self.button_box = widgets.QDialogButtonBox()
+        self.btn_add_series = widgets.QPushButton("Add series")
+        self.button_box.addButton(self.btn_add_series, widgets.QDialogButtonBox.ActionRole)
         self.button_box.addButton(widgets.QDialogButtonBox.Cancel)
         self.button_box.addButton(widgets.QDialogButtonBox.Ok)
+        self.btn_add_series.clicked.connect(self.add_series)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         
@@ -33,7 +37,10 @@ class CreateDataSetDialog(widgets.QDialog):
         
         gbx_x = widgets.QGroupBox()
         gbx_x.setTitle("Series")
+        self.tbl_x_info = widgets.QTableView()
+        self.tbl_x_info.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
         self.lo_series = widgets.QVBoxLayout()
+        self.lo_series.addWidget(self.tbl_x_info)
                         
         btn_add = widgets.QPushButton("Add series")
         btn_add.clicked.connect(self.add_series)
@@ -61,40 +68,51 @@ class CreateDataSetDialog(widgets.QDialog):
         main_layout.addWidget(gbx_x)
         main_layout.addWidget(gbx_params)
         main_layout.addWidget(self.button_box)
+        
         self.setLayout(main_layout)
         
     def add_series(self):
         n = len(self.all_series)
-        lbl = widgets.QLabel("Series name")
-        txt = widgets.QLineEdit("Series " + str(n + 1))
-        self.series_names.append(txt)
-        hlo = widgets.QHBoxLayout()
-        hlo.addWidget(lbl)
-        hlo.addWidget(txt)
-        tbl_series = widgets.QTableView()
-        tbl_series.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-        
-        #cols = ['Series', 'Min', 'Max', 'Step']
-        cols = ['Min', 'Max', 'Step']
+        name = "Series " + str(n + 1)
+        cols = ['Series', 'First\nvalue', 'Last\nvalue', 'Number\nof points']
+        self.all_series_names.append(name)
         d = np.zeros((len(self.function.independents), len(cols)))
-        df = pd.DataFrame(d, columns=cols, index=self.function.independents)
-        #df = df.astype({'Series': object})
-        #s = ['Series ' + str(len(self.all_series)) ] * (len(self.function.independents))
-        #df.Series = s
-        
-        series_x = CruxTableModel(df)
-        self.all_series.append(series_x)
-        tbl_series.setModel(series_x)
-        vlo = widgets.QVBoxLayout()
-        vlo.addLayout(hlo)
-        vlo.addWidget(tbl_series)
-        self.lo_series.addLayout(vlo)
-        
-    def create_x(self):
-        for i in range(len(self.all_series)):
-            info = self.all_series[i].df_data
-            # to do next
-        
+        ndf = pd.DataFrame(d, columns=cols, index=self.function.independents)
+        ndf = ndf.astype({'Series': object})
+        s = [name]
+        s.extend([""] * (len(self.function.independents)-1))
+        ndf.Series = s
+        if len(self.all_series) == 0:
+            xdf = ndf
+        else:
+            xdf = self.mod_x_info.df_data
+            xdf = xdf.append(ndf)
+        self.mod_x_info = CruxTableModel(xdf)
+        self.tbl_x_info.setModel(self.mod_x_info)                
+                
+#         lbl = widgets.QLabel("Series name")
+#         txt = widgets.QLineEdit(name)
+#         self.series_names.append(txt)
+#         hlo = widgets.QHBoxLayout()
+#         hlo.addWidget(lbl)
+#         hlo.addWidget(txt)
+#         tbl_series = widgets.QTableView()
+#         tbl_series.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+#         
+#         cols = ['Series', 'First\nvalue', 'Last\nvalue', 'Step\nsize']
+#         d = np.zeros((len(self.function.independents), len(cols)))
+#         df = pd.DataFrame(d, columns=cols, index=self.function.independents)
+#         df = df.astype({'Series': object})
+#         s = [name] * (len(self.function.independents))
+#         df.Series = s
+#         
+#         series_x = CruxTableModel(df)
+#         self.all_series.append(series_x)
+#         tbl_series.setModel(series_x)
+#         vlo = widgets.QVBoxLayout()
+#         vlo.addLayout(hlo)
+#         vlo.addWidget(tbl_series)
+#         self.lo_series.addLayout(vlo)
         
     def accept(self):
         for i in range(len(self.all_series)):
