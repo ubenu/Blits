@@ -47,6 +47,7 @@ class DataCreationDialog(widgets.QDialog):
         self.lo_series.addWidget(btn_add)
         gbx_x.setLayout(self.lo_series)
         
+        self.mod_x_info = None
         self.add_series()
         
         gbx_params = widgets.QGroupBox()
@@ -72,23 +73,27 @@ class DataCreationDialog(widgets.QDialog):
         self.setLayout(main_layout)
         
     def add_series(self):
-        n = len(self.all_series)
+        n = len(self.all_series_names)
         name = "Series " + str(n + 1)
-        cols = ['Series', 'First\nvalue', 'Last\nvalue', 'Number\nof points']
         self.all_series_names.append(name)
+        s = [name] * (len(self.function.independents))
+        #s.extend([""] * (len(self.function.independents)-1))
+        mindx = pd.MultiIndex.from_arrays((s, self.function.independents))
+        
+        cols = ['Series', 'First\nvalue', 'Last\nvalue', 'Number\nof points']
         d = np.zeros((len(self.function.independents), len(cols)))
-        ndf = pd.DataFrame(d, columns=cols, index=self.function.independents)
+        ndf = pd.DataFrame(d, columns=cols, index=mindx) # self.function.independents)
         ndf = ndf.astype({'Series': object})
-        s = [name]
-        s.extend([""] * (len(self.function.independents)-1))
+        print(mindx)
         ndf.Series = s
-        if len(self.all_series) == 0:
-            xdf = ndf
+        if self.mod_x_info is None:
+            self.mod_x_info = CruxTableModel(ndf)
         else:
-            xdf = self.mod_x_info.df_data
-            xdf = xdf.append(ndf)
-        self.mod_x_info = CruxTableModel(xdf)
-        self.tbl_x_info.setModel(self.mod_x_info)                
+            self.mod_x_info.df_data = self.mod_x_info.df_data.append(ndf)
+        self.tbl_x_info.setModel(self.mod_x_info)
+        self.mod_x_info.layoutChanged.emit()
+        
+        
                 
 #         lbl = widgets.QLabel("Series name")
 #         txt = widgets.QLineEdit(name)

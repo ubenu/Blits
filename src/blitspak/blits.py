@@ -22,6 +22,7 @@ from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
+
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
