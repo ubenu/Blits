@@ -17,277 +17,176 @@ class DataCreationDialog(widgets.QDialog):
 
     def __init__(self, parent, selected_fn):
         self.function = selected_fn
-        self.all_series = []
         self.all_series_names = []
-        self.series_names = []
+        self.series_params = {}
+        self.series_axes_info = {}
+        self.template = None
         
         super(DataCreationDialog, self).__init__(parent)
         self.setWindowTitle("Create a data set")
+        
+        # Buttonbox
         main_layout = widgets.QVBoxLayout()
         self.button_box = widgets.QDialogButtonBox()
         self.btn_add_series = widgets.QPushButton("Add series")
-        self.btn_create_template = widgets.QPushButton("Create template")
+        self.btn_save_template = widgets.QPushButton("Save template")
         self.button_box.addButton(self.btn_add_series, widgets.QDialogButtonBox.ActionRole)
-        self.button_box.addButton(self.btn_create_template, widgets.QDialogButtonBox.ActionRole)
+        self.button_box.addButton(self.btn_save_template, widgets.QDialogButtonBox.ActionRole)
         self.button_box.addButton(widgets.QDialogButtonBox.Cancel)
         self.button_box.addButton(widgets.QDialogButtonBox.Ok)
         self.btn_add_series.clicked.connect(self.add_series)
-        self.btn_create_template.clicked.connect(self.create_template)
+        self.btn_save_template.clicked.connect(self.save_template)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         
+        # Function description widgets
         txt_fn = widgets.QLabel("Modelling function: " + self.function.name)
         txt_descr = widgets.QTextEdit(self.function.long_description)
         txt_descr.setReadOnly(True)
         txt_descr.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
         
-        gbx_series = widgets.QGroupBox()
-        gbx_series.setTitle("Series - axes")
-        self.lo_series = widgets.QVBoxLayout()
-        gbx_series.setLayout(self.lo_series)
-        
+        # Series tab widget
+        self.tab_series = widgets.QTabWidget()
         self.add_series()
         
-        gbx_params = widgets.QGroupBox()
-        gbx_params.setTitle("Parameters")
-        self.tbl_params = widgets.QTableView()
-        cols = ['Value', ]
-        d = np.zeros((len(self.function.parameters), len(cols)))
-        df = pd.DataFrame(d, columns=cols, index=self.function.parameters)
-        self.param_vals = CruxTableModel(df)
-
-        self.tbl_params.setModel(self.param_vals)
-        self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-        lo_params = widgets.QVBoxLayout()
-        lo_params.addWidget(self.tbl_params)
-        gbx_params.setLayout(lo_params)
-
+        # Main layout
         main_layout.addWidget(txt_fn)
         main_layout.addWidget(txt_descr)
-        main_layout.addWidget(gbx_series)
-        main_layout.addWidget(gbx_params)
+        main_layout.addWidget(self.tab_series)
         main_layout.addWidget(self.button_box)
-        
         self.setLayout(main_layout)
         
     def add_series(self):
-        n = len(self.all_series_names)
-        name = "Series " + str(n + 1)
-        self.all_series_names.append(name)
-        lbl_name = widgets.QLabel("Series name")        
-        txt_name = widgets.QLineEdit(name)
-        lbl_n = widgets.QLabel("Number of points in series")
-        txt_n = widgets.QLineEdit("21")
-        indx = self.function.independents
-        cols = ['Axis', 'Start point', 'End point']
-        df = pd.DataFrame(np.zeros((len(indx), len(cols)), dtype=float), index=indx, columns=cols)
-        mdl = CruxTableModel(df)
-        tbl = widgets.QTableView()
-        tbl.setModel(mdl)
-        tbl.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-        hlo1 = widgets.QHBoxLayout()
-        hlo1.addWidget(lbl_name)
-        hlo1.addWidget(txt_name)
-        hlo1.addWidget(lbl_n)
-        hlo1.addWidget(txt_n)
-        vlo = widgets.QVBoxLayout()
-        vlo.addLayout(hlo1)
-        vlo.addWidget(tbl)
-        gbx = widgets.QGroupBox(name)
-        gbx.setLayout(vlo)
-        self.lo_series.addWidget(gbx)
+        try:
+            n = len(self.all_series_names)
+            name = "Series " + str(n + 1)
+            self.all_series_names.append(name)
+    
+            lbl_n = widgets.QLabel("Number of data points")
+            txt_n = widgets.QLineEdit("21")
+            
+            lbl_inds = widgets.QLabel('Axes')
+            indx_inds = self.function.independents
+            cols_inds = ['Start', 'End']
+            df_inds = pd.DataFrame(np.zeros((len(indx_inds), len(cols_inds)), dtype=float), index=indx_inds, columns=cols_inds)
+            lbl_pars = widgets.QLabel('Parameters')
+            indx_pars = self.function.parameters
+            cols_pars = [name]
+            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
+            
+            mdl_inds = CruxTableModel(df_inds)
+            self.series_axes_info[name] = (txt_n, mdl_inds)
+            tbl_inds = widgets.QTableView()
+            tbl_inds.setModel(mdl_inds)
+            tbl_inds.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+            mdl_pars = CruxTableModel(df_pars)
+            self.series_params[name] = mdl_pars
+            tbl_pars = widgets.QTableView()
+            tbl_pars.setModel(mdl_pars)
+            tbl_pars.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+    
+            w = widgets.QWidget()
+            hlo2 = widgets.QHBoxLayout()
+            hlo2.addWidget(lbl_n)
+            hlo2.addWidget(txt_n)
+            glo1 = widgets.QGridLayout()
+            glo1.addWidget(lbl_inds, 0, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(lbl_pars, 0, 1, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(tbl_inds, 1, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(tbl_pars, 1, 1, alignment=qt.Qt.AlignHCenter)
+            vlo = widgets.QVBoxLayout()
+            vlo.addLayout(hlo2)
+            vlo.addLayout(glo1)
+            
+            w.setLayout(vlo)
+            self.tab_series.addTab(w, name)
+            self.tab_series.setCurrentWidget(w)
+            
+        except Exception as e:
+            print(e.repr())
         
     def create_template(self):
-        series = widgets.QInputDialog.getInt(self, "Number of series", "Number of series", 1, 1, 20, 1)
-        if series[1]: # True if accepted
-            n_series = series[0]
-            n_independents = len(self.function.independents)
-            n_params = len(self.function.parameters)
-            p_cols = ["Series "  + str(i + 1) for i in range(n_series)]
-            df_params = pd.DataFrame(np.ones((n_params, n_series)), columns=p_cols, index=self.function.parameters)
-            t_cols = cp.deepcopy(self.function.independents)
-            t_cols.append("f")                    
-            t_cols *= n_series
-            t_lvls = []
-            for i in p_cols:
-                t_lvls.extend([i] * (n_independents + 1))
-            df_series = pd.DataFrame(np.full((10, len(t_cols)), np.nan, dtype=float))
-            df_series = pd.concat([pd.DataFrame(t_lvls).transpose(), pd.DataFrame(t_cols).transpose(), df_series], ignore_index=True)
+        df_series = pd.DataFrame()
+        df_params = pd.DataFrame()
+        for name in self.all_series_names:
+            df_si = self.series_axes_info[name][1].df_data
+            cols = df_si.index
+            n = int(self.series_axes_info[name][0].text())
+            df_s = pd.DataFrame([], index=range(n), columns=cols)
+            vals = pd.DataFrame([], index=range(n), columns=[name])
+            vals[name] = np.zeros((n, 1))
+            for col in cols:
+                df_s[col] = np.linspace(df_si.iloc[:,0][col], df_si.iloc[:,1][col], n)
+            df_s = pd.concat([df_s, vals], axis=1)
+            df_series = pd.concat([df_series, df_s], axis=1)
             
-            file_path = widgets.QFileDialog.getSaveFileName(
-                None,
-                "Save data template to Excel",
-                "DataTemplate.xlsx",
-                "Excel X files (*.xlsx);;All files (*.*)")
-            if file_path[0] != "":
-                try:
-                    writer = pd.ExcelWriter(file_path[0], engine="xlsxwriter")
-                    df_series.to_excel(writer, 'Series', index=False)
-                    df_params.to_excel(writer, 'Parameters')
-                    writer.save()
-                    writer.close()
-                except Exception as e:
-                    print(e)
-                    msg = widgets.QMessageBox(self)
-                    msg.setText("Error") 
-                    msg.exec()
+            df_p = self.series_params[name].df_data
+            df_params = pd.concat([df_params, df_p], axis=1)
+        return (df_series, df_params)
+            
+    def save_template(self):
+        series, params = self.create_template()       
+        file_path = widgets.QFileDialog.getSaveFileName(
+            None,
+            "Save data template to Excel",
+            "DataTemplate.xlsx",
+            "Excel X files (*.xlsx);;All files (*.*)")
+        if file_path[0] != "":
+            try:
+                        writer = pd.ExcelWriter(file_path[0])
+                        series.to_excel(writer, 'Series', index=False)
+                        params.to_excel(writer, 'Parameters')
+                        writer.save()
+                        writer.close()
+            except PermissionError as e:
+                msg = widgets.QMessageBox(self)
+                msg.setIcon(widgets.QMessageBox.Warning)
+                msg.setWindowTitle("Permission Error")
+                msg.setText("Error while trying to write to " + file_path[0] + ".\nPlease make sure that the file is not open.") 
+                msg.exec()
         
     def accept(self):
-        for i in range(len(self.all_series)):
-            print(self.series_names[i].text())
-            print(self.all_series[i].df_data)
-            
-        print(self.param_vals.df_data)
+        self.template = self.create_template()
         widgets.QDialog.accept(self)
         
     def reject(self):
         widgets.QDialog.reject(self)
         
-# class SeriesTableModel(qt.QAbstractTableModel):
-#     
-#     def __init__(self, func):  
-#         super(SeriesTableModel, self).__init__()
-#         self.function = func
-#         cols = ['Min', 'Max', 'Step']
-#         d = np.zeros((len(self.function.independents), len(cols)))
-#         self.series_info = pd.DataFrame(d, columns=cols, index=self.function.independents)
-#         
-#     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
-#         # Implementation of super.headerData
-#         if role == qt.Qt.DisplayRole:
-#             if orientation == qt.Qt.Horizontal:
-#                 return self.series_info.columns[section]
-#             elif orientation == qt.Qt.Vertical:
-#                 return self.series_info.index[section]
-#             return qt.QVariant()
-#         return qt.QVariant()
-# 
-#     def rowCount(self, index=qt.QModelIndex()):
-#         return self.series_info.shape[0]
-# 
-#     def columnCount(self, index=qt.QModelIndex()):
-#         return self.series_info.shape[1]
-#     
-#     def data(self, index, role=qt.Qt.DisplayRole):
-#         if index.isValid():
-#             if role == qt.Qt.DisplayRole:
-#                 return str(self.series_info.iloc[index.row(), index.column()])
-#             return qt.QVariant()
-#         return qt.QVariant()
-# 
-#     def setData(self, index, value, role):
-#         if index.isValid() and role == qt.Qt.EditRole:
-#             row, col = index.row(), index.column()
-#             if row in range(self.series_info.shape[0]) and col in range(self.series_info.shape[1]):
-#                 try:
-#                     self.series_info.iloc[row][col] = value
-#                     self.dataChanged.emit(index, index)
-#                     return True
-#                 except ValueError:
-#                     return False
-#             return False
-#         return False
-#  
-#     def flags(self, index):
-#         flags = super(self.__class__,self).flags(index)
-#         flags |= qt.Qt.ItemIsEditable
-#         flags |= qt.Qt.ItemIsSelectable
-#         flags |= qt.Qt.ItemIsEnabled
-#         return flags         
-#         
-# class ParameterValuesTableModel(qt.QAbstractTableModel):
-#     
-#     def __init__(self, func):  
-#         super(ParameterValuesTableModel, self).__init__()
-#         self.function = func
-#         d = {'Value': np.zeros(len(self.function.parameters))}
-#         self.pvalues = pd.DataFrame(d, self.function.parameters)
-#         
-#     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
-#         # Implementation of super.headerData
-#         if role == qt.Qt.DisplayRole:
-#             if orientation == qt.Qt.Horizontal:
-#                 return self.pvalues.columns[section]
-#             elif orientation == qt.Qt.Vertical:
-#                 return self.pvalues.index[section]
-#             return qt.QVariant()
-#         return qt.QVariant()
-#  
-#     def rowCount(self, index=qt.QModelIndex()):
-#         return self.pvalues.shape[0]
-#  
-#     def columnCount(self, index=qt.QModelIndex()):
-#         return self.pvalues.shape[1]
-#      
-#     def data(self, index, role=qt.Qt.DisplayRole):
-#         if index.isValid():
-#             if role == qt.Qt.DisplayRole:
-#                 return str(self.pvalues.iloc[index.row(), index.column()])
-#             return qt.QVariant()
-#         return qt.QVariant()
-#  
-#     def setData(self, index, value, role):
-#         if index.isValid() and role == qt.Qt.EditRole:
-#             row, col = index.row(), index.column()
-#             if row in range(self.pvalues.shape[0]) and col in range(self.pvalues.shape[1]):
-#                 try:
-#                     self.pvalues.iloc[row][col] = value
-#                     self.dataChanged.emit(index, index)
-#                     return True
-#                 except ValueError:
-#                     return False
-#             return False
-#         return False
-#   
-#     def flags(self, index):
-#         flags = super(self.__class__,self).flags(index)
-#         flags |= qt.Qt.ItemIsEditable
-#         flags |= qt.Qt.ItemIsSelectable
-#         flags |= qt.Qt.ItemIsEnabled
-#         return flags      
+        
+class DataSet(pd.DataFrame):
+    
+    def __init__(self):
+        self.series = {}
+        
+    def add_series(self, series):
+        if series.name() in self.series:
+            print("Existing series overwritten")
+        self.series[series.name()] = series
+        
+        
+class DataSeries():
+    
+    def __init__(self, name, independents, dependent, ind_names=['x', ]):
+        header = ind_names.extend([name])
+        self.data = pd.DataFrame(np.vstack(independents, dependent), columns=header)
+        
+    def axes(self):
+        return cp.deepcopy(self.data.iloc[:, :-1])
 
-#         s = [name] * len(self.function.independents)
-#         #s.extend([""] * (len(self.function.independents)-1))
-        
-#         cols = ['Independent', 'First\nvalue', 'Last\nvalue', 'Number\nof points']
-#         d = np.zeros((len(self.function.independents), len(cols)), dtype=float)
-#         ndf = pd.DataFrame(d, columns=cols, index=s)
-#         ndf = ndf.astype({'Independent': object})
-#         ndf.Independent =self.function.independents
-#         if self.mod_x_info is None:
-#             self.mod_x_info = CruxTableModel(ndf)
-#         else:
-#             self.mod_x_info.df_data = self.mod_x_info.df_data.append(ndf)
-#         self.tbl_x_info.setModel(self.mod_x_info)
-#         self.mod_x_info.layoutChanged.emit()
-        
+    def axes_names(self):
+        return cp.deepcopy(self.data.columns.tolist()[:-1])
+    
+    def values(self):
+        return cp.deepcopy(self.data.iloc[:, -1])
+    
+    def name(self):
+        return cp.deepcopy(self.data.columns.tolist[-1])
+    
+    def set_name(self, name):
+        cols = self.data.columns.tolist()
+        cols[-1] = name
+        self.data.columns = cols
         
         
-#         glo = widgets.QGridLayout()
-#         row = 0
-#         for i in self.function.independents:
-#             lbl_ind = widgets.QLabel(i)
-#             txt_start = widgets.QLineEdit("0.0")
-#             txt_end = widgets.QLineEdit("100.0")
-#         self.series_names.append(txt)
-#         hlo = widgets.QHBoxLayout()
-#         hlo.addWidget(lbl)
-#         hlo.addWidget(txt)
-#         tbl_series = widgets.QTableView()
-#         tbl_series.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-#         
-#         cols = ['Series', 'First\nvalue', 'Last\nvalue', 'Step\nsize']
-#         d = np.zeros((len(self.function.independents), len(cols)))
-#         df = pd.DataFrame(d, columns=cols, index=self.function.independents)
-#         df = df.astype({'Series': object})
-#         s = [name] * (len(self.function.independents))
-#         df.Series = s
-#         
-#         series_x = CruxTableModel(df)
-#         self.all_series.append(series_x)
-#         tbl_series.setModel(series_x)
-#         vlo = widgets.QVBoxLayout()
-#         vlo.addLayout(hlo)
-#         vlo.addWidget(tbl_series)
-#         self.lo_series.addLayout(vlo)    
-                        
+        
+        

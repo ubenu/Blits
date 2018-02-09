@@ -47,7 +47,7 @@ class CruxTableModel(qt.QAbstractTableModel):
                     return True                    
                 return False
             except Exception as e:
-#                 print(e)
+                print(e.repr())
                 return False
         return False
  

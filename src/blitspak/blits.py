@@ -22,6 +22,7 @@ from blitspak.blits_data import BlitsData
 from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
+from blitspak.crux_table_model import CruxTableModel
 
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
@@ -109,12 +110,13 @@ class Main(QMainWindow, Ui_MainWindow):
         if self.current_state in (self.FUNCTION_ONLY, ):
             self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
-#                 print(self.create_data_set_dialog.df_data)
+                template = self.create_data_set_dialog.template
+                self.set_params_view(template[1])
                 self.current_state = self.READY_FOR_FITTING
                 self.update_ui()
             else:
-                print('No data created')
-
+                pass
+                
     def on_close_data(self):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
             self.blits_data = BlitsData()
@@ -136,7 +138,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.model = ParametersTableModel(self.current_function)
                 self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
                 self.txt_description.setText(self.current_function.long_description)
-                self.table_view.setModel(self.model)
+                self.tbl_params.setModel(self.model)
                 if self.current_state in (self.START, self.FUNCTION_ONLY):
                     self.current_state = self.FUNCTION_ONLY
                 else:
@@ -182,6 +184,11 @@ class Main(QMainWindow, Ui_MainWindow):
                 self._create_results_tab(phase_id, m_string, tbl_results)
             self.action_analyze.setChecked(False)
             self.on_analyze()
+
+    def set_params_view(self, df_pars):
+        mdl_pars = CruxTableModel(df_pars)
+        self.tbl_params.setModel(mdl_pars)
+        self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
     def _create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()
