@@ -53,6 +53,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.scrutinize_dialog = None
         self.function_dialog = None
         self.create_data_set_dialog = None
+        self.axis_selector_buttons = {}
         
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
@@ -94,24 +95,21 @@ class Main(QMainWindow, Ui_MainWindow):
                 info = qt.QFileInfo(file_path)
                 self.blits_data.file_name = info.fileName()
                 self.blits_data.import_data(file_path)
-                self.canvas.set_colours(self.blits_data.series_names.tolist())
-                for key in self.blits_data.series_names:
-                    series = self.blits_data.series_dict[key]
-                    x = series.iloc[:, 0]
-                    y = series['y']
-                    self.canvas.draw_series(key, x, y)
+                self.draw_current_data_set()
                 if self.current_state == self.START:
                     self.current_state = self.DATA_ONLY
                 elif self.current_state == self.FUNCTION_ONLY:
                     self.current_state = self.READY_FOR_FITTING
                 self.update_ui()
-            
+                
     def on_create(self):  
         if self.current_state in (self.FUNCTION_ONLY, ):
             self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
                 template = self.create_data_set_dialog.template
                 self.set_params_view(template[1])
+                self.blits_data.create_working_data_from_template(template)
+                self.draw_current_data_set()
                 self.current_state = self.READY_FOR_FITTING
                 self.update_ui()
             else:
@@ -135,15 +133,49 @@ class Main(QMainWindow, Ui_MainWindow):
             self.function_dialog = FunctionSelectionDialog(self, name)
             if self.function_dialog.exec() == widgets.QDialog.Accepted:
                 self.current_function = self.function_dialog.get_selected_function()
-                self.model = ParametersTableModel(self.current_function)
+                indx_pars = self.current_function.parameters
+                cols_pars = ["Series 1"]
+                df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
+                try:
+                    self.parameters_model = CruxTableModel(df_pars)
+                    self.tbl_params.setModel(self.parameters_model)
+                    self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+                except Exception as e:
+                    print(e)
                 self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
                 self.txt_description.setText(self.current_function.long_description)
-                self.tbl_params.setModel(self.model)
                 if self.current_state in (self.START, self.FUNCTION_ONLY):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
+                self.set_axis_selection_box()
                 self.update_ui()
+                
+                
+    def set_axis_selection_box(self):
+        if not self.current_function is None:
+            self.axis_selector_buttons = {}
+            x_names = self.current_function.independents
+            for name in x_names:
+                btn = widgets.QCheckBox()
+                btn.setText(name)
+                btn.toggled.connect(self.on_xaxis_state_changed)
+                self.axis_layout.addWidget(btn)
+                self.axis_selector_buttons[btn.text()] = btn
+                
+                
+    def on_xaxis_state_changed(self, checked):
+        btn = self.sender()
+        xaxis = btn.text()
+        if checked:
+            self.current_xaxis = xaxis
+            self.draw_current_data_set()   
+        elif xaxis == self.current_xaxis:
+            btn.setChecked(True)
+        for x in self.axis_selector_buttons:
+            if not x == xaxis and self.axis_selector_buttons[x].isChecked() :
+                self.axis_selector_buttons[x].setChecked(False)
+
             
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, ):
@@ -181,16 +213,16 @@ class Main(QMainWindow, Ui_MainWindow):
                 model_expr = self.scrutinize_dialog.fn_dictionary[model][self.scrutinize_dialog.d_expr]
                 m_string = model + ': ' + model_expr
                 tbl_results = self.scrutinize_dialog.tbl_results
-                self._create_results_tab(phase_id, m_string, tbl_results)
+                self.create_results_tab(phase_id, m_string, tbl_results)
             self.action_analyze.setChecked(False)
             self.on_analyze()
 
     def set_params_view(self, df_pars):
-        mdl_pars = CruxTableModel(df_pars)
-        self.tbl_params.setModel(mdl_pars)
+        self.parameters_model = CruxTableModel(df_pars)
+        self.tbl_params.setModel(self.parameters_model)
         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
-    def _create_results_tab(self, phase_id, model_string, results_table):
+    def create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()
         lo = widgets.QVBoxLayout(new_tab)
         x = widgets.QLabel(model_string)
@@ -199,7 +231,61 @@ class Main(QMainWindow, Ui_MainWindow):
         new_tab.setLayout(lo)
         
         self.tabWidget.addTab(new_tab, phase_id)
-        
+
+
+    def draw_current_data_set(self):
+        self.canvas.clear_plots() 
+        self.canvas.set_colours(self.blits_data.series_names.tolist())
+        for key in self.blits_data.series_names:
+            series = self.blits_data.series_dict[key]
+            x = series.iloc[:, 0]
+            y = series.iloc[:, -1] #series['y']
+            self.canvas.draw_series(key, x, y)
+            
+#     def on_xaxis_state_changed(self, checked):
+#         btn = self.sender()
+#         xaxis = btn.text()
+#         if checked:
+#             self.current_xaxis = xaxis
+#             self.draw_curves()   
+#         elif xaxis == self.current_xaxis:
+#             btn.setChecked(True)
+#         for x in self.axis_selector_buttons:
+#             if not x == xaxis and self.axis_selector_buttons[x].isChecked() :
+#                 self.axis_selector_buttons[x].setChecked(False)
+#             
+### From scrutinize_dialog
+#         self.canvas.clear_plots() 
+#         # lines have been cleared, so must be reconstructed
+# #         self.line0 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[0], lw=1, ls='--', color='k'), self.x_inner_limits)
+# #         self.line1 = DraggableLine(self.canvas.data_plot.axvline(self.x_inner_limits[1], lw=1, ls='--', color='k'), self.x_inner_limits)           
+#         series = self.get_selected_series_names()
+#         xmin, xmax = np.finfo(np.float).max, np.finfo(np.float).min
+#         for key in series:
+#             selected = self.full_data[key]
+#             selected.sort_values(by=self.current_xaxis, inplace=True)
+#             xmin_series, xmax_series = selected[self.current_xaxis].min(), selected[self.current_xaxis].max()
+#             if xmin_series < xmin:
+#                 xmin = selected[self.current_xaxis].min()
+#             if xmax_series > xmax:
+#                 xmax = np.max(selected[self.current_xaxis])
+#             x = selected[self.current_xaxis]
+#             y = selected[self.y_name]
+#             self.canvas.draw_series(key, x, y)
+#             if key in self.fitted_data:
+#                 self.fitted_data[key].sort_values(by=self.current_xaxis, inplace=True)
+#                 x_fit = self.fitted_data[key][self.current_xaxis]
+#                 y_fit = self.fitted_data[key][self.y_name]
+#                 self.canvas.draw_series_fit(key, x_fit, y_fit)
+#                 
+#             if key in self.fit_residuals:
+#                 self.fit_residuals[key].sort_values(by=self.current_xaxis, inplace=True)
+#                 x_res = self.fit_residuals[key][self.current_xaxis]
+#                 y_res = self.fit_residuals[key][self.y_name]
+#                 self.canvas.draw_series_residuals(key, x_res, y_res)            
+            
+            
+                                    
     def line_icon(self, color):
         pixmap = gui.QPixmap(50,10)
         pixmap.fill(gui.QColor(color))
@@ -275,47 +361,15 @@ class Main(QMainWindow, Ui_MainWindow):
             print('Illegal state')
                                           
         
-class ParametersTableModel(qt.QAbstractTableModel):
-    
-    def __init__(self, modfunc):  
-        super(ParametersTableModel, self).__init__() 
-        self.modfunc = modfunc
-        x1 = np.linspace(0, 10.0, 0.1)
-        y1 = np.sin(x1)
-        y2 = np.cos(2*x1)
-        d = {'X1': x1, 'Y1': y1, 'X2': x1, 'Y2': y2}
-        self.dummydata = pd.DataFrame(d)
-        
-    def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
-        # Implementation of super.headerData
-        if role == qt.Qt.TextAlignmentRole:
-            if orientation == qt.Qt.Horizontal:
-                return qt.QVariant(int(qt.Qt.AlignLeft|qt.Qt.AlignVCenter))
-            return qt.QVariant(int(qt.Qt.AlignRight|qt.Qt.AlignVCenter))
-        if role != qt.Qt.DisplayRole:
-            return qt.QVariant()
-        if orientation == qt.Qt.Vertical:
-            for i in range(len(self.modfunc.parameters)):
-                if section == i:
-                    return qt.QVariant(self.modfunc.parameters[i])
-        if orientation == qt.Qt.Horizontal:
-            pass
-        return qt.QVariant(int(section + 1))
-
-    def rowCount(self, index=qt.QModelIndex()):
-        return len(self.modfunc.parameters) 
-
-    def columnCount(self, index=qt.QModelIndex()):
-        return int(len(self.dummydata.columns)/2)
-    
-    def data(self, index, role=qt.Qt.DisplayRole):
-        if not index.isValid() or not (0 <= index.row() < len(self.modfunc.parameters)):
-            return qt.QVariant()
-        column, row = index.column(), index.row()
-        if role == qt.Qt.DisplayRole:
-            return qt.QVariant(str(row) + ", " + str(column) )
-        return qt.QVariant()        
-  
+# class ParametersTableModel(CruxTableModel):
+#     
+#     def __init__(self, df_data):  
+#         super(ParametersTableModel, self).__init__(df_data) 
+# 
+# 
+# 
+#       
+#   
 
 # Standard main loop code
 if __name__ == '__main__':

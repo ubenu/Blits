@@ -10,8 +10,8 @@ import pandas as pd, numpy as np
 import copy as cp
 
 from blitspak.crux_table_model import CruxTableModel
-from numba.tests.npyufunc.test_ufunc import dtype
-from functions.function_defs import n_independents
+#from numba.tests.npyufunc.test_ufunc import dtype
+#from functions.function_defs import n_independents
 
 class DataCreationDialog(widgets.QDialog):
 
@@ -104,7 +104,7 @@ class DataCreationDialog(widgets.QDialog):
             
         except Exception as e:
             print(e.repr())
-        
+            
     def create_template(self):
         df_series = pd.DataFrame()
         df_params = pd.DataFrame()
@@ -117,12 +117,13 @@ class DataCreationDialog(widgets.QDialog):
             vals[name] = np.zeros((n, 1))
             for col in cols:
                 df_s[col] = np.linspace(df_si.iloc[:,0][col], df_si.iloc[:,1][col], n)
+            
             df_s = pd.concat([df_s, vals], axis=1)
             df_series = pd.concat([df_series, df_s], axis=1)
             
             df_p = self.series_params[name].df_data
             df_params = pd.concat([df_params, df_p], axis=1)
-        return (df_series, df_params)
+        return (df_series, df_params, self.function)
             
     def save_template(self):
         series, params = self.create_template()       
@@ -133,17 +134,19 @@ class DataCreationDialog(widgets.QDialog):
             "Excel X files (*.xlsx);;All files (*.*)")
         if file_path[0] != "":
             try:
-                        writer = pd.ExcelWriter(file_path[0])
-                        series.to_excel(writer, 'Series', index=False)
-                        params.to_excel(writer, 'Parameters')
-                        writer.save()
-                        writer.close()
-            except PermissionError as e:
+                writer = pd.ExcelWriter(file_path[0])
+                series.to_excel(writer, 'Series', index=False)
+#                params.to_excel(writer, 'Parameters')
+                writer.save()
+                writer.close()
+            except PermissionError:
                 msg = widgets.QMessageBox(self)
                 msg.setIcon(widgets.QMessageBox.Warning)
                 msg.setWindowTitle("Permission Error")
                 msg.setText("Error while trying to write to " + file_path[0] + ".\nPlease make sure that the file is not open.") 
                 msg.exec()
+            except Exception as e:
+                print(e)
         
     def accept(self):
         self.template = self.create_template()

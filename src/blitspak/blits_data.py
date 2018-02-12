@@ -5,7 +5,7 @@ Created on 23 May 2017
 '''
 # -*- coding: utf-8 -*-
 
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np, copy as cp
 
 pd.options.mode.chained_assignment = None  
 # suppresses unnecessary warning when creating self.working_data
@@ -26,7 +26,7 @@ class BlitsData():
      
     def import_data(self, file_path):
         self.raw_data = pd.read_csv(file_path)
-        self._create_working_data()
+        self.create_working_data()
 
     def export_results(self, file_path):
         r = self.results.to_csv()
@@ -40,13 +40,12 @@ class BlitsData():
             file.write('\n')
             file.write(f)
             
-    def _create_working_data(self):
+    def create_working_data(self):
         n_cols = len(self.raw_data.columns)
         named_cols = self.raw_data.columns[~self.raw_data.columns.str.contains('unnamed', case=False)]
         self.series_names = named_cols
         n_series = len(named_cols)
         n_cols_per_series = n_cols // n_series
-        assert n_cols % n_series == 0, "Cannot read input"
         n_independents = n_cols_per_series - 1
         # Split data set in individual series
         self.series_dict = {}
@@ -62,6 +61,35 @@ class BlitsData():
             ix = pd.Index(np.arange(len(df)))
             df.set_index(ix, inplace=True)
             self.series_dict[s_name] = df
+            
+    def create_working_data_from_template(self, template):
+        """
+        @template:     
+        template for series construction, consisting of two pandas DataFrames, 
+        with template[0] containing the series axes values and a column for the calculated dependent,
+        template[1] containing the parameter values for each axis, and
+        template[2] the modelling function.
+        
+        """
+        n_axes = len(template[2].independents)
+        func = template[2].func
+        splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
+        all_series = np.split(template[0], splits, axis=1)
+        self.series_names = []
+        for s in all_series:
+            name = s.columns[-1]
+            self.series_names.append(name)
+            axes_names = s.columns[:-1]
+            params = template[1][name].as_matrix()
+            s_new = cp.deepcopy(s).dropna()
+            x = s_new[axes_names].as_matrix().transpose()
+            d = func(x, params)
+            s_new[name] = d
+            self.series_dict[name] = s_new
+            print('\n***')
+            print(name)
+            print(self.series_dict[name])
+        self.series_names = np.array(self.series_names)
             
 
             
