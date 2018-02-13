@@ -18,11 +18,15 @@ class BlitsData():
         self.raw_data = None
         self.working_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
+        self.independent_names = None
         # default settings
         self.data_reduction_factor = 5
         
         # New, more general working data
         self.series_dict = {}
+        
+    def has_data(self):
+        return len(self.series_dict) > 0
      
     def import_data(self, file_path):
         self.raw_data = pd.read_csv(file_path)
@@ -49,18 +53,21 @@ class BlitsData():
         n_independents = n_cols_per_series - 1
         # Split data set in individual series
         self.series_dict = {}
-        for s in range(0, n_cols , n_cols_per_series):
-            df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
-            s_name = df.columns.tolist()[0]
-            cn = ['y']
-            for i in range(n_independents-1, -1, -1):
-                x = 'x{}'.format(i)
-                cn.insert(0, x)
-            df.columns = cn
-            df = df.sort_values(by='x0')
-            ix = pd.Index(np.arange(len(df)))
-            df.set_index(ix, inplace=True)
-            self.series_dict[s_name] = df
+        self.independent_names = []
+        try:
+            for s in range(0, n_cols , n_cols_per_series):
+                df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
+                s_name = df.columns.tolist()[0]
+                self.independent_names = ['x{}'.format(i) for i in range(n_independents)]
+                cols = cp.deepcopy(self.independent_names)
+                cols.append(s_name)
+                df.columns = cols
+                df = df.sort_values(by='x0')
+                ix = pd.Index(np.arange(len(df)))
+                df.set_index(ix, inplace=True)
+                self.series_dict[s_name] = df
+        except Exception as e:
+            print(e)
             
     def create_working_data_from_template(self, template):
         """
@@ -76,19 +83,18 @@ class BlitsData():
         splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
         all_series = np.split(template[0], splits, axis=1)
         self.series_names = []
+        self.independent_names = []
         for s in all_series:
             name = s.columns[-1]
             self.series_names.append(name)
             axes_names = s.columns[:-1]
+            self.independent_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
             params = template[1][name].as_matrix()
             s_new = cp.deepcopy(s).dropna()
             x = s_new[axes_names].as_matrix().transpose()
             d = func(x, params)
             s_new[name] = d
             self.series_dict[name] = s_new
-            print('\n***')
-            print(name)
-            print(self.series_dict[name])
         self.series_names = np.array(self.series_names)
             
 

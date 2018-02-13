@@ -53,7 +53,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.scrutinize_dialog = None
         self.function_dialog = None
         self.create_data_set_dialog = None
-        self.axis_selector_buttons = {}
         
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
@@ -81,9 +80,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_number = 0
         self.phase_name = "Phase"
         self.phase_list = []
-        self.current_state = self.START
+        self.axis_selector_buttons = None
         self.current_function = None
         
+        self.current_state = self.START        
         self.update_ui()
         
     def on_open(self):
@@ -95,11 +95,12 @@ class Main(QMainWindow, Ui_MainWindow):
                 info = qt.QFileInfo(file_path)
                 self.blits_data.file_name = info.fileName()
                 self.blits_data.import_data(file_path)
-                self.draw_current_data_set()
                 if self.current_state == self.START:
                     self.current_state = self.DATA_ONLY
                 elif self.current_state == self.FUNCTION_ONLY:
                     self.current_state = self.READY_FOR_FITTING
+                self.current_xaxis = self.blits_data.independent_names[0]
+                self.create_axis_selection_box()
                 self.update_ui()
                 
     def on_create(self):  
@@ -109,8 +110,9 @@ class Main(QMainWindow, Ui_MainWindow):
                 template = self.create_data_set_dialog.template
                 self.set_params_view(template[1])
                 self.blits_data.create_working_data_from_template(template)
-                self.draw_current_data_set()
                 self.current_state = self.READY_FOR_FITTING
+                self.current_xaxis = self.blits_data.independent_names[0]
+                self.create_axis_selection_box()
                 self.update_ui()
             else:
                 pass
@@ -118,6 +120,8 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_close_data(self):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
             self.blits_data = BlitsData()
+            self.current_xaxis = None
+            self.create_axis_selection_box()
             self.canvas.clear_figure()
             if self.current_state == self.DATA_ONLY:
                 self.current_state = self.START
@@ -136,46 +140,40 @@ class Main(QMainWindow, Ui_MainWindow):
                 indx_pars = self.current_function.parameters
                 cols_pars = ["Series 1"]
                 df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
-                try:
-                    self.parameters_model = CruxTableModel(df_pars)
-                    self.tbl_params.setModel(self.parameters_model)
-                    self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-                except Exception as e:
-                    print(e)
+                self.parameters_model = CruxTableModel(df_pars)
+                self.tbl_params.setModel(self.parameters_model)
+                self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
                 self.txt_description.setText(self.current_function.long_description)
+                self.create_axis_selection_box()
+
                 if self.current_state in (self.START, self.FUNCTION_ONLY):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
-                self.set_axis_selection_box()
-                self.update_ui()
+                self.update_ui()                
                 
-                
-    def set_axis_selection_box(self):
-        if not self.current_function is None:
-            self.axis_selector_buttons = {}
-            x_names = self.current_function.independents
-            for name in x_names:
-                btn = widgets.QCheckBox()
+    def create_axis_selection_box(self):
+        self.axis_selector_buttons = {}
+        self.clearLayout(self.axis_layout)
+        if self.blits_data.has_data():
+            self.axis_layout.addStretch()
+            for name in self.blits_data.independent_names:
+                btn = widgets.QRadioButton()
                 btn.setText(name)
                 btn.toggled.connect(self.on_xaxis_state_changed)
                 self.axis_layout.addWidget(btn)
                 self.axis_selector_buttons[btn.text()] = btn
-                
-                
+            self.axis_layout.addStretch()    
+            if not self.current_xaxis is None:
+                self.axis_selector_buttons[self.current_xaxis].toggle()
+            
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
         xaxis = btn.text()
         if checked:
             self.current_xaxis = xaxis
-            self.draw_current_data_set()   
-        elif xaxis == self.current_xaxis:
-            btn.setChecked(True)
-        for x in self.axis_selector_buttons:
-            if not x == xaxis and self.axis_selector_buttons[x].isChecked() :
-                self.axis_selector_buttons[x].setChecked(False)
-
+        self.draw_current_data_set()   
             
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, ):
@@ -229,17 +227,15 @@ class Main(QMainWindow, Ui_MainWindow):
         lo.addWidget(x)
         lo.addWidget(results_table)
         new_tab.setLayout(lo)
-        
         self.tabWidget.addTab(new_tab, phase_id)
-
 
     def draw_current_data_set(self):
         self.canvas.clear_plots() 
         self.canvas.set_colours(self.blits_data.series_names.tolist())
         for key in self.blits_data.series_names:
             series = self.blits_data.series_dict[key]
-            x = series.iloc[:, 0]
-            y = series.iloc[:, -1] #series['y']
+            x = series[self.current_xaxis] #.iloc[:, 0]
+            y = series[key] #series['y']
             self.canvas.draw_series(key, x, y)
             
 #     def on_xaxis_state_changed(self, checked):
@@ -284,7 +280,13 @@ class Main(QMainWindow, Ui_MainWindow):
 #                 y_res = self.fit_residuals[key][self.y_name]
 #                 self.canvas.draw_series_residuals(key, x_res, y_res)            
             
-            
+    def clearLayout(self, layout):
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget() is not None:
+                child.widget().deleteLater()
+            elif child.layout() is not None:
+                self.clearLayout(child.layout())            
                                     
     def line_icon(self, color):
         pixmap = gui.QPixmap(50,10)
@@ -328,7 +330,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(True)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(False)
-            self.action_quit.setEnabled(True)     
+            self.action_quit.setEnabled(True) 
             self.span.set_active(False)
         elif self.current_state == self.FUNCTION_ONLY:
             self.action_open.setEnabled(True)
@@ -360,16 +362,7 @@ class Main(QMainWindow, Ui_MainWindow):
         else:
             print('Illegal state')
                                           
-        
-# class ParametersTableModel(CruxTableModel):
-#     
-#     def __init__(self, df_data):  
-#         super(ParametersTableModel, self).__init__(df_data) 
-# 
-# 
-# 
-#       
-#   
+
 
 # Standard main loop code
 if __name__ == '__main__':
