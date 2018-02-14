@@ -75,11 +75,9 @@ class BlitsData():
         template for series construction, consisting of two pandas DataFrames, 
         with template[0] containing the series axes values and a column for the calculated dependent,
         template[1] containing the parameter values for each axis, and
-        template[2] the modelling function.
-        
+        template[2] the modelling function        
         """
         n_axes = len(template[2].independents)
-        func = template[2].func
         splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
         all_series = np.split(template[0], splits, axis=1)
         self.series_names = []
@@ -89,11 +87,7 @@ class BlitsData():
             self.series_names.append(name)
             axes_names = s.columns[:-1]
             self.independent_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
-            params = template[1][name].as_matrix()
             s_new = cp.deepcopy(s).dropna()
-            x = s_new[axes_names].as_matrix().transpose()
-            d = func(x, params)
-            s_new[name] = d
             self.series_dict[name] = s_new
         self.series_names = np.array(self.series_names)
             

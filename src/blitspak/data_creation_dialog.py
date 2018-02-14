@@ -7,6 +7,7 @@ from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
 
 import pandas as pd, numpy as np
+from scipy.stats import norm
 import copy as cp
 
 from blitspak.crux_table_model import CruxTableModel
@@ -29,13 +30,10 @@ class DataCreationDialog(widgets.QDialog):
         main_layout = widgets.QVBoxLayout()
         self.button_box = widgets.QDialogButtonBox()
         self.btn_add_series = widgets.QPushButton("Add series")
-        self.btn_save_template = widgets.QPushButton("Save template")
         self.button_box.addButton(self.btn_add_series, widgets.QDialogButtonBox.ActionRole)
-        self.button_box.addButton(self.btn_save_template, widgets.QDialogButtonBox.ActionRole)
         self.button_box.addButton(widgets.QDialogButtonBox.Cancel)
         self.button_box.addButton(widgets.QDialogButtonBox.Ok)
         self.btn_add_series.clicked.connect(self.add_series)
-        self.btn_save_template.clicked.connect(self.save_template)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         
@@ -64,6 +62,8 @@ class DataCreationDialog(widgets.QDialog):
     
             lbl_n = widgets.QLabel("Number of data points")
             txt_n = widgets.QLineEdit("21")
+            lbl_std = widgets.QLabel("Noise on data (StDev)")
+            txt_std = widgets.QLineEdit("0.0")
             
             lbl_inds = widgets.QLabel('Axes')
             indx_inds = self.function.independents
@@ -75,7 +75,7 @@ class DataCreationDialog(widgets.QDialog):
             df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
             
             mdl_inds = CruxTableModel(df_inds)
-            self.series_axes_info[name] = (txt_n, mdl_inds)
+            self.series_axes_info[name] = (mdl_inds, txt_n, txt_std)
             tbl_inds = widgets.QTableView()
             tbl_inds.setModel(mdl_inds)
             tbl_inds.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
@@ -86,16 +86,16 @@ class DataCreationDialog(widgets.QDialog):
             tbl_pars.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
     
             w = widgets.QWidget()
-            hlo2 = widgets.QHBoxLayout()
-            hlo2.addWidget(lbl_n)
-            hlo2.addWidget(txt_n)
             glo1 = widgets.QGridLayout()
-            glo1.addWidget(lbl_inds, 0, 0, alignment=qt.Qt.AlignHCenter)
-            glo1.addWidget(lbl_pars, 0, 1, alignment=qt.Qt.AlignHCenter)
-            glo1.addWidget(tbl_inds, 1, 0, alignment=qt.Qt.AlignHCenter)
-            glo1.addWidget(tbl_pars, 1, 1, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(lbl_n, 0, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(lbl_std, 0, 1, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(txt_n, 1, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(txt_std, 1, 1, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(lbl_inds, 2, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(lbl_pars, 2, 1, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(tbl_inds, 3, 0, alignment=qt.Qt.AlignHCenter)
+            glo1.addWidget(tbl_pars, 3, 1, alignment=qt.Qt.AlignHCenter)
             vlo = widgets.QVBoxLayout()
-            vlo.addLayout(hlo2)
             vlo.addLayout(glo1)
             
             w.setLayout(vlo)
@@ -103,50 +103,59 @@ class DataCreationDialog(widgets.QDialog):
             self.tab_series.setCurrentWidget(w)
             
         except Exception as e:
-            print(e.repr())
+            print(e)
             
     def create_template(self):
-        df_series = pd.DataFrame()
-        df_params = pd.DataFrame()
+        df_all_series = pd.DataFrame()
+        df_all_parameters = pd.DataFrame()
         for name in self.all_series_names:
-            df_si = self.series_axes_info[name][1].df_data
-            cols = df_si.index
-            n = int(self.series_axes_info[name][0].text())
-            df_s = pd.DataFrame([], index=range(n), columns=cols)
-            vals = pd.DataFrame([], index=range(n), columns=[name])
-            vals[name] = np.zeros((n, 1))
+            df_p = self.series_params[name].df_data # parameters for this series
+            df_all_parameters = pd.concat([df_all_parameters, df_p], axis=1) # add to all parameters
+            
+            df_si = self.series_axes_info[name][0].df_data # axes start, stop, and std on data
+            n = int(self.series_axes_info[name][1].text()) # number of points in series
+            std = float(self.series_axes_info[name][2].text())
+            cols = df_si.index # independent axes names
+            df_s = pd.DataFrame([], index=range(n), columns=cols) # dataframe for axes values
             for col in cols:
                 df_s[col] = np.linspace(df_si.iloc[:,0][col], df_si.iloc[:,1][col], n)
+            x = cp.deepcopy(df_s).as_matrix().transpose() # copy axes values and transpose for use in self.function
+            params = cp.deepcopy(df_p).as_matrix()
+            vals = pd.DataFrame([], index=range(n), columns=[name]) # dataframe for dependent values
+            y = self.function.func(x, params)
+            if std > 0:
+                y = norm.rvs(loc=y, scale=std)
+            vals[name] = y
             
             df_s = pd.concat([df_s, vals], axis=1)
-            df_series = pd.concat([df_series, df_s], axis=1)
+            df_all_series = pd.concat([df_all_series, df_s], axis=1)
             
-            df_p = self.series_params[name].df_data
-            df_params = pd.concat([df_params, df_p], axis=1)
-        return (df_series, df_params, self.function)
+        return (df_all_series, df_all_parameters, self.function)
+        
             
-    def save_template(self):
-        series, params = self.create_template()       
-        file_path = widgets.QFileDialog.getSaveFileName(
-            None,
-            "Save data template to Excel",
-            "DataTemplate.xlsx",
-            "Excel X files (*.xlsx);;All files (*.*)")
-        if file_path[0] != "":
-            try:
-                writer = pd.ExcelWriter(file_path[0])
-                series.to_excel(writer, 'Series', index=False)
-#                params.to_excel(writer, 'Parameters')
-                writer.save()
-                writer.close()
-            except PermissionError:
-                msg = widgets.QMessageBox(self)
-                msg.setIcon(widgets.QMessageBox.Warning)
-                msg.setWindowTitle("Permission Error")
-                msg.setText("Error while trying to write to " + file_path[0] + ".\nPlease make sure that the file is not open.") 
-                msg.exec()
-            except Exception as e:
-                print(e)
+            
+#     def save_template(self):
+#         series, params = self.create_template()       
+#         file_path = widgets.QFileDialog.getSaveFileName(
+#             None,
+#             "Save data template to Excel",
+#             "DataTemplate.xlsx",
+#             "Excel X files (*.xlsx);;All files (*.*)")
+#         if file_path[0] != "":
+#             try:
+#                 writer = pd.ExcelWriter(file_path[0])
+#                 series.to_excel(writer, 'Series', index=False)
+# #                params.to_excel(writer, 'Parameters')
+#                 writer.save()
+#                 writer.close()
+#             except PermissionError:
+#                 msg = widgets.QMessageBox(self)
+#                 msg.setIcon(widgets.QMessageBox.Warning)
+#                 msg.setWindowTitle("Permission Error")
+#                 msg.setText("Error while trying to write to " + file_path[0] + ".\nPlease make sure that the file is not open.") 
+#                 msg.exec()
+#             except Exception as e:
+#                 print(e)
         
     def accept(self):
         self.template = self.create_template()
