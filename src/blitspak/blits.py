@@ -101,8 +101,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.blits_data.import_data(file_path)
                 self.current_function = None
                 self.current_xaxis = self.blits_data.independent_names[0]
-                if self.current_state in (self.START, self.FUNCTION_ONLY, self.DATA_ONLY):
-                    self.current_state = self.DATA_ONLY
+                self.current_state = self.DATA_ONLY
                 self.create_axis_selection_box()
                 self.set_current_function_ui()
                 self.update_ui()
@@ -152,7 +151,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.update_ui()    
                 
     def set_current_function_ui(self):        
-        if self.current_state in (self.DATA_ONLY, ): # there is no self.current_functions
+        if self.current_state in (self.DATA_ONLY, self.START): # there is no self.current_functions
             self.parameters_model = None
             self.tbl_params.setModel(None)
         else:
@@ -161,7 +160,7 @@ class Main(QMainWindow, Ui_MainWindow):
             if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
                 cols_pars = self.blits_data.series_names
             df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)                    
-            self.parameters_model = CruxTableModel(df_pars)
+            self.parameters_model = CruxTableModel(df_pars, cols_pars)
             self.tbl_params.setModel(self.parameters_model)
             self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
