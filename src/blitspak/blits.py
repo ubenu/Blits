@@ -57,10 +57,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
-        self.frm_show_axis = widgets.QFrame()
+        self.grp_show_axis = widgets.QGroupBox()
         self.axis_layout = widgets.QHBoxLayout()
-        self.frm_show_axis.setLayout(self.axis_layout)
-        self.mpl_layout.addWidget(self.frm_show_axis)
+        self.grp_show_axis.setLayout(self.axis_layout)
+        self.mpl_layout.addWidget(self.grp_show_axis)
         self.mpl_layout.addWidget(self.plot_toolbar)
 
         self.action_open.triggered.connect(self.on_open)
@@ -71,8 +71,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_analyze.triggered.connect(self.on_analyze)
         self.action_quit.triggered.connect(self.close)     
 
-        self.span = SpanSelector(self.canvas.data_plot, self.on_select_span, 
-        'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='red'))
+        self.span = SpanSelector(self.canvas.data_plot, 
+                                 self.on_select_span, 
+                                 'horizontal', 
+                                 useblit=True, 
+                                 rectprops=dict(alpha=0.5, facecolor='red')
+                                 )
         
         self.blits_data = BlitsData()
         self.file_name = ""
@@ -95,12 +99,12 @@ class Main(QMainWindow, Ui_MainWindow):
                 info = qt.QFileInfo(file_path)
                 self.blits_data.file_name = info.fileName()
                 self.blits_data.import_data(file_path)
-                if self.current_state == self.START:
-                    self.current_state = self.DATA_ONLY
-                elif self.current_state == self.FUNCTION_ONLY:
-                    self.current_state = self.READY_FOR_FITTING
+                self.current_function = None
                 self.current_xaxis = self.blits_data.independent_names[0]
+                if self.current_state in (self.START, self.FUNCTION_ONLY, self.DATA_ONLY):
+                    self.current_state = self.DATA_ONLY
                 self.create_axis_selection_box()
+                self.set_current_function_ui()
                 self.update_ui()
                 
     def on_create(self):  
@@ -114,8 +118,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.current_xaxis = self.blits_data.independent_names[0]
                 self.create_axis_selection_box()
                 self.update_ui()
-            else:
-                pass
                 
     def on_close_data(self):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
@@ -123,35 +125,47 @@ class Main(QMainWindow, Ui_MainWindow):
             self.current_xaxis = None
             self.create_axis_selection_box()
             self.canvas.clear_figure()
+            
             if self.current_state == self.DATA_ONLY:
                 self.current_state = self.START
             else:
                 self.current_state = self.FUNCTION_ONLY
+                
+            self.set_current_function_ui()
             self.update_ui()
 
     def on_select_function(self):
         if self.current_state in range(self.NSTATES):  # should work from all states
-            name = ""
+            name, n_axes = "", np.inf
             if not self.current_state in (self.START, self.DATA_ONLY):  # a current function exists
                 name = self.current_function.name
-            self.function_dialog = FunctionSelectionDialog(self, name)
+            if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED):
+                n_axes = len(self.blits_data.independent_names)
+            self.function_dialog = FunctionSelectionDialog(self, n_axes=n_axes, selected_fn_name=name)
             if self.function_dialog.exec() == widgets.QDialog.Accepted:
                 self.current_function = self.function_dialog.get_selected_function()
-                indx_pars = self.current_function.parameters
-                cols_pars = ["Series 1"]
-                df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
-                self.parameters_model = CruxTableModel(df_pars)
-                self.tbl_params.setModel(self.parameters_model)
-                self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-                self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
-                self.txt_description.setText(self.current_function.long_description)
-                self.create_axis_selection_box()
-
                 if self.current_state in (self.START, self.FUNCTION_ONLY):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
-                self.update_ui()                
+                self.set_current_function_ui()
+                self.update_ui()    
+                
+    def set_current_function_ui(self):        
+        if self.current_state in (self.DATA_ONLY, ): # there is no self.current_functions
+            self.parameters_model = None
+            self.tbl_params.setModel(None)
+        else:
+            indx_pars = self.current_function.parameters
+            cols_pars = [] 
+            if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+                cols_pars = self.blits_data.series_names
+            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)                    
+            self.parameters_model = CruxTableModel(df_pars)
+            self.tbl_params.setModel(self.parameters_model)
+            self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+            self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
+            self.txt_description.setText(self.current_function.long_description)
                 
     def create_axis_selection_box(self):
         self.axis_selector_buttons = {}
@@ -164,19 +178,20 @@ class Main(QMainWindow, Ui_MainWindow):
                 btn.toggled.connect(self.on_xaxis_state_changed)
                 self.axis_layout.addWidget(btn)
                 self.axis_selector_buttons[btn.text()] = btn
-            self.axis_layout.addStretch()    
+            self.axis_layout.addStretch()  
             if not self.current_xaxis is None:
-                self.axis_selector_buttons[self.current_xaxis].toggle()
+                self.axis_selector_buttons[self.current_xaxis].setChecked(True)
             
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
         xaxis = btn.text()
-        if checked:
+        if btn.isChecked():
             self.current_xaxis = xaxis
-        self.draw_current_data_set()   
+            self.draw_current_data_set()   
+            
             
     def on_analyze(self):
-        if self.current_state in (self.READY_FOR_FITTING, ):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
 #         if self.action_analyze.isChecked():
 #             self.plot_toolbar.switch_off_pan_zoom()
 #             self.span.set_active(True)   
@@ -192,7 +207,7 @@ class Main(QMainWindow, Ui_MainWindow):
             "Save data", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if self.current_state in (self.FITTED, ):
             file_path = widgets.QFileDialog.getSaveFileName(self, 
-            "Save data and fit", "", "CSV data files (*.csv);;All files (*.*)")[0]
+            "Save results", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if file_path:
             pass
 #             self.blits_data.export_results(file_path)
@@ -216,7 +231,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.on_analyze()
 
     def set_params_view(self, df_pars):
-        self.parameters_model = CruxTableModel(df_pars)
+        chkable = range(len(df_pars.columns))
+        self.parameters_model = CruxTableModel(df_pars, chkable)
         self.tbl_params.setModel(self.parameters_model)
         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
@@ -234,21 +250,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.canvas.set_colours(self.blits_data.series_names.tolist())
         for key in self.blits_data.series_names:
             series = self.blits_data.series_dict[key]
-            x = series[self.current_xaxis] #.iloc[:, 0]
-            y = series[key] #series['y']
+            x = series[self.current_xaxis] 
+            y = series[key] 
             self.canvas.draw_series(key, x, y)
             
-#     def on_xaxis_state_changed(self, checked):
-#         btn = self.sender()
-#         xaxis = btn.text()
-#         if checked:
-#             self.current_xaxis = xaxis
-#             self.draw_curves()   
-#         elif xaxis == self.current_xaxis:
-#             btn.setChecked(True)
-#         for x in self.axis_selector_buttons:
-#             if not x == xaxis and self.axis_selector_buttons[x].isChecked() :
-#                 self.axis_selector_buttons[x].setChecked(False)
 #             
 ### From scrutinize_dialog
 #         self.canvas.clear_plots() 

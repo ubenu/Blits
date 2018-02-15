@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
 class FunctionSelectionDialog(widgets.QDialog):
     
-    def __init__(self, parent, selected_fn_name=""):
+    def __init__(self, parent, n_axes=np.inf, selected_fn_name=""):
         super(FunctionSelectionDialog, self).__init__(parent)
         self.setModal(False)
                 
@@ -32,10 +32,11 @@ class FunctionSelectionDialog(widgets.QDialog):
         table_label = widgets.QLabel("Available functions")
         self.tableview = widgets.QTableView()
         table_label.setBuddy(self.tableview)
-        self.model = FunctionLibraryTableModel()
+        self.model = FunctionLibraryTableModel(n_axes=n_axes)
         self.tableview.setModel(self.model)
         self.tableview.setSelectionBehavior(widgets.QAbstractItemView.SelectRows)
         self.tableview.setSelectionMode(widgets.QAbstractItemView.SingleSelection)
+        self.tableview.doubleClicked.connect(self.accept)
         
         self.selected_fn_name = selected_fn_name
         if self.selected_fn_name != "":
@@ -165,7 +166,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             ),
         }
         
-    def __init__(self, filepath="..\\..\\Resources\\ModellingFunctions\\Functions.csv"):
+    def __init__(self, n_axes, filepath="..\\..\\Resources\\ModellingFunctions\\Functions.csv"):
         super(FunctionLibraryTableModel, self).__init__()
         
         self.filepath = filepath
@@ -174,9 +175,9 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
         
         self.modfuncs = []
         self.funcion_dictionary = {}
-        self.load_lib()        
+        self.load_lib(n_axes)        
     
-    def load_lib(self):    
+    def load_lib(self, n_axes):    
         self.modfuncs = []
         self.funcion_dictionary = {}
         
@@ -224,8 +225,9 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             modfunc.first_estimates = est
             modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
             modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
-            self.modfuncs.append(modfunc)
-            self.funcion_dictionary[modfunc.name] = modfunc
+            if len(modfunc.independents) <= n_axes:
+                self.modfuncs.append(modfunc)
+                self.funcion_dictionary[modfunc.name] = modfunc
             
     def headerData(self, section, orientation, role=qt.Qt.DisplayRole):
         # Implementation of super.headerData
