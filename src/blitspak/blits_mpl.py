@@ -78,7 +78,7 @@ class MplCanvas(FigureCanvas):
         xdif = np.mean(np.diff(x))
         xspan = np.max(x) - np.min(x)
         marker = 'o'
-        if xspan // xdif > 50:
+        if np.log(xspan) - np.log(xdif) > np.log(50):  # using log to avoid too small numbers in divisor
             marker = '-'
         if not self.series_in_plot(series_name):
             i = len(self.curve_colours.keys()) % len(self.colour_seq)

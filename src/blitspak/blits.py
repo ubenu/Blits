@@ -13,7 +13,7 @@ from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
 from PyQt5 import QtGui as gui
 
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np, copy as cp
 
 
 from matplotlib.widgets import SpanSelector
@@ -23,6 +23,7 @@ from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
 from blitspak.crux_table_model import CruxTableModel
+from functions.framework import FunctionsFramework
 
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
@@ -62,6 +63,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.grp_show_axis.setLayout(self.axis_layout)
         self.mpl_layout.addWidget(self.grp_show_axis)
         self.mpl_layout.addWidget(self.plot_toolbar)
+        
+#         self.tbl_params = widgets.QTableView()
+#         self.params_layout.addWidget(self.tbl_params)
+#        self.params_layout.addStretch()
 
         self.action_open.triggered.connect(self.on_open)
         self.action_create.triggered.connect(self.on_create)
@@ -99,9 +104,11 @@ class Main(QMainWindow, Ui_MainWindow):
                 info = qt.QFileInfo(file_path)
                 self.blits_data.file_name = info.fileName()
                 self.blits_data.import_data(file_path)
-                self.current_function = None
                 self.current_xaxis = self.blits_data.independent_names[0]
-                self.current_state = self.DATA_ONLY
+                if self.current_state == self.START:
+                    self.current_state = self.DATA_ONLY
+                else:
+                    self.current_state = self.READY_FOR_FITTING
                 self.create_axis_selection_box()
                 self.set_current_function_ui()
                 self.update_ui()
@@ -149,9 +156,17 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.current_state = self.READY_FOR_FITTING
                 self.set_current_function_ui()
                 self.update_ui()    
+
+    def set_params_view(self, df_pars):
+        self.tbl_params.setModel(None)
+        chkable = list(range(len(df_pars.columns)))
+        self.parameters_model = CruxTableModel(df_pars, chkable)
+        self.tbl_params.setModel(self.parameters_model)
+        self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+
                 
     def set_current_function_ui(self):        
-        if self.current_state in (self.DATA_ONLY, self.START): # there is no self.current_functions
+        if self.current_state in (self.DATA_ONLY, self.START, ): # there is no self.current_functions
             self.parameters_model = None
             self.tbl_params.setModel(None)
         else:
@@ -159,10 +174,8 @@ class Main(QMainWindow, Ui_MainWindow):
             cols_pars = [] 
             if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
                 cols_pars = self.blits_data.series_names
-            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)                    
-            self.parameters_model = CruxTableModel(df_pars, cols_pars)
-            self.tbl_params.setModel(self.parameters_model)
-            self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
+            self.set_params_view(df_pars)                   
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
             self.txt_description.setText(self.current_function.long_description)
                 
@@ -188,7 +201,107 @@ class Main(QMainWindow, Ui_MainWindow):
             self.current_xaxis = xaxis
             self.draw_current_data_set()   
             
-            
+    def get_selected_series_names(self):
+        cols = cp.deepcopy(self.parameters_model.df_data.columns)
+        return cols.tolist()
+    
+    def get_data_for_fitting(self, series_names):
+        data = []
+        for s in series_names:
+            selection = cp.deepcopy(self.blits_data.series_dict[s]).as_matrix().transpose()
+            if len(data) == 0:
+                data = [selection]
+            else:
+                data.append(selection)
+        return data
+    
+    def get_param_values_from_table(self, series_names):
+        """
+        Returns an (n_curves, n_params)-shaped array (with rows and columns 
+        parallel to self.series_names and self.current_function.parameters, 
+        respectively) with values for each parameter for each series).  
+        """
+        return cp.deepcopy(self.parameters_model.df_data)[series_names].as_matrix().transpose()
+    
+    def get_constant_params_from_table(self, series_names):
+        """
+        Returns an (n_curves, n_params)-shaped array of Boolean values 
+        (with rows and columns parallel to self.series_names and self.current_function.parameters, 
+        respectively) with values for each parameter for each series); if True, 
+        parameter values is constant, if False, parameter value is variable.
+        """
+        return cp.deepcopy(self.parameters_model.df_checks)[series_names].as_matrix().transpose()
+        
+    def get_linked_params_from_table(self, series_names):
+        """
+        Returns an (n_curves, n_params)-shaped array (with rows and columns parallel to 
+        self.series_names and self.current_function.parameters, respectively)
+        of integers, in which linked parameters are grouped by their values.
+        Example for 4 curves and 3 parameters:
+              p0    p1    p2
+        c0    0     2     3
+        c1    0     2     4
+        c2    1     2     5
+        c3    1     2     6
+        indicates that parameter p0 is assumed to have the same value in 
+        curves c0 and c1, and in curves c2 and c3 (a different value), 
+        and that the value for p1 is the same in all curves, whereas
+        the value of p2 is different for all curves. 
+        """
+        shape = self.parameters_model.df_data.shape
+        
+        links_array = np.arange(shape[0] * shape[1]).reshape((shape[0], shape[1])).transpose()
+#         ncol_per_param = len(self.params_table_headers) - 2 #3
+#         if self.chk_global.checkState() == qt.Qt.Checked:
+#             ncol_per_param += 1                 
+# 
+#         funcname = self.cmb_fit_function.currentText()
+#         param_names = list(self.fn_dictionary[funcname][self.d_pnames])
+#         
+#         nparams = len(param_names)
+#         ncurves = len(self.series_names) 
+#         links = np.arange(nparams * ncurves, dtype=int)
+#         links = np.reshape(links, (nparams, ncurves))
+#         
+#         if self.chk_global.checkState() == qt.Qt.Checked:
+#             l_locs = np.arange(0, nparams * ncol_per_param, ncol_per_param) + self.head_share
+#             pcount, indpcount = 0, 0
+#             for lloc in l_locs:
+#                 # Find all connections (reflexive, symmetrical, transitive graph)
+#                 mlinks = np.identity(ncurves, dtype=int) # Make matrix reflexive
+#                 for irow in range(self.tbl_params.rowCount()):
+#                     cname = self.tbl_params.verticalHeaderItem(irow).text()
+#                     if cname in self.series_names:
+#                         linked = self.tbl_params.cellWidget(irow, lloc).currentText()
+#                         cind = self.series_names.index(cname)
+#                         lind = self.series_names.index(linked)
+#                         mlinks[cind, lind] = 1
+#                         mlinks[lind, cind] = 1 # Make matrix symmetrical
+#                 # Warshall-Floyd to make matrix transitive 
+#                 for k in range(ncurves):
+#                     for i in range(ncurves):
+#                         for j in range(ncurves):
+#                             mlinks[i, j] = mlinks[i, j] or (mlinks[i, k] == 1 and mlinks[k, j] == 1)
+#                 # Find the equivalence classes for this parameter 
+#                 scrap = np.ones((ncurves,), dtype=bool)
+#                 eq_classes = []
+#                 for k in range(ncurves):
+#                     if scrap[k]:
+#                         ec = np.where(mlinks[k] == 1)
+#                         eq_classes.append(ec[0])
+#                         scrap[ec] = False
+#                 # Number the individual equivalence classes
+#                 ind_params = np.empty_like(self.series_names, dtype=int)
+#                 for i in eq_classes:
+#                     ind_params[i] = indpcount
+#                     indpcount += 1
+#                 links[pcount] = ind_params
+#                 pcount += 1
+#         
+#         selected = [self.series_names.index(name) for name in series_names]  
+#         links_array = links.transpose()[selected]
+        return links_array
+                        
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
 #         if self.action_analyze.isChecked():
@@ -196,6 +309,83 @@ class Main(QMainWindow, Ui_MainWindow):
 #             self.span.set_active(True)   
 #         else:
 #             self.span.set_active(False)  
+
+            func = self.current_function.func
+            series_names = self.get_selected_series_names()
+            data = self.get_data_for_fitting(series_names)
+            param_values = self.get_param_values_from_table(series_names)
+            const_params = self.get_constant_params_from_table(series_names)             
+            links = self.get_linked_params_from_table(series_names)
+            fitted_params = cp.deepcopy(param_values)
+            sigmas = np.empty_like(fitted_params)
+            confidence_intervals = np.empty_like(fitted_params)
+            tol = None
+#             
+#             self.set_tbl_qual_values() 
+#
+            results = None  
+            ffw = FunctionsFramework()
+            if self.chk_global.checkState() == qt.Qt.Checked:
+                results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+                fitted_params = results[0]
+                sigmas = results[1]
+                confidence_intervals = results[2]
+                tol = results[3]
+            else:
+                tol = []
+                n = 0
+                for d, p, c, l in zip(data, param_values, const_params, links):
+                    d = [d, ]
+                    p = np.reshape(p, (1, p.shape[0]))
+                    c = np.reshape(c, (1, c.shape[0]))
+                    l = np.reshape(l, (1, l.shape[0]))
+                    results = ffw.perform_global_curve_fit(d, func, p, c, l)
+                    fitted_params[n] = results[0]
+                    sigmas[n] = results[1]
+                    confidence_intervals[n] = results[2]
+                    tol.append(results[3])
+                    n += 1
+
+### Drawing
+            if not results is None:
+                template = None
+                df_all_series = pd.DataFrame()
+                df_all_parameters = pd.DataFrame(fitted_params, index=series_names, columns=self.current_function.parameters)
+                
+                
+                
+#                 smin, smax = np.finfo(float).max, np.finfo(float).min
+#                 for name in series_names:
+#                     mi, ma = self.blits_data.series_dict[name][self.current_xaxis].min(), self.blits_data.series_dict[name][self.current_xaxis].max()
+#                     if ma > smax:
+#                         smax = ma
+#                     if mi < smin:
+#                         smin = mi  
+#                 x = np.linspace(smin, smax, 100)
+                
+                                      
+#                     df_si = self.series_axes_info[name][0].df_data # axes start, stop, and std on data
+#                     n = 100
+#                     std = float(self.series_axes_info[name][2].text())
+#                     cols = df_si.index # independent axes names
+#                     df_s = pd.DataFrame([], index=range(n), columns=cols) # dataframe for axes values
+#                     for col in cols:
+#                         df_s[col] = np.linspace(df_si.iloc[:,0][col], df_si.iloc[:,1][col], n)
+#                     x = cp.deepcopy(df_s).as_matrix().transpose() # copy axes values and transpose for use in self.function
+#                     params = cp.deepcopy(df_p).as_matrix()
+#                     vals = pd.DataFrame([], index=range(n), columns=[name]) # dataframe for dependent values
+#                     y = self.function.func(x, params)
+#                     if std > 0:
+#                         y = norm.rvs(loc=y, scale=std)
+#                     vals[name] = y
+#                     
+#                     df_s = pd.concat([df_s, vals], axis=1)
+#                     df_all_series = pd.concat([df_all_series, df_s], axis=1)
+#                     
+#                 template = (df_all_series, df_all_parameters, self.function)            
+            
+                print(df_all_parameters)
+            
             self.current_state = self.FITTED
             self.update_ui()
 
@@ -229,11 +419,11 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_analyze.setChecked(False)
             self.on_analyze()
 
-    def set_params_view(self, df_pars):
-        chkable = range(len(df_pars.columns))
-        self.parameters_model = CruxTableModel(df_pars, chkable)
-        self.tbl_params.setModel(self.parameters_model)
-        self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+#     def set_params_view(self, df_pars):
+#         chkable = range(len(df_pars.columns))
+#         self.parameters_model = CruxTableModel(df_pars, chkable)
+#         self.tbl_params.setModel(self.parameters_model)
+#         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
     def create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()

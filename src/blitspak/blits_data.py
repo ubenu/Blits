@@ -8,7 +8,7 @@ Created on 23 May 2017
 import pandas as pd, numpy as np, copy as cp
 
 pd.options.mode.chained_assignment = None  
-# suppresses unnecessary warning when creating self.working_data
+# suppresses unnecessary warning when creating working data
 
 class BlitsData():
     
@@ -16,7 +16,6 @@ class BlitsData():
         # attributes
         self.file_name = ""
         self.raw_data = None
-        self.working_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
         self.independent_names = None
         # default settings
@@ -46,7 +45,7 @@ class BlitsData():
             
     def create_working_data(self):
         n_cols = len(self.raw_data.columns)
-        named_cols = self.raw_data.columns[~self.raw_data.columns.str.contains('unnamed', case=False)]
+        named_cols = self.raw_data.columns[~self.raw_data.columns.str.contains('unnamed', case=False)].values
         self.series_names = named_cols
         n_series = len(named_cols)
         n_cols_per_series = n_cols // n_series

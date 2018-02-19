@@ -34,11 +34,12 @@ class CruxTableModel(qt.QAbstractTableModel):
         if index.isValid():
             if role in (qt.Qt.DisplayRole, qt.Qt.EditRole):
                 return str(self.df_data.iloc[index.row(), index.column()])
-            if role == qt.Qt.CheckStateRole and index.column() in self.checkable_columns:
-                if self.df_checks.iloc[index.row(), index.column()]:
-                    return qt.Qt.Checked
-                else:
-                    return qt.Qt.Unchecked
+            if not len(self.checkable_columns) < 1:
+                if role == qt.Qt.CheckStateRole and index.column() in self.checkable_columns:
+                    if self.df_checks.iloc[index.row(), index.column()]:
+                        return qt.Qt.Checked
+                    else:
+                        return qt.Qt.Unchecked
             return qt.QVariant()
         return qt.QVariant()
 
