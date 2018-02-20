@@ -7,7 +7,7 @@ Created on 23 May 2017
 
 import pandas as pd, numpy as np, copy as cp
 
-pd.options.mode.chained_assignment = None  
+# pd.options.mode.chained_assignment = None  
 # suppresses unnecessary warning when creating working data
 
 class BlitsData():
@@ -19,7 +19,7 @@ class BlitsData():
         self.series_names = None # same as self.series_dict.keys, but in order of input
         self.independent_names = None
         # default settings
-        self.data_reduction_factor = 5
+#         self.data_reduction_factor = 5
         
         # New, more general working data
         self.series_dict = {}
@@ -53,20 +53,17 @@ class BlitsData():
         # Split data set in individual series
         self.series_dict = {}
         self.independent_names = []
-        try:
-            for s in range(0, n_cols , n_cols_per_series):
-                df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
-                s_name = df.columns.tolist()[0]
-                self.independent_names = ['x{}'.format(i) for i in range(n_independents)]
-                cols = cp.deepcopy(self.independent_names)
-                cols.append(s_name)
-                df.columns = cols
-                df = df.sort_values(by='x0')
-                ix = pd.Index(np.arange(len(df)))
-                df.set_index(ix, inplace=True)
-                self.series_dict[s_name] = df
-        except Exception as e:
-            print(e)
+        for s in range(0, n_cols , n_cols_per_series):
+            df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
+            s_name = df.columns.tolist()[0]
+            self.independent_names = ['x{}'.format(i) for i in range(n_independents)]
+            cols = cp.deepcopy(self.independent_names)
+            cols.append(s_name)
+            df.columns = cols
+            df = df.sort_values(by='x0')
+            ix = pd.Index(np.arange(len(df)))
+            df.set_index(ix, inplace=True)
+            self.series_dict[s_name] = df
             
     def create_working_data_from_template(self, template):
         """
@@ -91,7 +88,30 @@ class BlitsData():
         self.series_names = np.array(self.series_names)
             
 
-            
+    def series_extremes(self):
+        """
+        Returns two pandas DataFrame, one with the minimum values for each row in each series
+        and one with the maximum values. Returned DataFrames have columns series names, and index
+        axes names + 'y' for the dependent.
+        """
+        if self.series_names is not None:
+            if self.independent_names is not None:
+                df_mins = pd.DataFrame(index=cp.deepcopy(self.independent_names).append('y'))
+                df_maxs = cp.deepcopy(df_mins)
+                for s in self.series_names:
+                    series = cp.deepcopy(self.series_dict[s])
+                    cols = series.columns.tolist()
+                    cols[-1] = 'y'
+                    series.columns = cols
+                    mins = series.min(axis=0)
+                    maxs = series.max(axis=0)
+                    df_mins = pd.concat((df_mins, mins), axis=1)
+                    df_maxs = pd.concat((df_maxs, maxs), axis=1)
+                df_mins.columns = self.series_names
+                df_maxs.columns = self.series_names
+                return df_mins, df_maxs
+            return None
+        return None
 
         
  

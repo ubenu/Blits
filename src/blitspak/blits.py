@@ -64,10 +64,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.mpl_layout.addWidget(self.grp_show_axis)
         self.mpl_layout.addWidget(self.plot_toolbar)
         
-#         self.tbl_params = widgets.QTableView()
-#         self.params_layout.addWidget(self.tbl_params)
-#        self.params_layout.addStretch()
-
         self.action_open.triggered.connect(self.on_open)
         self.action_create.triggered.connect(self.on_create)
         self.action_close.triggered.connect(self.on_close_data)
@@ -84,6 +80,8 @@ class Main(QMainWindow, Ui_MainWindow):
                                  )
         
         self.blits_data = BlitsData()
+        self.blits_fitted = BlitsData()
+        self.blits_residuals = BlitsData()
         self.file_name = ""
         self.file_path = ""
         self.phase_number = 0
@@ -301,56 +299,73 @@ class Main(QMainWindow, Ui_MainWindow):
 #         selected = [self.series_names.index(name) for name in series_names]  
 #         links_array = links.transpose()[selected]
         return links_array
-                        
+         
+         
+    def perform_fit(self):
+        func = self.current_function.func
+        series_names = self.get_selected_series_names()
+        data = self.get_data_for_fitting(series_names)
+        param_values = self.get_param_values_from_table(series_names)
+        const_params = self.get_constant_params_from_table(series_names)             
+        links = self.get_linked_params_from_table(series_names)
+        fitted_params = cp.deepcopy(param_values)
+        sigmas = np.empty_like(fitted_params)
+        confidence_intervals = np.empty_like(fitted_params)
+        tol = None
+        results = None  
+        ffw = FunctionsFramework()
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
+            fitted_params = results[0]
+            sigmas = results[1]
+            confidence_intervals = results[2]
+            tol = results[3]
+        else:
+            tol = []
+            n = 0
+            for d, p, c, l in zip(data, param_values, const_params, links):
+                d = [d, ]
+                p = np.reshape(p, (1, p.shape[0]))
+                c = np.reshape(c, (1, c.shape[0]))
+                l = np.reshape(l, (1, l.shape[0]))
+                results = ffw.perform_global_curve_fit(d, func, p, c, l)
+                fitted_params[n] = results[0]
+                sigmas[n] = results[1]
+                confidence_intervals[n] = results[2]
+                tol.append(results[3])
+                n += 1
+        return fitted_params, sigmas, confidence_intervals, tol
+    
+    def create_fitted_curves(self, params, n_points):
+        mins, maxs = self.blits_data.series_extremes()
+        indx = mins.index
+        series_names = mins.columns
+        series_dict = {}
+        for series, ps in zip(mins, params.transpose()):
+            df_data = pd.DataFrame(index=[], columns=range(n_points))
+            for v0, v1 in zip(mins[series].iloc[:-1], maxs[series].iloc[:-1]):
+                x = pd.DataFrame(np.linspace(v0, v1, n_points)).transpose()
+                df_data = pd.concat((df_data, x))
+            x = df_data.as_matrix()
+            y = pd.DataFrame(self.current_function.func(x, ps)).transpose()
+            df_data = pd.concat((df_data, y))
+            lindx = indx.tolist()[:-1]
+            lindx.append(series)
+            df_data.index = lindx
+            series_dict[series] = df_data.transpose()
+        self.blits_fitted = BlitsData()
+        self.blits_fitted.series_names = np.array(series_names.tolist())
+        self.blits_fitted.independent_names = np.array(indx.tolist())[:-1]
+        self.blits_fitted.series_dict = series_dict
+                       
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-#         if self.action_analyze.isChecked():
-#             self.plot_toolbar.switch_off_pan_zoom()
-#             self.span.set_active(True)   
-#         else:
-#             self.span.set_active(False)  
-
-            func = self.current_function.func
-            series_names = self.get_selected_series_names()
-            data = self.get_data_for_fitting(series_names)
-            param_values = self.get_param_values_from_table(series_names)
-            const_params = self.get_constant_params_from_table(series_names)             
-            links = self.get_linked_params_from_table(series_names)
-            fitted_params = cp.deepcopy(param_values)
-            sigmas = np.empty_like(fitted_params)
-            confidence_intervals = np.empty_like(fitted_params)
-            tol = None
-#             
-#             self.set_tbl_qual_values() 
-#
-            results = None  
-            ffw = FunctionsFramework()
-            if self.chk_global.checkState() == qt.Qt.Checked:
-                results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
-                fitted_params = results[0]
-                sigmas = results[1]
-                confidence_intervals = results[2]
-                tol = results[3]
-            else:
-                tol = []
-                n = 0
-                for d, p, c, l in zip(data, param_values, const_params, links):
-                    d = [d, ]
-                    p = np.reshape(p, (1, p.shape[0]))
-                    c = np.reshape(c, (1, c.shape[0]))
-                    l = np.reshape(l, (1, l.shape[0]))
-                    results = ffw.perform_global_curve_fit(d, func, p, c, l)
-                    fitted_params[n] = results[0]
-                    sigmas[n] = results[1]
-                    confidence_intervals[n] = results[2]
-                    tol.append(results[3])
-                    n += 1
-
-### Drawing
-            if not results is None:
-                template = None
-                df_all_series = pd.DataFrame()
-                df_all_parameters = pd.DataFrame(fitted_params, index=series_names, columns=self.current_function.parameters)
+            fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
+            self.create_fitted_curves(fitted_params, 10)
+            self.draw_current_data_set()
+            
+            
+            
                 
                 
                 
@@ -384,7 +399,6 @@ class Main(QMainWindow, Ui_MainWindow):
 #                     
 #                 template = (df_all_series, df_all_parameters, self.function)            
             
-                print(df_all_parameters)
             
             self.current_state = self.FITTED
             self.update_ui()
@@ -419,12 +433,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_analyze.setChecked(False)
             self.on_analyze()
 
-#     def set_params_view(self, df_pars):
-#         chkable = range(len(df_pars.columns))
-#         self.parameters_model = CruxTableModel(df_pars, chkable)
-#         self.tbl_params.setModel(self.parameters_model)
-#         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
-                
     def create_results_tab(self, phase_id, model_string, results_table):
         new_tab = widgets.QWidget()
         lo = widgets.QVBoxLayout(new_tab)
@@ -442,6 +450,13 @@ class Main(QMainWindow, Ui_MainWindow):
             x = series[self.current_xaxis] 
             y = series[key] 
             self.canvas.draw_series(key, x, y)
+        if self.blits_fitted.has_data():
+            for key in self.blits_fitted.series_names:
+                series = self.blits_fitted.series_dict[key]
+                x = series[self.current_xaxis] 
+                y = series[key] 
+                self.canvas.draw_series(key, x, y)
+            
             
 #             
 ### From scrutinize_dialog
@@ -536,6 +551,11 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
         elif self.current_state == self.READY_FOR_FITTING:
+#             if self.action_analyze.isChecked():
+#                 self.plot_toolbar.switch_off_pan_zoom()
+#                 self.span.set_active(True)   
+#             else:
+#                 self.span.set_active(False)  
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
