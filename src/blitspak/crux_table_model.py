@@ -5,6 +5,7 @@ Created on 18 Jan 2018
 '''
 from PyQt5 import QtCore as qt
 import copy as cp
+from bokeh.layouts import column
 
 class CruxTableModel(qt.QAbstractTableModel):
     
@@ -71,6 +72,12 @@ class CruxTableModel(qt.QAbstractTableModel):
                 return True
             return False
         return False
+    
+    def replace_all_data(self, df_data):
+        for row in range(self.rowCount()):
+            for col in range(self.columnCount()):
+                self.setData((row,col), df_data.iloc[row, col])
+                
  
     def flags(self, index):
         flags = super(self.__class__,self).flags(index)

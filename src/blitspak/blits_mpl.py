@@ -40,7 +40,7 @@ class MplCanvas(FigureCanvas):
                 
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
-        FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Expanding, widgets.QSizePolicy.Expanding)
+        FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Expanding, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
         self.curve_colours = {}
@@ -74,17 +74,28 @@ class MplCanvas(FigureCanvas):
         self.set_fig_annotations()
         self.fig.canvas.draw()
     
-    def draw_series(self, series_name, x, y):
+    def draw_series(self, series_name, x, y, kind='primary'):
+        """
+        Draw a single curve.
+        @series_name: series id (string, must be unique)
+        @x: x-axis values (pandas series)
+        @y: y-axis values (pandas series)
+        @kind: 'primary', 'calculated', 'residuals'
+        """
         xdif = np.mean(np.diff(x))
         xspan = np.max(x) - np.min(x)
-        marker = 'o'
-        if xdif != 0.0:
-            if xspan / xdif > 50:  
-                marker = '-'
+        if kind in ('primary', 'residuals'):
+            marker = 'o'
+            if xdif != 0.0:
+                if xspan / xdif > 50:  
+                    marker = '-'
+        elif kind == 'calculated':
+            marker = '--'
         if not self.series_in_plot(series_name):
             i = len(self.curve_colours.keys()) % len(self.colour_seq)
             self.curve_colours[series_name] = self.colour_seq[i]
-        self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
+        if kind in ('primary', 'calculated'):
+            self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
         self.fig.canvas.draw()
         
     def draw_series_fit(self, series_name, x, y):

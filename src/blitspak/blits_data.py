@@ -18,10 +18,6 @@ class BlitsData():
         self.raw_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
         self.independent_names = None
-        # default settings
-#         self.data_reduction_factor = 5
-        
-        # New, more general working data
         self.series_dict = {}
         
     def has_data(self):
@@ -91,12 +87,13 @@ class BlitsData():
     def series_extremes(self):
         """
         Returns two pandas DataFrame, one with the minimum values for each row in each series
-        and one with the maximum values. Returned DataFrames have columns series names, and index
-        axes names + 'y' for the dependent.
+        and one with the maximum values. Returned DataFrames have the series names as index, and 
+        the axes names + 'y' (ie the dependent) as columns.
         """
         if self.series_names is not None:
             if self.independent_names is not None:
                 df_mins = pd.DataFrame(index=cp.deepcopy(self.independent_names).append('y'))
+                # last index is called y because the dependents have different names in different series
                 df_maxs = cp.deepcopy(df_mins)
                 for s in self.series_names:
                     series = cp.deepcopy(self.series_dict[s])
@@ -109,7 +106,7 @@ class BlitsData():
                     df_maxs = pd.concat((df_maxs, maxs), axis=1)
                 df_mins.columns = self.series_names
                 df_maxs.columns = self.series_names
-                return df_mins, df_maxs
+                return df_mins.transpose(), df_maxs.transpose()
             return None
         return None
 

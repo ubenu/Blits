@@ -68,7 +68,9 @@ class DataCreationDialog(widgets.QDialog):
             lbl_inds = widgets.QLabel('Axes')
             indx_inds = self.function.independents
             cols_inds = ['Start', 'End']
-            df_inds = pd.DataFrame(np.zeros((len(indx_inds), len(cols_inds)), dtype=float), index=indx_inds, columns=cols_inds)
+            extremes = np.zeros((len(indx_inds), len(cols_inds)), dtype=float)
+            df_inds = pd.DataFrame(extremes, index=indx_inds, columns=cols_inds)
+            df_inds.End = 1.0
             lbl_pars = widgets.QLabel('Parameters')
             indx_pars = self.function.parameters
             cols_pars = [name]
@@ -132,31 +134,6 @@ class DataCreationDialog(widgets.QDialog):
             
         return (df_all_series, df_all_parameters, self.function)
         
-            
-            
-#     def save_template(self):
-#         series, params = self.create_template()       
-#         file_path = widgets.QFileDialog.getSaveFileName(
-#             None,
-#             "Save data template to Excel",
-#             "DataTemplate.xlsx",
-#             "Excel X files (*.xlsx);;All files (*.*)")
-#         if file_path[0] != "":
-#             try:
-#                 writer = pd.ExcelWriter(file_path[0])
-#                 series.to_excel(writer, 'Series', index=False)
-# #                params.to_excel(writer, 'Parameters')
-#                 writer.save()
-#                 writer.close()
-#             except PermissionError:
-#                 msg = widgets.QMessageBox(self)
-#                 msg.setIcon(widgets.QMessageBox.Warning)
-#                 msg.setWindowTitle("Permission Error")
-#                 msg.setText("Error while trying to write to " + file_path[0] + ".\nPlease make sure that the file is not open.") 
-#                 msg.exec()
-#             except Exception as e:
-#                 print(e)
-        
     def accept(self):
         self.template = self.create_template()
         widgets.QDialog.accept(self)
@@ -165,40 +142,40 @@ class DataCreationDialog(widgets.QDialog):
         widgets.QDialog.reject(self)
         
         
-class DataSet(pd.DataFrame):
-    
-    def __init__(self):
-        self.series = {}
-        
-    def add_series(self, series):
-        if series.name() in self.series:
-            print("Existing series overwritten")
-        self.series[series.name()] = series
-        
-        
-class DataSeries():
-    
-    def __init__(self, name, independents, dependent, ind_names=['x', ]):
-        header = ind_names.extend([name])
-        self.data = pd.DataFrame(np.vstack(independents, dependent), columns=header)
-        
-    def axes(self):
-        return cp.deepcopy(self.data.iloc[:, :-1])
-
-    def axes_names(self):
-        return cp.deepcopy(self.data.columns.tolist()[:-1])
-    
-    def values(self):
-        return cp.deepcopy(self.data.iloc[:, -1])
-    
-    def name(self):
-        return cp.deepcopy(self.data.columns.tolist[-1])
-    
-    def set_name(self, name):
-        cols = self.data.columns.tolist()
-        cols[-1] = name
-        self.data.columns = cols
-        
+# class DataSet(pd.DataFrame):
+#     
+#     def __init__(self):
+#         self.series = {}
+#         
+#     def add_series(self, series):
+#         if series.name() in self.series:
+#             print("Existing series overwritten")
+#         self.series[series.name()] = series
+#         
+#         
+# class DataSeries():
+#     
+#     def __init__(self, name, independents, dependent, ind_names=['x', ]):
+#         header = ind_names.extend([name])
+#         self.data = pd.DataFrame(np.vstack(independents, dependent), columns=header)
+#         
+#     def axes(self):
+#         return cp.deepcopy(self.data.iloc[:, :-1])
+# 
+#     def axes_names(self):
+#         return cp.deepcopy(self.data.columns.tolist()[:-1])
+#     
+#     def values(self):
+#         return cp.deepcopy(self.data.iloc[:, -1])
+#     
+#     def name(self):
+#         return cp.deepcopy(self.data.columns.tolist[-1])
+#     
+#     def set_name(self, name):
+#         cols = self.data.columns.tolist()
+#         cols[-1] = name
+#         self.data.columns = cols
+#         
         
         
         
