@@ -65,13 +65,13 @@ class DataCreationDialog(widgets.QDialog):
             lbl_std = widgets.QLabel("Noise on data (StDev)")
             txt_std = widgets.QLineEdit("0.0")
             
-            lbl_inds = widgets.QLabel('Axes')
+            lbl_inds = widgets.QLabel('&Axes')
             indx_inds = self.function.independents
             cols_inds = ['Start', 'End']
             extremes = np.zeros((len(indx_inds), len(cols_inds)), dtype=float)
             df_inds = pd.DataFrame(extremes, index=indx_inds, columns=cols_inds)
             df_inds.End = 1.0
-            lbl_pars = widgets.QLabel('Parameters')
+            lbl_pars = widgets.QLabel('&Parameters')
             indx_pars = self.function.parameters
             cols_pars = [name]
             df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars)
@@ -79,11 +79,14 @@ class DataCreationDialog(widgets.QDialog):
             mdl_inds = CruxTableModel(df_inds)
             self.series_axes_info[name] = (mdl_inds, txt_n, txt_std)
             tbl_inds = widgets.QTableView()
+            lbl_inds.setBuddy(tbl_inds)
             tbl_inds.setModel(mdl_inds)
             tbl_inds.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+            
             mdl_pars = CruxTableModel(df_pars)
             self.series_params[name] = mdl_pars
             tbl_pars = widgets.QTableView()
+            lbl_pars.setBuddy(tbl_pars)
             tbl_pars.setModel(mdl_pars)
             tbl_pars.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
     
@@ -142,40 +145,6 @@ class DataCreationDialog(widgets.QDialog):
         widgets.QDialog.reject(self)
         
         
-# class DataSet(pd.DataFrame):
-#     
-#     def __init__(self):
-#         self.series = {}
-#         
-#     def add_series(self, series):
-#         if series.name() in self.series:
-#             print("Existing series overwritten")
-#         self.series[series.name()] = series
-#         
-#         
-# class DataSeries():
-#     
-#     def __init__(self, name, independents, dependent, ind_names=['x', ]):
-#         header = ind_names.extend([name])
-#         self.data = pd.DataFrame(np.vstack(independents, dependent), columns=header)
-#         
-#     def axes(self):
-#         return cp.deepcopy(self.data.iloc[:, :-1])
-# 
-#     def axes_names(self):
-#         return cp.deepcopy(self.data.columns.tolist()[:-1])
-#     
-#     def values(self):
-#         return cp.deepcopy(self.data.iloc[:, -1])
-#     
-#     def name(self):
-#         return cp.deepcopy(self.data.columns.tolist[-1])
-#     
-#     def set_name(self, name):
-#         cols = self.data.columns.tolist()
-#         cols[-1] = name
-#         self.data.columns = cols
-#         
-        
+
         
         

@@ -9,38 +9,7 @@ import numpy as np, pandas as pd
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
-#from statsmodels.genmod.tests.results.elastic_net_generate_tests import lin_pred
-#from Cython.Debugger.libpython import BuiltInMethodProxy #?? how did that get here?
-#from astropy.modeling.tests.test_projections import pars
-#from functions import function_defs
-#from statsmodels.nonparametric.kernels import d_gaussian
-
-# class ModellingFunction():
-#      
-#     def __init__(self, name, fn_ref, p0_fn_ref, param_names, fn_str):
-#         self.name = name
-#  
-#         self.fn_ref = fn_ref
-#         self.p0_fn_ref = p0_fn_ref
-#         self.param_names = param_names
-#         self.fn_str = fn_str
-#      
-#     def __str__(self):
-#         return self.fn_str
-     
-# class FunctionLibrary():
-#     
-#     def __init__(self):
-#         pass
-#     
-#     def add_function(self, fn):
-#         pass
-#     
-#     def remove_function(self, fn_id):
-#         pass
-#     
-    
-    
+  
 class LibraryFunction():
     
     def __init__(self, fn_id, 
@@ -92,51 +61,25 @@ class FunctionsFramework():
     def __init__(self):
         pass
     
-#     def read_modelling_functions(self, file_path):
-#         self.modfunc_data = pd.read_csv(file_path)
-#         self.modfunc_data.dropna(inplace=True)
-#         self.modfunc_data['Id'] = np.nan
-#         
-#         # names = self.modfunc_data.loc[self.modfunc_data['Attribute']=='@Name']
-#         fn_id = 0
-#         ids = []
-#         for row in self.modfunc_data.itertuples():
-#             if row.Attribute == '@Name':
-#                 fn_id += 1
-#             ids.append(fn_id)
-#         self.modfunc_data.Id = ids
-#         unique_ids = np.unique(np.array(self.modfunc_data.Id.tolist()), return_index=True, return_inverse=True, return_counts=True)
-#         for i in unique_ids[0]: # the actual unique fn_ids
-#             info = self.modfunc_data.loc[self.modfunc_data['Id']==i]
-#             name = info.loc[info['Attribute'] == '@Name']['Value'].values[0]
-#             sd = info.loc[info['Attribute'] == '@Short description']['Value'].values[0]
-#             ld = info.loc[info['Attribute'] == '@Long description']['Value'].values[0]
-#             fn = info.loc[info['Attribute'] == '@Function']['Value'].values[0]
-#             rt = info.loc[info['Attribute'] == '@FindRoot']['Value']
-#             odp = info.loc[info['Attribute'] == '@Observed dependent']['Value'].values[0]
-#             cdp = info.loc[info['Attribute'] == '@Calculated dependent']['Value'].values[0]
-#             idp = info.loc[info['Attribute'] == '@Independents']['Value'].values[0]
-#             par = info.loc[info['Attribute'] == '@Parameters']['Value'].values[0]
-#             est = info.loc[info['Attribute'] == '@First estimates']['Value'].values[0]
-# 
-#             lib_func = LibraryFunction(i)
-#             lib_func.name = name
-#             lib_func.short_description = sd
-#             lib_func.long_description = ld
-#             lib_func.fn_def = fn
-#             if len(rt):
-#                 lib_func.find_root = rt
-#             lib_func.obs_dependent_name = odp
-#             lib_func.calc_dependent_name = cdp
-#             lib_func.set_independents(idp) 
-#             lib_func.set_parameters(par)
-#             lib_func.first_estimates = est
-#                                 
-# #             lib_func.test_fn()
-            
-                
-            
-            
+    def get_initial_param_estimates(self, data, func_p0, n_params):
+        """
+        @data: list of n_curves curves;
+        each curve is an (n_indi + 1, n_points)-shaped numpy array, with n_indi the 
+        number of independent ('x') axes and n_points is the number of data
+        points in each curve. Curve items [0 : n_indi] contain the values of the 
+        independents, and curve item [-1] contains the dependent ('y') values.
+        @func_p0: reference to function that estimates a set of initial values, 
+        with signature fn(curve, n_params), with @curve an element of @data.
+        @n_params the number of parameters used by func_p0
+        @returns an (n_curves, n_params)-shaped array with individual estimates for
+        each parameter in each curve.  The values are used as initial estimates 
+        (for variable parameters) or as invariants.
+        """
+        params = []
+        for curve in data:
+            p0 = func_p0(curve, n_params)
+            params.append(p0)
+        return np.array(params)
         
     def confidence_intervals(self, n, params, covar, conf_level):
         """

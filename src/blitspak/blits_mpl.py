@@ -40,7 +40,7 @@ class MplCanvas(FigureCanvas):
                 
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
-        FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Expanding, widgets.QSizePolicy.Preferred)
+        FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Preferred, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
         self.curve_colours = {}

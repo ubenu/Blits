@@ -61,7 +61,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.grp_show_axis = widgets.QGroupBox()
         self.axis_layout = widgets.QHBoxLayout()
         self.grp_show_axis.setLayout(self.axis_layout)
-        self.mpl_layout.addWidget(self.grp_show_axis)
+        self.grp_show_axis.setSizePolicy(widgets.QSizePolicy.Maximum, widgets.QSizePolicy.Maximum)
+        self.axisgrp_layout = widgets.QHBoxLayout()
+        self.axisgrp_layout.addWidget(self.grp_show_axis)
+        self.mpl_layout.addLayout(self.axisgrp_layout)
         self.mpl_layout.addWidget(self.plot_toolbar)
         
         self.action_open.triggered.connect(self.on_open)
@@ -70,7 +73,23 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_save.triggered.connect(self.on_save)
         self.action_select_function.triggered.connect(self.on_select_function)
         self.action_analyze.triggered.connect(self.on_analyze)
-        self.action_quit.triggered.connect(self.close)     
+        self.action_quit.triggered.connect(self.close) 
+        self.action_apply.triggered.connect(self.on_apply_current) 
+        self.action_estimate.triggered.connect(self.on_estimate) 
+        
+        ft = gui.QFont('Calibri', 14)
+        self.btn_est = widgets.QPushButton("Estimate")
+        self.btn_est.setFont(ft)
+        self.btn_est.clicked.connect(self.on_estimate)
+        self.btn_apply = widgets.QPushButton("Apply current")
+        self.btn_apply.setFont(ft)
+        self.btn_apply.clicked.connect(self.on_apply_current)
+        self.btn_fit = widgets.QPushButton("Perform fit")
+        self.btn_fit.setFont(ft)
+        self.btn_fit.clicked.connect(self.on_analyze)
+        self.bbox_fit.addButton(self.btn_fit, widgets.QDialogButtonBox.ActionRole)
+        self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
+        self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
 
         self.span = SpanSelector(self.canvas.data_plot, 
                                  self.on_select_span, 
@@ -101,8 +120,15 @@ class Main(QMainWindow, Ui_MainWindow):
             self.write_param_values_to_table(fitted_params)
             self.current_state = self.FITTED
             self.update_ui()
-
+        pass
             
+    def on_apply_current(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+            params = self.get_param_values_from_table(self.get_selected_series_names())
+            self.make_crux_curves(params, 100)
+            self.draw_current_data_set()
+        pass           
+
     def on_close_data(self):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
             self.current_xaxis = None
@@ -120,6 +146,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 
             self.set_current_function_ui()
             self.update_ui()
+        pass
             
     def on_create(self):  
         if self.current_state in (self.FUNCTION_ONLY, ):
@@ -133,6 +160,18 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.set_axis_selector()
                 self.update_ui()
                 
+    def on_estimate(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+            fn_p0 = self.current_function.p0
+            n_par = len(self.current_function.parameters)
+            data = self.get_data_for_fitting(self.get_selected_series_names())
+            ffw = FunctionsFramework()
+            params = ffw.get_initial_param_estimates(data, fn_p0, n_par)
+            self.write_param_values_to_table(params)
+#            self.make_crux_curves(params, 100)
+            self.draw_current_data_set()
+        pass           
+    
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
             file_path = widgets.QFileDialog.getOpenFileName(self, 
@@ -263,7 +302,6 @@ class Main(QMainWindow, Ui_MainWindow):
     def get_selected_series_names(self):
         cols = cp.deepcopy(self.parameters_model.df_data.columns)
         return cols.tolist()
-    
 
     def get_linked_params_from_table(self, series_names):
         """
@@ -422,8 +460,9 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.canvas.draw_series(key, x, y, 'residuals')
 
     def write_param_values_to_table(self, param_values):
-        self.parameters_model.df_data[:] = param_values.transpose()
-        self.tbl_params.resizeColumnsToContents() # This redraws the table (necessary)
+        self.parameters_model.change_content(param_values.transpose())
+        #self.parameters_model.df_data[:] = param_values.transpose()
+        #self.tbl_params.resizeColumnsToContents() # This redraws the table (necessary)
             
     def update_ui(self):
         if self.current_state == self.START:
@@ -433,6 +472,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(False)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(False)
+            self.btn_apply.setEnabled(False)
+            self.btn_fit.setEnabled(False)
+            self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
         elif self.current_state == self.DATA_ONLY:
@@ -442,6 +484,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(True)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(False)
+            self.btn_apply.setEnabled(False)
+            self.btn_fit.setEnabled(False)
+            self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True) 
             self.span.set_active(False)
         elif self.current_state == self.FUNCTION_ONLY:
@@ -451,6 +496,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(False)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(False)
+            self.btn_apply.setEnabled(False)
+            self.btn_fit.setEnabled(False)
+            self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
         elif self.current_state == self.READY_FOR_FITTING:
@@ -465,6 +513,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(True)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(True)
+            self.btn_apply.setEnabled(True)
+            self.btn_fit.setEnabled(True)
+            self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
         elif self.current_state == self.FITTED:
@@ -474,6 +525,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.action_save.setEnabled(True)
             self.action_select_function.setEnabled(True)
             self.action_analyze.setEnabled(True)
+            self.btn_apply.setEnabled(True)
+            self.btn_fit.setEnabled(True)
+            self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
             self.span.set_active(False)
         else:
@@ -502,36 +556,5 @@ if __name__ == '__main__':
 
 
 
-### Old
-#     def _write_results(self):
-#         r = self.blits_data.results
-#         tbr = self.tblResults
-#         tbr.setColumnCount(len(r.columns))
-#         tbr.setRowCount(len(r.index))
-#         tbr.setVerticalHeaderLabels(r.index)
-#         tbr.setHorizontalHeaderLabels(r.columns)
-#         for i in range(len(r.index)):
-#             for j in range(len(r.columns)):
-#                 tbr.setItem(i,j,widgets.QTableWidgetItem(str(r.iat[i, j])))
-# 
-#         if self.blits_data.results_acquired['fractional saturation']:
-#             p = self.blits_data.get_fractional_saturation_params_dataframe()
-#             tbp = self.tblFitParams
-#             tbp.setColumnCount(len(p.columns))
-#             tbp.setRowCount(len(p.index))
-#             tbp.setVerticalHeaderLabels(p.index)
-#             tbp.setHorizontalHeaderLabels(p.columns)
-#             for i in range(len(p.index)):
-#                 for j in range(len(p.columns)):
-#                     tbp.setItem(i,j,widgets.QTableWidgetItem(str(p.iat[i, j])))
-#             
-#             f = self.blits_data.get_fractional_saturation_curve()
-#             tbf = self.tblFittedCurve
-#             tbf.setColumnCount(len(f.columns))
-#             tbf.setRowCount(len(f.index))
-#             tbf.setHorizontalHeaderLabels(f.columns)
-#             for i in range(len(f.index)):
-#                 for j in range(len(f.columns)):
-#                     tbf.setItem(i,j,widgets.QTableWidgetItem(str(f.iat[i, j])))        
 
 

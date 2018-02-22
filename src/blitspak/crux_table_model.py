@@ -34,13 +34,18 @@ class CruxTableModel(qt.QAbstractTableModel):
     def data(self, index, role=qt.Qt.DisplayRole):
         if index.isValid():
             if role in (qt.Qt.DisplayRole, qt.Qt.EditRole):
-                return str(self.df_data.iloc[index.row(), index.column()])
+                val = self.df_data.iloc[index.row(), index.column()]
+                fval = '{:.2g}'.format(val)
+                return fval
             if not len(self.checkable_columns) < 1:
-                if role == qt.Qt.CheckStateRole and index.column() in self.checkable_columns:
-                    if self.df_checks.iloc[index.row(), index.column()]:
-                        return qt.Qt.Checked
-                    else:
-                        return qt.Qt.Unchecked
+                if index.column() in self.checkable_columns:
+                    if role == qt.Qt.CheckStateRole:
+                        if self.df_checks.iloc[index.row(), index.column()]:
+                            return qt.Qt.Checked
+                        else:
+                            return qt.Qt.Unchecked
+                    if role == qt.Qt.ToolTipRole:
+                        return qt.QVariant("Check value to keep constant in fit")
             return qt.QVariant()
         return qt.QVariant()
 
@@ -72,6 +77,16 @@ class CruxTableModel(qt.QAbstractTableModel):
                 return True
             return False
         return False
+    
+    def change_content(self, new_data):
+        if new_data.shape == self.df_data.shape:
+            for row in range(len(self.df_data)):
+                for col in range(len(self.df_data.iloc[row])):
+                    value = new_data[row, col]
+                    self.setData(self.createIndex(row, col), value, qt.Qt.EditRole)
+                    
+
+        
     
     def replace_all_data(self, df_data):
         for row in range(self.rowCount()):

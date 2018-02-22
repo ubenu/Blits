@@ -41,7 +41,7 @@
       </property>
       <widget class="QWidget" name="tabPlots">
        <attribute name="title">
-        <string>Main</string>
+        <string>The Crux</string>
        </attribute>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
@@ -52,7 +52,7 @@
           <property name="frameShadow">
            <enum>QFrame::Raised</enum>
           </property>
-          <layout class="QVBoxLayout" name="params_layout">
+          <layout class="QVBoxLayout" name="verticalLayout">
            <item>
             <widget class="QLabel" name="lbl_fn_name">
              <property name="font">
@@ -83,19 +83,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="chk_global">
-             <property name="font">
-              <font>
-               <family>Calibri</family>
-               <pointsize>14</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Global fit</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QTableView" name="tbl_params">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -104,6 +91,33 @@
               </sizepolicy>
              </property>
             </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QDialogButtonBox" name="bbox_fit">
+               <property name="layoutDirection">
+                <enum>Qt::RightToLeft</enum>
+               </property>
+               <property name="standardButtons">
+                <set>QDialogButtonBox::NoButton</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="chk_global">
+               <property name="font">
+                <font>
+                 <family>Calibri</family>
+                 <pointsize>14</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Global</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <spacer name="verticalSpacer">
@@ -164,7 +178,8 @@
      <string>&amp;Analysis</string>
     </property>
     <addaction name="action_select_function"/>
-    <addaction name="separator"/>
+    <addaction name="action_estimate"/>
+    <addaction name="action_apply"/>
     <addaction name="action_analyze"/>
     <addaction name="separator"/>
    </widget>
@@ -264,6 +279,24 @@
   <action name="action_close">
    <property name="text">
     <string>Close data set</string>
+   </property>
+  </action>
+  <action name="action_estimate">
+   <property name="text">
+    <string>Set estimates</string>
+   </property>
+  </action>
+  <action name="action_apply">
+   <property name="text">
+    <string>Apply current</string>
+   </property>
+  </action>
+  <action name="action_global">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Global fitting</string>
    </property>
   </action>
  </widget>
