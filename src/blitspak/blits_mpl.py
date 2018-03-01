@@ -114,6 +114,11 @@ class MplCanvas(FigureCanvas):
         self.set_fig_annotations()
         self.fig.canvas.draw()
         
+    def set_vlines(self, x_limits, x_outer_limits):
+        self.vline0 = DraggableLine(self.data_plot.axvline(x_limits[0], lw=1, ls='--', color='k'), x_outer_limits)
+        self.vline1 = DraggableLine(self.data_plot.axvline(x_limits[1], lw=1, ls='--', color='k'), x_outer_limits)           
+
+        
         
 class NavigationToolbar(NavigationToolbar2QT):
                         

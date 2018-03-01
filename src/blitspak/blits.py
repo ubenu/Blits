@@ -229,21 +229,20 @@ class Main(QMainWindow, Ui_MainWindow):
 
     def on_select_span(self, xmin, xmax):
         self.span.set_active(False)
-        if (xmin != xmax):
-            phase_id = self.phase_name + '{:0d}'.format(self.phase_number + 1)
-            self.scrutinize_dialog = ScrutinizeDialog(main, xmin, xmax) 
-            flags = self.scrutinize_dialog.windowFlags() | qt.Qt.WindowMinMaxButtonsHint
-            self.scrutinize_dialog.setWindowFlags(flags)
-            if self.scrutinize_dialog.show() == widgets.QDialog.Accepted:
-                self.phase_number += 1
-                self.phase_list.append(phase_id)
-                model = self.scrutinize_dialog.current_function
-                model_expr = self.scrutinize_dialog.fn_dictionary[model][self.scrutinize_dialog.d_expr]
-                m_string = model + ': ' + model_expr
-                tbl_results = self.scrutinize_dialog.tbl_results
-                self.create_results_tab(phase_id, m_string, tbl_results)
-            self.action_analyze.setChecked(False)
-            self.on_analyze()
+        if xmin != xmax:
+            extr = self.blits_data.series_extremes()
+#             for i in extr:
+#                 print(i[self.current_xaxis])
+            x_limits = (xmin, xmax)                
+            if xmin > xmax:
+                x_limits = (xmax, xmin)
+                
+            ### Setting outer limits not correct
+            ### Make facility for selecting area (button)
+            x_outer_limits = (extr[0][self.current_xaxis], extr[1][self.current_xaxis])
+            print(x_limits)
+            print(x_outer_limits)
+            self.canvas.set_vlines(x_limits, x_outer_limits)
 
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
@@ -466,6 +465,7 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def update_ui(self):
         if self.current_state == self.START:
+            self.span.set_active(False)
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(False)
@@ -476,8 +476,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)     
-            self.span.set_active(False)
         elif self.current_state == self.DATA_ONLY:
+            self.span.set_active(False)
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -488,8 +488,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True) 
-            self.span.set_active(False)
         elif self.current_state == self.FUNCTION_ONLY:
+            self.span.set_active(False)
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(True)
             self.action_close.setEnabled(False)
@@ -500,13 +500,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)     
-            self.span.set_active(False)
         elif self.current_state == self.READY_FOR_FITTING:
-#             if self.action_analyze.isChecked():
-#                 self.plot_toolbar.switch_off_pan_zoom()
-#                 self.span.set_active(True)   
-#             else:
-#                 self.span.set_active(False)  
+            self.span.set_active(False)   
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -517,8 +512,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
-            self.span.set_active(False)
         elif self.current_state == self.FITTED:
+            self.span.set_active(False)
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -529,7 +524,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
-            self.span.set_active(False)
         else:
             print('Illegal state')
                                           
