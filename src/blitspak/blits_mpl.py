@@ -37,13 +37,14 @@ class MplCanvas(FigureCanvas):
         self.gs.update(left=0.15, right=0.95, top=0.95, bottom=0.1, hspace=1.5)
         self.data_plot = self.fig.add_subplot(self.gs[2:,:])
         self.data_res_plot = self.fig.add_subplot(self.gs[0:2,:], sharex=self.data_plot)
-                
+
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Preferred, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
         self.curve_colours = {}
+        self.remove_vlines() # sets the vertical lines to None
         
     def on_move(self):
         pass
@@ -68,12 +69,21 @@ class MplCanvas(FigureCanvas):
     def series_in_plot(self, series_name):
         return series_name in self.curve_colours
     
+    def has_vertical_lines(self):
+        return self.vline0 is not None and self.vline1 is not None
+    
     def clear_plots(self):
         self.data_plot.cla()
         self.data_res_plot.cla()
         self.set_fig_annotations()
+        if self.has_vertical_lines():
+            self.x_limits = (self.vline0.get_x(), self.vline1.get_x())
+            self.set_vlines(self.x_limits, self.x_outer_limits)
         self.fig.canvas.draw()
     
+    def clear_figure(self):
+        self.clear_plots()
+#         
     def draw_series(self, series_name, x, y, kind='primary'):
         """
         Draw a single curve.
@@ -108,17 +118,25 @@ class MplCanvas(FigureCanvas):
             self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
             self.fig.canvas.draw()        
  
-    def clear_figure(self):
-        self.data_plot.cla()
-        self.data_res_plot.cla()
-        self.set_fig_annotations()
-        self.fig.canvas.draw()
-        
     def set_vlines(self, x_limits, x_outer_limits):
-        self.vline0 = DraggableLine(self.data_plot.axvline(x_limits[0], lw=1, ls='--', color='k'), x_outer_limits)
-        self.vline1 = DraggableLine(self.data_plot.axvline(x_limits[1], lw=1, ls='--', color='k'), x_outer_limits)           
+        self.x_limits = x_limits
+        self.x_outer_limits = x_outer_limits 
+        self.vline0 = DraggableLine(self.data_plot.axvline(x_limits[0], 
+                                                           lw=1, 
+                                                           ls='--', 
+                                                           color='k'), 
+                                    x_outer_limits)
+        self.vline1 = DraggableLine(self.data_plot.axvline(x_limits[1], 
+                                                           lw=1, 
+                                                           ls='--', 
+                                                           color='k'), 
+                                    x_outer_limits)           
 
-        
+    def remove_vlines(self):
+        self.vline0 = None
+        self.vline1 = None
+        self.x_limits = None
+        self.x_outer_limits = None 
         
 class NavigationToolbar(NavigationToolbar2QT):
                         

@@ -54,7 +54,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.scrutinize_dialog = None
         self.function_dialog = None
         self.create_data_set_dialog = None
-        
+                
         self.canvas = MplCanvas(self.mpl_window)
         self.plot_toolbar = NavigationToolbar(self.canvas, self.mpl_window)
         self.mpl_layout.addWidget(self.canvas)
@@ -77,11 +77,18 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_apply.triggered.connect(self.on_apply_current) 
         self.action_estimate.triggered.connect(self.on_estimate) 
         
+        self.chk_global.clicked.connect(self.on_global)
+        self.chk_subsection.clicked.connect(self.on_subsection)
+        
         ft = gui.QFont('Calibri', 14)
         self.btn_est = widgets.QPushButton("Estimate")
         self.btn_est.setFont(ft)
         self.btn_est.clicked.connect(self.on_estimate)
-        self.btn_apply = widgets.QPushButton("Apply current")
+#         self.btn_area = widgets.QPushButton("Subsection")
+#         self.btn_area.setFont(ft)
+#         self.btn_area.clicked.connect(self.on_area)
+#         self.btn_area.setCheckable(True)
+        self.btn_apply = widgets.QPushButton("Apply")
         self.btn_apply.setFont(ft)
         self.btn_apply.clicked.connect(self.on_apply_current)
         self.btn_fit = widgets.QPushButton("Perform fit")
@@ -91,12 +98,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
         self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
 
-        self.span = SpanSelector(self.canvas.data_plot, 
-                                 self.on_select_span, 
-                                 'horizontal', 
-                                 useblit=True, 
-                                 rectprops=dict(alpha=0.5, facecolor='red')
-                                 )
+#         self.span = SpanSelector(self.canvas.data_plot, 
+#                                  self.on_select_span, 
+#                                  'horizontal', 
+#                                  useblit=True, 
+#                                  rectprops=dict(alpha=0.5, facecolor='red')
+#                                  )
         
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
@@ -108,6 +115,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_list = []
         self.axis_selector_buttons = None
         self.current_function = None
+        self.axes_min_max = None
         
         self.current_state = self.START        
         self.update_ui()
@@ -127,8 +135,8 @@ class Main(QMainWindow, Ui_MainWindow):
             params = self.get_param_values_from_table(self.get_selected_series_names())
             self.make_crux_curves(params, 100)
             self.draw_current_data_set()
-        pass           
-
+        pass  
+    
     def on_close_data(self):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
             self.current_xaxis = None
@@ -170,7 +178,10 @@ class Main(QMainWindow, Ui_MainWindow):
             self.write_param_values_to_table(params)
 #            self.make_crux_curves(params, 100)
             self.draw_current_data_set()
-        pass           
+        pass 
+    
+    def on_global(self):
+        pass          
     
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
@@ -191,6 +202,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     else:
                         self.current_function = None
                         self.current_state = self.DATA_ONLY
+                
                 self.set_axis_selector()
                 self.set_current_function_ui()
                 self.update_ui()
@@ -227,22 +239,26 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.set_current_function_ui()
                 self.update_ui()    
 
-    def on_select_span(self, xmin, xmax):
-        self.span.set_active(False)
-        if xmin != xmax:
-            extr = self.blits_data.series_extremes()
-#             for i in extr:
-#                 print(i[self.current_xaxis])
-            x_limits = (xmin, xmax)                
-            if xmin > xmax:
-                x_limits = (xmax, xmin)
-                
-            ### Setting outer limits not correct
-            ### Make facility for selecting area (button)
-            x_outer_limits = (extr[0][self.current_xaxis], extr[1][self.current_xaxis])
-            print(x_limits)
-            print(x_outer_limits)
-            self.canvas.set_vlines(x_limits, x_outer_limits)
+
+    def on_subsection(self):
+        if self.blits_data.has_data():
+            self.axes_min_max = self.blits_data.series_extremes()
+            mins, maxs = cp.deepcopy(self.axes_min_max)
+            if self.chk_subsection.isChecked():
+                x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+                                  maxs.loc[:, self.current_xaxis].max())
+                x_limits = cp.deepcopy(x_outer_limits)                
+                if self.canvas.has_vertical_lines():
+                    x_limits = (self.canvas.vline0.get_x(), 
+                                self.canvas.vline1.get_x())
+                self.canvas.set_vlines(x_limits, x_outer_limits)
+                self.draw_current_data_set()
+                #self.span.set_active(True)
+            else:
+                self.canvas.remove_vlines()
+                self.draw_current_data_set()
+            pass 
+        pass        
 
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
@@ -282,14 +298,26 @@ class Main(QMainWindow, Ui_MainWindow):
         
     def get_data_for_fitting(self, series_names):
         data = []
+        mins, maxs = self.blits_data.series_extremes()
+        x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+                          maxs.loc[:, self.current_xaxis].max())
+        start, stop = x_outer_limits
+        if self.canvas.has_vertical_lines():
+            start, stop = self.canvas.vline0.get_x(), self.canvas.vline1.get_x()
+            if start > stop: 
+                temp = start
+                start = stop
+                stop = temp
         for s in series_names:
-            selection = cp.deepcopy(self.blits_data.series_dict[s]).as_matrix().transpose()
+            series = self.blits_data.series_dict[s] # the full data set
+            indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
+            selection = cp.deepcopy(series[indmin:indmax]).as_matrix().transpose()
             if len(data) == 0:
                 data = [selection]
             else:
                 data.append(selection)
         return data
-    
+        
     def get_param_values_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns 
@@ -465,7 +493,6 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def update_ui(self):
         if self.current_state == self.START:
-            self.span.set_active(False)
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(False)
@@ -475,9 +502,13 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
-            self.action_quit.setEnabled(True)     
+            self.action_quit.setEnabled(True)
+            self.chk_subsection.setEnabled(False)   
+            self.chk_global.setEnabled(False) 
+            self.chk_subsection.setChecked(False)
+            self.on_subsection()
+            self.chk_global.setChecked(False) 
         elif self.current_state == self.DATA_ONLY:
-            self.span.set_active(False)
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -488,8 +519,11 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True) 
+            self.chk_subsection.setEnabled(True)   
+            self.chk_global.setEnabled(False)  
+            self.on_subsection()
+            self.chk_global.setChecked(False) 
         elif self.current_state == self.FUNCTION_ONLY:
-            self.span.set_active(False)
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(True)
             self.action_close.setEnabled(False)
@@ -500,8 +534,12 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)     
+            self.chk_subsection.setEnabled(False)   
+            self.chk_global.setEnabled(False)  
+            self.chk_subsection.setChecked(False)
+            self.on_subsection()
+            self.chk_global.setChecked(False) 
         elif self.current_state == self.READY_FOR_FITTING:
-            self.span.set_active(False)   
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -512,8 +550,10 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
+            self.chk_subsection.setEnabled(True)   
+            self.on_subsection()
+            self.chk_global.setEnabled(True)  
         elif self.current_state == self.FITTED:
-            self.span.set_active(False)
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -524,6 +564,9 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
+            self.chk_subsection.setEnabled(True)   
+            self.on_subsection()
+            self.chk_global.setEnabled(True)  
         else:
             print('Illegal state')
                                           
@@ -547,6 +590,16 @@ if __name__ == '__main__':
 #         new_tab.setLayout(lo)
 #         self.tabWidget.addTab(new_tab, phase_id)
 
+#     def on_select_span(self, xmin, xmax):
+#         self.span.set_active(False)
+#         if xmin != xmax:
+#             mins, maxs = self.blits_data.series_extremes()
+#             # mins, maxs: index: series names, columns: independent names + y (dependent)  
+#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), maxs.loc[:, self.current_xaxis].max())
+#             x_limits = (xmin, xmax)                
+#             if xmin > xmax:
+#                 x_limits = (xmax, xmin)
+#             self.canvas.set_vlines(x_limits, x_outer_limits)
 
 
 

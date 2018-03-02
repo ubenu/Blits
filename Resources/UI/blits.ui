@@ -123,6 +123,19 @@
               </widget>
              </item>
              <item>
+              <widget class="QCheckBox" name="chk_subsection">
+               <property name="font">
+                <font>
+                 <family>Calibri</family>
+                 <pointsize>14</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Subsection</string>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QCheckBox" name="chk_global">
                <property name="font">
                 <font>
