@@ -76,9 +76,9 @@ class MplCanvas(FigureCanvas):
         self.data_plot.cla()
         self.data_res_plot.cla()
         self.set_fig_annotations()
-        if self.has_vertical_lines():
-            self.x_limits = (self.vline0.get_x(), self.vline1.get_x())
-            self.set_vlines(self.x_limits, self.x_outer_limits)
+#         if self.has_vertical_lines():
+#             self.x_limits = (self.vline0.get_x(), self.vline1.get_x())
+#             self.set_vlines(self.x_limits, self.x_outer_limits)
         self.fig.canvas.draw()
     
     def clear_figure(self):

@@ -261,26 +261,10 @@ class Main(QMainWindow, Ui_MainWindow):
             self.draw_current_data_set()
         pass        
     
-    def preserve_vlines(self):
-        if self.blits_data.has_data():
-            mins, maxs = self.blits_data.series_extremes()
-            x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-                              maxs.loc[:, self.current_xaxis].max())
-            x_limits = cp.deepcopy(x_outer_limits)
-            self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
-            if self.canvas.has_vertical_lines():
-                x_limits = (self.canvas.vline0.get_x(), 
-                            self.canvas.vline1.get_x())
-                self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
-            self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
-            self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
-            print(self.axes_limits)
-        else:
-            self.axes_limits = None        
-
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
         xaxis = btn.text()
+        self.preserve_vlines()
         if btn.isChecked():
             self.current_xaxis = xaxis
             self.draw_current_data_set()   
@@ -411,6 +395,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_fitted.series_dict = series_dict
                        
     def perform_fit(self):
+        self.preserve_vlines()
         func = self.current_function.func
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
@@ -444,6 +429,23 @@ class Main(QMainWindow, Ui_MainWindow):
                 tol.append(results[3])
                 n += 1
         return fitted_params, sigmas, confidence_intervals, tol      
+
+    def preserve_vlines(self):
+        if self.blits_data.has_data():
+            mins, maxs = self.blits_data.series_extremes()
+            x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+                              maxs.loc[:, self.current_xaxis].max())
+            x_limits = cp.deepcopy(x_outer_limits)
+            self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
+            if self.canvas.has_vertical_lines():
+                x_limits = (self.canvas.vline0.get_x(), 
+                            self.canvas.vline1.get_x())
+                self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
+            self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
+            self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
+            print(self.axes_limits)
+        else:
+            self.axes_limits = None        
             
     def set_axis_selector(self):
         self.axis_selector_buttons = {}
@@ -485,6 +487,11 @@ class Main(QMainWindow, Ui_MainWindow):
     def draw_current_data_set(self):
         self.canvas.clear_plots() 
         if self.blits_data.has_data():
+            if not self.axes_limits is None: 
+                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
+                    xinner = self.axes_limits.loc[self.current_xaxis, 'inner']
+                    xouter = self.axes_limits.loc[self.current_xaxis, 'outer']
+                    self.canvas.set_vlines(xinner, xouter)
             self.canvas.set_colours(self.blits_data.series_names.tolist())
             for key in self.blits_data.series_names:
                 series = self.blits_data.series_dict[key]
@@ -503,6 +510,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 x = series[self.current_xaxis] 
                 y = series[key] 
                 self.canvas.draw_series(key, x, y, 'residuals')
+            
 
     def write_param_values_to_table(self, param_values):
         self.parameters_model.change_content(param_values.transpose())
