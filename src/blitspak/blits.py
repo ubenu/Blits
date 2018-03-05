@@ -267,6 +267,11 @@ class Main(QMainWindow, Ui_MainWindow):
         self.preserve_vlines()
         if btn.isChecked():
             self.current_xaxis = xaxis
+            
+            ### SUBSECTION SELECTION NEEDS THOUGHT!
+#             if self.axes_limits[self.current_xaxis, 'subsection']:
+#                 self.chk_subsection
+                
             self.draw_current_data_set()   
             
     def circle_icon(self, color):
