@@ -243,10 +243,8 @@ class Main(QMainWindow, Ui_MainWindow):
                 else:
                     self.current_state = self.READY_FOR_FITTING
                 self.draw_current_data_set()
-                print(self.axes_limits)
                 self.set_current_function_ui()
                 self.update_ui()    
-
 
     def on_subsection(self):    
         if self.blits_data.has_data():
@@ -261,7 +259,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.canvas.remove_vlines()
             self.preserve_vlines()
             self.draw_current_data_set()
-            print(self.axes_limits)
         pass        
     
     def preserve_vlines(self):
