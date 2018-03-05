@@ -27,6 +27,7 @@ from functions.framework import FunctionsFramework
 
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
+from win32com.test.testAXScript import AXScript
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 # Original:
@@ -84,10 +85,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.btn_est = widgets.QPushButton("Estimate")
         self.btn_est.setFont(ft)
         self.btn_est.clicked.connect(self.on_estimate)
-#         self.btn_area = widgets.QPushButton("Subsection")
-#         self.btn_area.setFont(ft)
-#         self.btn_area.clicked.connect(self.on_area)
-#         self.btn_area.setCheckable(True)
         self.btn_apply = widgets.QPushButton("Apply")
         self.btn_apply.setFont(ft)
         self.btn_apply.clicked.connect(self.on_apply_current)
@@ -115,7 +112,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.phase_list = []
         self.axis_selector_buttons = None
         self.current_function = None
-        self.axes_min_max = None
+        self.axes_limits = None
         
         self.current_state = self.START        
         self.update_ui()
@@ -202,9 +199,19 @@ class Main(QMainWindow, Ui_MainWindow):
                     else:
                         self.current_function = None
                         self.current_state = self.DATA_ONLY
-                
+                        
+                self.axes_limits = pd.DataFrame(index=axes, columns=['subsection', 'inner', 'outer'])
+                mins, maxs = self.blits_data.series_extremes()
+                for x in axes:                    
+                    limits = (mins.loc[:, x].min(),
+                              maxs.loc[:, x].max())
+                    self.axes_limits.loc[x, 'subsection'] = False
+                    self.axes_limits.loc[x, 'inner'] = limits
+                    self.axes_limits.loc[x, 'outer'] = limits
+
                 self.set_axis_selector()
                 self.set_current_function_ui()
+
                 self.update_ui()
                 
     def on_save(self):
@@ -236,29 +243,43 @@ class Main(QMainWindow, Ui_MainWindow):
                 else:
                     self.current_state = self.READY_FOR_FITTING
                 self.draw_current_data_set()
+                print(self.axes_limits)
                 self.set_current_function_ui()
                 self.update_ui()    
 
 
-    def on_subsection(self):
+    def on_subsection(self):    
         if self.blits_data.has_data():
-            self.axes_min_max = self.blits_data.series_extremes()
-            mins, maxs = cp.deepcopy(self.axes_min_max)
             if self.chk_subsection.isChecked():
+                # user has toggled the checkbox to checked:
+                mins, maxs = self.blits_data.series_extremes()
                 x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
                                   maxs.loc[:, self.current_xaxis].max())
-                x_limits = cp.deepcopy(x_outer_limits)                
-                if self.canvas.has_vertical_lines():
-                    x_limits = (self.canvas.vline0.get_x(), 
-                                self.canvas.vline1.get_x())
+                x_limits = cp.deepcopy(x_outer_limits)
                 self.canvas.set_vlines(x_limits, x_outer_limits)
-                self.draw_current_data_set()
-                #self.span.set_active(True)
             else:
                 self.canvas.remove_vlines()
-                self.draw_current_data_set()
-            pass 
+            self.preserve_vlines()
+            self.draw_current_data_set()
+            print(self.axes_limits)
         pass        
+    
+    def preserve_vlines(self):
+        if self.blits_data.has_data():
+            mins, maxs = self.blits_data.series_extremes()
+            x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+                              maxs.loc[:, self.current_xaxis].max())
+            x_limits = cp.deepcopy(x_outer_limits)
+            self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
+            if self.canvas.has_vertical_lines():
+                x_limits = (self.canvas.vline0.get_x(), 
+                            self.canvas.vline1.get_x())
+                self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
+            self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
+            self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
+            print(self.axes_limits)
+        else:
+            self.axes_limits = None        
 
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
@@ -506,7 +527,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.chk_subsection.setEnabled(False)   
             self.chk_global.setEnabled(False) 
             self.chk_subsection.setChecked(False)
-            self.on_subsection()
             self.chk_global.setChecked(False) 
         elif self.current_state == self.DATA_ONLY:
             self.action_open.setEnabled(False)
@@ -519,9 +539,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True) 
-            self.chk_subsection.setEnabled(True)   
+            self.chk_subsection.setEnabled(False)   
             self.chk_global.setEnabled(False)  
-            self.on_subsection()
             self.chk_global.setChecked(False) 
         elif self.current_state == self.FUNCTION_ONLY:
             self.action_open.setEnabled(True)
@@ -537,7 +556,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.chk_subsection.setEnabled(False)   
             self.chk_global.setEnabled(False)  
             self.chk_subsection.setChecked(False)
-            self.on_subsection()
             self.chk_global.setChecked(False) 
         elif self.current_state == self.READY_FOR_FITTING:
             self.action_open.setEnabled(False)
@@ -551,7 +569,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
             self.chk_subsection.setEnabled(True)   
-            self.on_subsection()
             self.chk_global.setEnabled(True)  
         elif self.current_state == self.FITTED:
             self.action_open.setEnabled(False)
@@ -565,7 +582,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True)     
             self.chk_subsection.setEnabled(True)   
-            self.on_subsection()
             self.chk_global.setEnabled(True)  
         else:
             print('Illegal state')
