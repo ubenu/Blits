@@ -9,6 +9,7 @@ import numpy as np
 from PyQt5 import QtWidgets as widgets
 
 from matplotlib.figure import Figure
+import matplotlib.ticker as ticker
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanvas,
                                                 NavigationToolbar2QT)
@@ -34,23 +35,23 @@ class MplCanvas(FigureCanvas):
         self.fig = Figure()
         
         self.gs = gridspec.GridSpec(10, 1) 
-        self.gs.update(left=0.15, right=0.95, top=0.95, bottom=0.1, hspace=1.5)
+        self.gs.update(left=0.15, right=0.95, top=0.95, bottom=0.1, hspace=5.0)
         self.data_plot = self.fig.add_subplot(self.gs[2:,:])
         self.data_res_plot = self.fig.add_subplot(self.gs[0:2,:], sharex=self.data_plot)
-
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Preferred, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
+        self.xlims, self.ylims = None, None
         self.curve_colours = {}
         self.remove_vlines() # sets the vertical lines to None
         
     def on_move(self):
         pass
 
-    def set_fig_annotations(self, xlabel="X", ylabel="Y", rlabel="Residuals"):
-        self.data_plot.set_xlabel(xlabel) #"Time (s)")
+    def set_fig_annotations(self, ylabel="Value", rlabel="Residuals"):
+#        self.data_plot.set_xlabel(xlabel) #"Time (s)")
         self.data_plot.set_ylabel(ylabel) #"Response (nm)")
         self.data_res_plot.set_ylabel(rlabel)
         self.data_res_plot.locator_params(axis='y',nbins=4)
@@ -76,9 +77,7 @@ class MplCanvas(FigureCanvas):
         self.data_plot.cla()
         self.data_res_plot.cla()
         self.set_fig_annotations()
-#         if self.has_vertical_lines():
-#             self.x_limits = (self.vline0.get_x(), self.vline1.get_x())
-#             self.set_vlines(self.x_limits, self.x_outer_limits)
+        self.x_lims, self.ylims = None, None
         self.fig.canvas.draw()
     
     def clear_figure(self):
@@ -106,17 +105,20 @@ class MplCanvas(FigureCanvas):
             self.curve_colours[series_name] = self.colour_seq[i]
         if kind in ('primary', 'calculated'):
             self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
-        self.fig.canvas.draw()
-        
-    def draw_series_fit(self, series_name, x, y):
-        if self.series_in_plot(series_name):
-            self.data_plot.plot(x, y, color='k', linestyle='--')
-            self.fig.canvas.draw()
-        
-    def draw_series_residuals(self, series_name, x, y):
-        if self.series_in_plot(series_name):
+            if kind == 'primary':
+                self.xlims, self.ylims = self.data_plot.get_xlim(), self.data_plot.get_ylim()
+#             else:
+#                 self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
+            if self.xlims is not None:
+                self.data_plot.set_xlim(self.xlims)
+            if self.ylims is not None:
+                self.data_plot.set_ylim(self.ylims)                
+            self.data_plot.ticklabel_format(style='sci', scilimits=(-3,3), axis='both')
+        if kind == 'residuals':
             self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
-            self.fig.canvas.draw()        
+                     
+        self.fig.canvas.draw()
+               
  
     def set_vlines(self, x_limits, x_outer_limits):
         self.x_limits = x_limits

@@ -84,9 +84,6 @@ class CruxTableModel(qt.QAbstractTableModel):
                 for col in range(len(self.df_data.iloc[row])):
                     value = new_data[row, col]
                     self.setData(self.createIndex(row, col), value, qt.Qt.EditRole)
-                    
-
-        
     
     def replace_all_data(self, df_data):
         for row in range(self.rowCount()):

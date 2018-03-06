@@ -14,12 +14,11 @@ from PyQt5 import QtWidgets as widgets
 from PyQt5 import QtGui as gui
 
 import pandas as pd, numpy as np, copy as cp
+import math
 
 
-from matplotlib.widgets import SpanSelector
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
-from blitspak.scrutinize_dialog import ScrutinizeDialog
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
 from blitspak.crux_table_model import CruxTableModel
@@ -27,7 +26,6 @@ from functions.framework import FunctionsFramework
 
 #import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
-from win32com.test.testAXScript import AXScript
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 # Original:
@@ -45,8 +43,6 @@ class Main(QMainWindow, Ui_MainWindow):
     
     NSTATES = 6
     START, DATA_ONLY, FUNCTION_ONLY, READY_FOR_FITTING, FITTED, REJECT = range(NSTATES)
-#     readiness = (1, 2)
-#     DATA_SET, FUNCTION_SET = readiness
 
     def __init__(self, ):
         super(Main, self).__init__()
@@ -95,13 +91,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
         self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
 
-#         self.span = SpanSelector(self.canvas.data_plot, 
-#                                  self.on_select_span, 
-#                                  'horizontal', 
-#                                  useblit=True, 
-#                                  rectprops=dict(alpha=0.5, facecolor='red')
-#                                  )
-        
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
         self.blits_residuals = BlitsData()
@@ -120,7 +109,9 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
             fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
+            
             self.make_crux_curves(fitted_params, 100)
+            self.set_residuals(fitted_params)
             self.draw_current_data_set()
             self.write_param_values_to_table(fitted_params)
             self.current_state = self.FITTED
@@ -129,6 +120,7 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_apply_current(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+            self.preserve_vlines()
             params = self.get_param_values_from_table(self.get_selected_series_names())
             self.make_crux_curves(params, 100)
             self.draw_current_data_set()
@@ -167,13 +159,13 @@ class Main(QMainWindow, Ui_MainWindow):
                 
     def on_estimate(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+            self.preserve_vlines()
             fn_p0 = self.current_function.p0
             n_par = len(self.current_function.parameters)
             data = self.get_data_for_fitting(self.get_selected_series_names())
             ffw = FunctionsFramework()
             params = ffw.get_initial_param_estimates(data, fn_p0, n_par)
             self.write_param_values_to_table(params)
-#            self.make_crux_curves(params, 100)
             self.draw_current_data_set()
         pass 
     
@@ -223,8 +215,8 @@ class Main(QMainWindow, Ui_MainWindow):
             file_path = widgets.QFileDialog.getSaveFileName(self, 
             "Save results", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if file_path:
-            pass
 #             self.blits_data.export_results(file_path)
+            pass
             
     def on_select_function(self):
         if self.current_state in range(self.NSTATES):  # should work from all states
@@ -249,10 +241,14 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_subsection(self):    
         if self.blits_data.has_data():
             if self.chk_subsection.isChecked():
-                # user has toggled the checkbox to checked:
                 mins, maxs = self.blits_data.series_extremes()
-                x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-                                  maxs.loc[:, self.current_xaxis].max())
+                x_outer_limits = [mins.loc[:, self.current_xaxis].min(), 
+                                  maxs.loc[:, self.current_xaxis].max()]
+                rtol = 1e-3
+                if math.isclose(x_outer_limits[0], x_outer_limits[1], rel_tol=rtol):
+                    delta = x_outer_limits[0] * rtol
+                    x_outer_limits[0] = x_outer_limits[0] - delta
+                    x_outer_limits[1] += delta
                 x_limits = cp.deepcopy(x_outer_limits)
                 self.canvas.set_vlines(x_limits, x_outer_limits)
             else:
@@ -264,14 +260,13 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
         xaxis = btn.text()
-        self.preserve_vlines()
         if btn.isChecked():
             self.current_xaxis = xaxis
-            
-            ### SUBSECTION SELECTION NEEDS THOUGHT!
-#             if self.axes_limits[self.current_xaxis, 'subsection']:
-#                 self.chk_subsection
-                
+            if self.blits_data.has_data():
+                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
+                    self.chk_subsection.setChecked(True)
+                else:
+                    self.chk_subsection.setChecked(False)
             self.draw_current_data_set()   
             
     def circle_icon(self, color):
@@ -332,6 +327,30 @@ class Main(QMainWindow, Ui_MainWindow):
         respectively) with values for each parameter for each series).  
         """
         return cp.deepcopy(self.parameters_model.df_data)[series_names].as_matrix().transpose()
+
+    def set_residuals(self, params):
+        self.preserve_vlines()
+        func = self.current_function.func
+        series_names = self.get_selected_series_names()
+        data = self.get_data_for_fitting(series_names)
+        series_dict = {}
+        for series_name, series_params, i in zip(series_names, params, range(len(series_names))):
+            x = data[:, :-1]
+            y_obs = data[:, -1]
+            # create the y values and put them in a DataFrame, transpose for easy concatenation
+            y_fit = self.current_function.func(x, series_params)
+            y_res = pd.DataFrame(y_obs - y_fit)
+            df_data.iloc[:, -1] = y_res
+            l_axes_names = df_data.index.tolist()[:-1]
+            l_axes_names.append(series_name)
+            df_data.index = l_axes_names
+            series_dict[series_name] = df_data.transpose()
+        self.blits_residuals = BlitsData()
+        self.blits_residuals.series_names = np.array(series_names.tolist())
+        self.blits_residuals.independent_names = np.array(l_axes_names)[:-1]
+        self.blits_residuals.series_dict = series_dict
+        
+        
     
     def get_selected_series_names(self):
         cols = cp.deepcopy(self.parameters_model.df_data.columns)
@@ -448,7 +467,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
             self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
             self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
-            print(self.axes_limits)
         else:
             self.axes_limits = None        
             
@@ -615,6 +633,17 @@ if __name__ == '__main__':
 #         lo.addWidget(results_table)
 #         new_tab.setLayout(lo)
 #         self.tabWidget.addTab(new_tab, phase_id)
+
+## SpanSelector stuff
+
+# from matplotlib.widgets import SpanSelector
+
+#         self.span = SpanSelector(self.canvas.data_plot, 
+#                                  self.on_select_span, 
+#                                  'horizontal', 
+#                                  useblit=True, 
+#                                  rectprops=dict(alpha=0.5, facecolor='red')
+#                                  )        
 
 #     def on_select_span(self, xmin, xmax):
 #         self.span.set_active(False)
