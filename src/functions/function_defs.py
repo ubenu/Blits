@@ -49,8 +49,13 @@ def fn_average(x, params):
 def p0_fn_average(data, n_parameters):
     n_independents = 1
     if data_valid(data, n_independents):
-        p0 = np.ones((n_parameters,), dtype=float)
-        return p0
+        x = data[:-1]
+        y = data[-1]
+        m = (y.min() + y.max()) / 2.0
+        p0 = np.array([m, ], dtype=float)
+        if p0.shape[0] == n_parameters:
+            return p0
+        return None
     return None
 
 def fn_straight_line(x, params):
@@ -61,8 +66,14 @@ def fn_straight_line(x, params):
 def p0_fn_straight_line(data, n_parameters):
     n_independents = 1
     if data_valid(data, n_independents):
-        p0 = np.ones((n_parameters,), dtype=float)
-        return p0
+        x = data[:-1][0]
+        y = data[-1]
+        b = (y[0] - y[-1]) / (x[0] - x[-1])
+        a = y[0] - b * x[0]
+        p0 = np.array([a, b], dtype=float)
+        if p0.shape[0] == n_parameters:
+            return p0
+        return None
     return None
 
 def fn_1exp(x, params):

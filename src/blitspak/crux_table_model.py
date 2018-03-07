@@ -5,7 +5,7 @@ Created on 18 Jan 2018
 '''
 from PyQt5 import QtCore as qt
 import copy as cp
-from bokeh.layouts import column
+#from bokeh.layouts import column
 
 class CruxTableModel(qt.QAbstractTableModel):
     
@@ -24,6 +24,10 @@ class CruxTableModel(qt.QAbstractTableModel):
                 return self.df_data.index[section]
             return qt.QVariant()
         return qt.QVariant()
+    
+    def setHeaderData(self, section, orientation, value, role):
+        print(section, orientation, value, role)
+        
 
     def rowCount(self, index=qt.QModelIndex()):
         return self.df_data.shape[0]
@@ -48,7 +52,7 @@ class CruxTableModel(qt.QAbstractTableModel):
                         return qt.QVariant("Check value to keep constant in fit")
             return qt.QVariant()
         return qt.QVariant()
-
+    
     def setData(self, index, value, role):
         # Setting data has to be done via .loc to avoid working on a copy; 
         # see: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy

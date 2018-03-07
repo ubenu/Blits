@@ -110,7 +110,7 @@ class Main(QMainWindow, Ui_MainWindow):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
             fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
             
-            self.make_crux_curves(fitted_params, 100)
+            self.set_fitted_curves(fitted_params, 100)
             self.set_residuals(fitted_params)
             self.draw_current_data_set()
             self.write_param_values_to_table(fitted_params)
@@ -122,7 +122,7 @@ class Main(QMainWindow, Ui_MainWindow):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
             self.preserve_vlines()
             params = self.get_param_values_from_table(self.get_selected_series_names())
-            self.make_crux_curves(params, 100)
+            self.set_fitted_curves(params, 100)
             self.draw_current_data_set()
         pass  
     
@@ -130,7 +130,7 @@ class Main(QMainWindow, Ui_MainWindow):
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
             self.current_xaxis = None
             self.set_axis_selector()
-            self.canvas.clear_figure()
+            self.canvas.clear_plots()
             
             self.blits_data = BlitsData()
             self.blits_fitted = BlitsData()
@@ -234,6 +234,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
+                self.preserve_vlines()
                 self.draw_current_data_set()
                 self.set_current_function_ui()
                 self.update_ui()    
@@ -289,6 +290,34 @@ class Main(QMainWindow, Ui_MainWindow):
             elif child.layout() is not None:
                 self.clearLayout(child.layout())            
                                     
+    def draw_current_data_set(self):
+        self.canvas.clear_plots() 
+        if self.blits_data.has_data():
+            if not self.axes_limits is None: 
+                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
+                    xinner = self.axes_limits.loc[self.current_xaxis, 'inner']
+                    xouter = self.axes_limits.loc[self.current_xaxis, 'outer']
+                    self.canvas.set_vlines(xinner, xouter)
+            self.canvas.set_colours(self.blits_data.series_names.tolist())
+            for key in self.blits_data.series_names:
+                series = self.blits_data.series_dict[key]
+                x = series[self.current_xaxis] 
+                y = series[key] 
+                self.canvas.draw_series(key, x, y, 'primary')
+        if self.blits_fitted.has_data():
+            for key in self.blits_fitted.series_names:
+                series = self.blits_fitted.series_dict[key]
+                x = series[self.current_xaxis] 
+                y = series[key] 
+                self.canvas.draw_series(key, x, y, 'calculated')
+        if self.blits_residuals.has_data():
+            for key in self.blits_residuals.series_names:
+                series = self.blits_residuals.series_dict[key]
+                x = series[self.current_xaxis] 
+                y = series[key] 
+                self.canvas.draw_series(key, x, y, 'residuals')
+            
+
     def get_constant_params_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array of Boolean values 
@@ -328,30 +357,6 @@ class Main(QMainWindow, Ui_MainWindow):
         """
         return cp.deepcopy(self.parameters_model.df_data)[series_names].as_matrix().transpose()
 
-    def set_residuals(self, params):
-        self.preserve_vlines()
-        func = self.current_function.func
-        series_names = self.get_selected_series_names()
-        data = self.get_data_for_fitting(series_names)
-        series_dict = {}
-        for series_name, series_params, i in zip(series_names, params, range(len(series_names))):
-            x = data[:, :-1]
-            y_obs = data[:, -1]
-            # create the y values and put them in a DataFrame, transpose for easy concatenation
-            y_fit = self.current_function.func(x, series_params)
-            y_res = pd.DataFrame(y_obs - y_fit)
-            df_data.iloc[:, -1] = y_res
-            l_axes_names = df_data.index.tolist()[:-1]
-            l_axes_names.append(series_name)
-            df_data.index = l_axes_names
-            series_dict[series_name] = df_data.transpose()
-        self.blits_residuals = BlitsData()
-        self.blits_residuals.series_names = np.array(series_names.tolist())
-        self.blits_residuals.independent_names = np.array(l_axes_names)[:-1]
-        self.blits_residuals.series_dict = series_dict
-        
-        
-    
     def get_selected_series_names(self):
         cols = cp.deepcopy(self.parameters_model.df_data.columns)
         return cols.tolist()
@@ -392,32 +397,6 @@ class Main(QMainWindow, Ui_MainWindow):
         icon = gui.QIcon(pixmap)
         return icon  
     
-    def make_crux_curves(self, params, n_points):
-        mins, maxs = self.blits_data.series_extremes()
-        # mins, maxs: index: series names, columns: independent names + y (dependent)
-        series_names = mins.index
-        axes_names = mins.columns
-        min_xs, max_xs = mins.iloc[:, :-1].as_matrix(), maxs.iloc[:, :-1].as_matrix()
-        series_dict = {}
-        for series_name, xmin, xmax, series_params in zip(series_names, min_xs, max_xs, params):
-            df_data = pd.DataFrame(index=[], columns=range(n_points))
-            # create values for the independent axes (shape (n_independents, n_points))
-            for v_start, v_end in zip(xmin, xmax):
-                x = pd.DataFrame(np.linspace(v_start, v_end, n_points)).transpose()
-                df_data = pd.concat((df_data, x))
-            x = df_data.as_matrix()
-            # create the y values and put them in a DataFrame, transpose for easy concatenation
-            y = pd.DataFrame(self.current_function.func(x, series_params)).transpose()
-            df_data = pd.concat((df_data, y))
-            l_axes_names = axes_names.tolist()[:-1]
-            l_axes_names.append(series_name)
-            df_data.index = l_axes_names
-            series_dict[series_name] = df_data.transpose()
-        self.blits_fitted = BlitsData()
-        self.blits_fitted.series_names = np.array(series_names.tolist())
-        self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
-        self.blits_fitted.series_dict = series_dict
-                       
     def perform_fit(self):
         self.preserve_vlines()
         func = self.current_function.func
@@ -490,15 +469,42 @@ class Main(QMainWindow, Ui_MainWindow):
             self.parameters_model = None
             self.tbl_params.setModel(None)
         else:
-            indx_pars = self.current_function.parameters
-            cols_pars = [] 
+            indx_pars = np.array([]) #np.array(['All'])
+            cols_pars = np.array([]) #np.array(['Colour', 'Include']) 
             if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-                cols_pars = self.blits_data.series_names
+                cols_pars = np.concatenate((cols_pars, self.blits_data.series_names), axis=0)
+                indx_pars = np.concatenate((indx_pars, self.current_function.parameters), axis=0)
             df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
             self.set_params_view(df_pars)                   
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
             self.txt_description.setText(self.current_function.long_description)
                 
+    def set_fitted_curves(self, params, n_points):
+        mins, maxs = self.blits_data.series_extremes()
+        # mins, maxs: index: series names, columns: independent names + y (dependent)
+        series_names = mins.index
+        axes_names = mins.columns
+        min_xs, max_xs = mins.iloc[:, :-1].as_matrix(), maxs.iloc[:, :-1].as_matrix()
+        series_dict = {}
+        for series_name, xmin, xmax, series_params in zip(series_names, min_xs, max_xs, params):
+            df_data = pd.DataFrame(index=[], columns=range(n_points))
+            # create values for the independent axes (shape (n_independents, n_points))
+            for v_start, v_end in zip(xmin, xmax):
+                x = pd.DataFrame(np.linspace(v_start, v_end, n_points)).transpose()
+                df_data = pd.concat((df_data, x))
+            x = df_data.as_matrix()
+            # create the y values and put them in a DataFrame, transpose for easy concatenation
+            y = pd.DataFrame(self.current_function.func(x, series_params)).transpose()
+            df_data = pd.concat((df_data, y))
+            l_axes_names = axes_names.tolist()[:-1]
+            l_axes_names.append(series_name)
+            df_data.index = l_axes_names
+            series_dict[series_name] = df_data.transpose()
+        self.blits_fitted = BlitsData()
+        self.blits_fitted.series_names = np.array(series_names.tolist())
+        self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
+        self.blits_fitted.series_dict = series_dict
+                       
     def set_params_view(self, df_pars, checkable=None):
         self.tbl_params.setModel(None)
         if checkable is None:
@@ -507,38 +513,26 @@ class Main(QMainWindow, Ui_MainWindow):
         self.tbl_params.setModel(self.parameters_model)
         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
-    def draw_current_data_set(self):
-        self.canvas.clear_plots() 
-        if self.blits_data.has_data():
-            if not self.axes_limits is None: 
-                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
-                    xinner = self.axes_limits.loc[self.current_xaxis, 'inner']
-                    xouter = self.axes_limits.loc[self.current_xaxis, 'outer']
-                    self.canvas.set_vlines(xinner, xouter)
-            self.canvas.set_colours(self.blits_data.series_names.tolist())
-            for key in self.blits_data.series_names:
-                series = self.blits_data.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'primary')
-        if self.blits_fitted.has_data():
-            for key in self.blits_fitted.series_names:
-                series = self.blits_fitted.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'calculated')
-        if self.blits_residuals.has_data():
-            for key in self.blits_residuals.series_names:
-                series = self.blits_residuals.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'residuals')
-            
-
-    def write_param_values_to_table(self, param_values):
-        self.parameters_model.change_content(param_values.transpose())
-        #self.parameters_model.df_data[:] = param_values.transpose()
-        #self.tbl_params.resizeColumnsToContents() # This redraws the table (necessary)
+    def set_residuals(self, params):
+        self.preserve_vlines()
+        series_names = self.get_selected_series_names()
+        data = self.get_data_for_fitting(series_names)
+        axes = self.blits_data.independent_names
+        series_dict = {}
+        for series_name, series_params, i in zip(series_names, params, range(len(series_names))):
+            x = data[i][:-1]
+            y_obs = data[i][-1]
+            y_fit = self.current_function.func(x, series_params)
+            y_res = np.atleast_2d(y_obs - y_fit)
+            # create the y values and put them in a DataFrame, transpose for easy concatenation
+            df_x = pd.DataFrame(x, index=axes)
+            df_y = pd.DataFrame(y_res, index=[series_name])
+            df_data = pd.concat((df_x, df_y)).transpose()
+            series_dict[series_name] = df_data
+        self.blits_residuals = BlitsData()
+        self.blits_residuals.series_names = np.array(series_names)
+        self.blits_residuals.independent_names = cp.deepcopy(axes)
+        self.blits_residuals.series_dict = series_dict
             
     def update_ui(self):
         if self.current_state == self.START:
@@ -614,6 +608,11 @@ class Main(QMainWindow, Ui_MainWindow):
         else:
             print('Illegal state')
                                           
+    def write_param_values_to_table(self, param_values):
+        self.parameters_model.change_content(param_values.transpose())
+        #self.parameters_model.df_data[:] = param_values.transpose()
+        #self.tbl_params.resizeColumnsToContents() # This redraws the table (necessary)
+            
 
 
 # Standard main loop code
