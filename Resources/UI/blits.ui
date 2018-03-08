@@ -15,7 +15,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>:/Resources/TraceScrutinizer.png</normaloff>:/Resources/TraceScrutinizer.png</iconset>
+    <normaloff>analyze.png</normaloff>analyze.png</iconset>
   </property>
   <property name=".\Resources" stdset="0">
    <string/>
@@ -149,9 +149,6 @@
               </widget>
              </item>
             </layout>
-           </item>
-           <item>
-            <widget class="QTableWidget" name="tbl_linkages"/>
            </item>
            <item>
             <spacer name="verticalSpacer">

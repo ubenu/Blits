@@ -21,6 +21,7 @@ from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
+from blitspak.series_linkage_dialog import SeriesLinkageDialog
 from blitspak.crux_table_model import CruxTableModel
 from functions.framework import FunctionsFramework
 
@@ -170,7 +171,14 @@ class Main(QMainWindow, Ui_MainWindow):
         pass 
     
     def on_global(self):
-        pass          
+        if self.chk_global.isChecked():
+            print("glob checked")
+            self.series_linkage_dialog = SeriesLinkageDialog(self, self.get_selected_series_names(), self.current_function.parameters)
+            self.series_linkage_dialog.exec()
+        else:
+            print("glob unchecked")  
+            self.series_linkage_dialog.close()
+               
     
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
@@ -241,6 +249,7 @@ class Main(QMainWindow, Ui_MainWindow):
 
     def on_subsection(self):    
         if self.blits_data.has_data():
+            print("subs checked")
             if self.chk_subsection.isChecked():
                 mins, maxs = self.blits_data.series_extremes()
                 x_outer_limits = [mins.loc[:, self.current_xaxis].min(), 
@@ -253,6 +262,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 x_limits = cp.deepcopy(x_outer_limits)
                 self.canvas.set_vlines(x_limits, x_outer_limits)
             else:
+                print("suns unchecked")
                 self.canvas.remove_vlines()
             self.preserve_vlines()
             self.draw_current_data_set()

@@ -24,11 +24,7 @@ class CruxTableModel(qt.QAbstractTableModel):
                 return self.df_data.index[section]
             return qt.QVariant()
         return qt.QVariant()
-    
-    def setHeaderData(self, section, orientation, value, role):
-        print(section, orientation, value, role)
-        
-
+     
     def rowCount(self, index=qt.QModelIndex()):
         return self.df_data.shape[0]
 
