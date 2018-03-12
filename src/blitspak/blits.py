@@ -95,11 +95,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
         self.blits_residuals = BlitsData()
+        self.linkage_matrix = None
+
         self.file_name = ""
         self.file_path = ""
-        self.phase_number = 0
-        self.phase_name = "Phase"
-        self.phase_list = []
         self.axis_selector_buttons = None
         self.current_function = None
         self.axes_limits = None
@@ -110,6 +109,10 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
             fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
+            print(pd.DataFrame(fitted_params))
+            print(pd.DataFrame(sigmas))
+            print(pd.DataFrame(confidence_intervals))
+            print("Tolerance: " + str(tol))
             
             self.set_fitted_curves(fitted_params, 100)
             self.set_residuals(fitted_params)
@@ -172,13 +175,19 @@ class Main(QMainWindow, Ui_MainWindow):
     
     def on_global(self):
         if self.chk_global.isChecked():
-            print("glob checked")
-            self.series_linkage_dialog = SeriesLinkageDialog(self, self.get_selected_series_names(), self.current_function.parameters)
-            self.series_linkage_dialog.exec()
+            series = self.get_selected_series_names()
+            params = self.current_function.parameters
+            linkage_matrix = pd.DataFrame(index=series, columns=params)
+            for sname in series:
+                for pname in params:
+                    linkage_matrix.loc[sname, pname] = sname 
+            self.series_linkage_dialog = SeriesLinkageDialog(self, linkage_matrix)
+            self.series_linkage_dialog.show() 
         else:
-            print("glob unchecked")  
-            self.series_linkage_dialog.close()
-               
+            try:
+                self.series_linkage_dialog.close()
+            except Exception as e:
+                print(e)
     
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
@@ -422,6 +431,7 @@ class Main(QMainWindow, Ui_MainWindow):
         results = None  
         ffw = FunctionsFramework()
         if self.chk_global.checkState() == qt.Qt.Checked:
+            links = self.series_linkage_dialog.get_unique_params_matrix().as_matrix()
             results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
             fitted_params = results[0]
             sigmas = results[1]
