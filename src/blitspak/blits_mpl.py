@@ -43,7 +43,7 @@ class MplCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Preferred, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
-        self.dplot_xlims, self.dplot_ylims = None, None
+#         self.dplot_xlims, self.dplot_ylims = None, None
         self.curve_colours = {}
         self.remove_vlines() # sets the vertical lines to None
         
@@ -76,7 +76,7 @@ class MplCanvas(FigureCanvas):
         self.data_plot.cla()
         self.data_res_plot.cla()
         self.set_fig_annotations()
-        self.dplot_xlims, self.dplot_ylims = None, None
+#         self.dplot_xlims, self.dplot_ylims = None, None
         self.fig.canvas.draw()
     
     def draw_series(self, series_name, x, y, kind):
@@ -101,16 +101,15 @@ class MplCanvas(FigureCanvas):
             self.curve_colours[series_name] = self.colour_seq[i]
         if kind in ('primary', 'calculated'):
             self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
-            if kind == 'primary':
-                self.dplot_xlims, self.dplot_ylims = self.data_plot.get_xlim(), self.data_plot.get_ylim()
-            if self.dplot_xlims is not None:
-                self.data_plot.set_xlim(self.dplot_xlims)
-            if self.dplot_ylims is not None:
-                self.data_plot.set_ylim(self.dplot_ylims)                
-            self.data_plot.ticklabel_format(style='sci', scilimits=(-3,3), axis='both')
+#             if kind == 'primary':
+#                 self.dplot_xlims, self.dplot_ylims = self.data_plot.get_xlim(), self.data_plot.get_ylim()
+#             if self.dplot_xlims is not None:
+#                 self.data_plot.set_xlim(self.dplot_xlims)
+#             if self.dplot_ylims is not None:
+#                 self.data_plot.set_ylim(self.dplot_ylims)                
         if kind == 'residuals':
             self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
-                     
+        self.data_plot.ticklabel_format(style='sci', scilimits=(-3,3), axis='both')                     
         self.fig.canvas.draw()
                
  

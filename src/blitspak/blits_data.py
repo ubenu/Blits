@@ -17,15 +17,27 @@ class BlitsData():
         self.file_name = ""
         self.raw_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
-        self.independent_names = None
+        self.axis_names = None
         self.series_dict = {}
         
     def has_data(self):
         return len(self.series_dict) > 0
+    
+    def get_axes_names(self):
+        return cp.deepcopy(self.axis_names)
+    
+    def get_series_names(self):
+        return cp.deepcopy(self.series_names)
+    
+    def get_series_copy(self, name):
+        if name in self.series_dict:
+            return cp.deepcopy(self.series_dict[name])
+        else:
+            return None
      
     def import_data(self, file_path):
         self.raw_data = pd.read_csv(file_path)
-        self.create_working_data()
+        self.create_working_data_from_file()
 
     def export_results(self, file_path):
         r = self.results.to_csv()
@@ -39,7 +51,7 @@ class BlitsData():
             file.write('\n')
             file.write(f)
             
-    def create_working_data(self):
+    def create_working_data_from_file(self):
         n_cols = len(self.raw_data.columns)
         named_cols = self.raw_data.columns[~self.raw_data.columns.str.contains('unnamed', case=False)].values
         self.series_names = named_cols
@@ -48,12 +60,12 @@ class BlitsData():
         n_independents = n_cols_per_series - 1
         # Split data set in individual series
         self.series_dict = {}
-        self.independent_names = []
+        self.axis_names = []
         for s in range(0, n_cols , n_cols_per_series):
             df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
             s_name = df.columns.tolist()[0]
-            self.independent_names = ['x{}'.format(i) for i in range(n_independents)]
-            cols = cp.deepcopy(self.independent_names)
+            self.axis_names = ['x{}'.format(i) for i in range(n_independents)]
+            cols = cp.deepcopy(self.axis_names)
             cols.append(s_name)
             df.columns = cols
             df = df.sort_values(by='x0')
@@ -67,18 +79,19 @@ class BlitsData():
         template for series construction, consisting of two pandas DataFrames, 
         with template[0] containing the series axes values and a column for the calculated dependent,
         template[1] containing the parameter values for each axis, and
-        template[2] the modelling function        
+        template[2] the modelling function  
+        PS: this is for the chop!      
         """
         n_axes = len(template[2].independents)
         splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
         all_series = np.split(template[0], splits, axis=1)
         self.series_names = []
-        self.independent_names = []
+        self.axis_names = []
         for s in all_series:
             name = s.columns[-1]
             self.series_names.append(name)
             axes_names = s.columns[:-1]
-            self.independent_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
+            self.axis_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
             s_new = cp.deepcopy(s).dropna()
             self.series_dict[name] = s_new
         self.series_names = np.array(self.series_names)
@@ -91,8 +104,8 @@ class BlitsData():
         the axes names + 'y' (ie the dependent) as columns.
         """
         if self.series_names is not None:
-            if self.independent_names is not None:
-                df_mins = pd.DataFrame(index=cp.deepcopy(self.independent_names).append('y'))
+            if self.axis_names is not None:
+                df_mins = pd.DataFrame(index=cp.deepcopy(self.axis_names).append('y'))
                 # last index is called y because the dependents have different names in different series
                 df_maxs = cp.deepcopy(df_mins)
                 for s in self.series_names:

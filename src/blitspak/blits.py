@@ -21,7 +21,7 @@ from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
-from blitspak.series_linkage_dialog import SeriesLinkageDialog
+#from blitspak.series_linkage_dialog import SeriesLinkageDialog
 from blitspak.crux_table_model import CruxTableModel
 from functions.framework import FunctionsFramework
 
@@ -64,6 +64,21 @@ class Main(QMainWindow, Ui_MainWindow):
         self.axisgrp_layout.addWidget(self.grp_show_axis)
         self.mpl_layout.addLayout(self.axisgrp_layout)
         self.mpl_layout.addWidget(self.plot_toolbar)
+
+        ft = gui.QFont('Calibri', 14)
+        self.btn_est = widgets.QPushButton("Estimate")
+        self.btn_est.setFont(ft)
+        self.btn_apply = widgets.QPushButton("Apply")
+        self.btn_apply.setFont(ft)
+        self.btn_fit = widgets.QPushButton("Fit selected series")
+        self.btn_fit.setFont(ft)
+        self.bbox_fit.addButton(self.btn_fit, widgets.QDialogButtonBox.ActionRole)
+        self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
+        self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
+
+        self.btn_remove_links = widgets.QPushButton("Unlink all")
+        self.btn_remove_links.setFont(ft)
+        self.bbox_link.addButton(self.btn_remove_links, widgets.QDialogButtonBox.ActionRole)
         
         self.action_open.triggered.connect(self.on_open)
         self.action_create.triggered.connect(self.on_create)
@@ -74,24 +89,13 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_quit.triggered.connect(self.close) 
         self.action_apply.triggered.connect(self.on_apply_current) 
         self.action_estimate.triggered.connect(self.on_estimate) 
-        
-        self.chk_global.clicked.connect(self.on_global)
-        self.chk_subsection.clicked.connect(self.on_subsection)
-        
-        ft = gui.QFont('Calibri', 14)
-        self.btn_est = widgets.QPushButton("Estimate")
-        self.btn_est.setFont(ft)
-        self.btn_est.clicked.connect(self.on_estimate)
-        self.btn_apply = widgets.QPushButton("Apply")
-        self.btn_apply.setFont(ft)
-        self.btn_apply.clicked.connect(self.on_apply_current)
-        self.btn_fit = widgets.QPushButton("Perform fit")
-        self.btn_fit.setFont(ft)
-        self.btn_fit.clicked.connect(self.on_analyze)
-        self.bbox_fit.addButton(self.btn_fit, widgets.QDialogButtonBox.ActionRole)
-        self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
-        self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
+        self.btn_remove_links.clicked.connect(self.on_reset_links)
 
+        self.btn_est.clicked.connect(self.on_estimate)
+        self.btn_apply.clicked.connect(self.on_apply_current)
+        self.btn_fit.clicked.connect(self.on_analyze)
+
+        
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
         self.blits_residuals = BlitsData()
@@ -99,6 +103,7 @@ class Main(QMainWindow, Ui_MainWindow):
 
         self.file_name = ""
         self.file_path = ""
+        self.current_xaxis = None
         self.axis_selector_buttons = None
         self.current_function = None
         self.axes_limits = None
@@ -124,7 +129,6 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_apply_current(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-            self.preserve_vlines()
             params = self.get_param_values_from_table(self.get_selected_series_names())
             self.set_fitted_curves(params, 100)
             self.draw_current_data_set()
@@ -145,7 +149,7 @@ class Main(QMainWindow, Ui_MainWindow):
             else:
                 self.current_state = self.FUNCTION_ONLY
                 
-            self.set_current_function_ui()
+            self.set_fitspec_ui()
             self.update_ui()
         pass
             
@@ -154,16 +158,15 @@ class Main(QMainWindow, Ui_MainWindow):
             self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
                 template = self.create_data_set_dialog.template
-                self.set_params_view(template[1])
+                self.set_parameters_table(template[1])
                 self.blits_data.create_working_data_from_template(template)
                 self.current_state = self.READY_FOR_FITTING
-                self.current_xaxis = self.blits_data.independent_names[0]
+                self.current_xaxis = self.blits_data.get_axes_names()[0]
                 self.set_axis_selector()
                 self.update_ui()
                 
     def on_estimate(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-            self.preserve_vlines()
             fn_p0 = self.current_function.p0
             n_par = len(self.current_function.parameters)
             data = self.get_data_for_fitting(self.get_selected_series_names())
@@ -173,33 +176,14 @@ class Main(QMainWindow, Ui_MainWindow):
             self.draw_current_data_set()
         pass 
     
-    def on_global(self):
-        if self.chk_global.isChecked():
-            series = self.get_selected_series_names()
-            params = self.current_function.parameters
-            linkage_matrix = pd.DataFrame(index=series, columns=params)
-            for sname in series:
-                for pname in params:
-                    linkage_matrix.loc[sname, pname] = sname 
-            self.series_linkage_dialog = SeriesLinkageDialog(self, linkage_matrix)
-            self.series_linkage_dialog.show() 
-        else:
-            try:
-                self.series_linkage_dialog.close()
-            except Exception as e:
-                print(e)
-    
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
             file_path = widgets.QFileDialog.getOpenFileName(self, 
             "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
             if file_path:
-                self.file_path = file_path
-                info = qt.QFileInfo(file_path)
-                self.blits_data.file_name = info.fileName()
                 self.blits_data.import_data(file_path)
-                axes = self.blits_data.independent_names
-                self.current_xaxis = self.blits_data.independent_names[0]
+                axes = self.blits_data.get_axes_names() #cp.deepcopy(self.blits_data.get_axes_names())
+                self.current_xaxis = axes[0] #self.blits_data.get_axes_names()[0]
                 if self.current_state == self.START:
                     self.current_state = self.DATA_ONLY
                 else:
@@ -209,19 +193,12 @@ class Main(QMainWindow, Ui_MainWindow):
                         self.current_function = None
                         self.current_state = self.DATA_ONLY
                         
-                self.axes_limits = pd.DataFrame(index=axes, columns=['subsection', 'inner', 'outer'])
-                mins, maxs = self.blits_data.series_extremes()
-                for x in axes:                    
-                    limits = (mins.loc[:, x].min(),
-                              maxs.loc[:, x].max())
-                    self.axes_limits.loc[x, 'subsection'] = False
-                    self.axes_limits.loc[x, 'inner'] = limits
-                    self.axes_limits.loc[x, 'outer'] = limits
-
                 self.set_axis_selector()
-                self.set_current_function_ui()
-
+                self.set_fitspec_ui()
                 self.update_ui()
+    
+    def on_reset_links(self):
+        pass
                 
     def on_save(self):
         file_path = ""
@@ -241,7 +218,7 @@ class Main(QMainWindow, Ui_MainWindow):
             if not self.current_state in (self.START, self.DATA_ONLY):  # a current function exists
                 name = self.current_function.name
             if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED):
-                n_axes = len(self.blits_data.independent_names)
+                n_axes = len(self.blits_data.get_axes_names())
             self.function_dialog = FunctionSelectionDialog(self, n_axes=n_axes, selected_fn_name=name)
             if self.function_dialog.exec() == widgets.QDialog.Accepted:
                 self.current_function = self.function_dialog.get_selected_function()
@@ -251,42 +228,15 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
-                self.preserve_vlines()
                 self.draw_current_data_set()
-                self.set_current_function_ui()
+                self.set_fitspec_ui()
                 self.update_ui()    
-
-    def on_subsection(self):    
-        if self.blits_data.has_data():
-            print("subs checked")
-            if self.chk_subsection.isChecked():
-                mins, maxs = self.blits_data.series_extremes()
-                x_outer_limits = [mins.loc[:, self.current_xaxis].min(), 
-                                  maxs.loc[:, self.current_xaxis].max()]
-                rtol = 1e-3
-                if math.isclose(x_outer_limits[0], x_outer_limits[1], rel_tol=rtol):
-                    delta = x_outer_limits[0] * rtol
-                    x_outer_limits[0] = x_outer_limits[0] - delta
-                    x_outer_limits[1] += delta
-                x_limits = cp.deepcopy(x_outer_limits)
-                self.canvas.set_vlines(x_limits, x_outer_limits)
-            else:
-                print("suns unchecked")
-                self.canvas.remove_vlines()
-            self.preserve_vlines()
-            self.draw_current_data_set()
-        pass        
     
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
         xaxis = btn.text()
         if btn.isChecked():
             self.current_xaxis = xaxis
-            if self.blits_data.has_data():
-                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
-                    self.chk_subsection.setChecked(True)
-                else:
-                    self.chk_subsection.setChecked(False)
             self.draw_current_data_set()   
             
     def circle_icon(self, color):
@@ -312,11 +262,6 @@ class Main(QMainWindow, Ui_MainWindow):
     def draw_current_data_set(self):
         self.canvas.clear_plots() 
         if self.blits_data.has_data():
-            if not self.axes_limits is None: 
-                if self.axes_limits.loc[self.current_xaxis, 'subsection']:
-                    xinner = self.axes_limits.loc[self.current_xaxis, 'inner']
-                    xouter = self.axes_limits.loc[self.current_xaxis, 'outer']
-                    self.canvas.set_vlines(xinner, xouter)
             self.canvas.set_colours(self.blits_data.series_names.tolist())
             for key in self.blits_data.series_names:
                 series = self.blits_data.series_dict[key]
@@ -336,7 +281,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 y = series[key] 
                 self.canvas.draw_series(key, x, y, 'residuals')
             
-
     def get_constant_params_from_table(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array of Boolean values 
@@ -352,12 +296,6 @@ class Main(QMainWindow, Ui_MainWindow):
         x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
                           maxs.loc[:, self.current_xaxis].max())
         start, stop = x_outer_limits
-        if self.canvas.has_vertical_lines():
-            start, stop = self.canvas.vline0.get_x(), self.canvas.vline1.get_x()
-            if start > stop: 
-                temp = start
-                start = stop
-                stop = temp
         for s in series_names:
             series = self.blits_data.series_dict[s] # the full data set
             indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
@@ -417,7 +355,7 @@ class Main(QMainWindow, Ui_MainWindow):
         return icon  
     
     def perform_fit(self):
-        self.preserve_vlines()
+#        self.preserve_vlines()
         func = self.current_function.func
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
@@ -430,7 +368,8 @@ class Main(QMainWindow, Ui_MainWindow):
         tol = None
         results = None  
         ffw = FunctionsFramework()
-        if self.chk_global.checkState() == qt.Qt.Checked:
+        self.globalfit = False
+        if self.globalfit == True: #self.chk_global.checkState() == qt.Qt.Checked:
             links = self.series_linkage_dialog.get_unique_params_matrix().as_matrix()
             results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
             fitted_params = results[0]
@@ -453,28 +392,28 @@ class Main(QMainWindow, Ui_MainWindow):
                 n += 1
         return fitted_params, sigmas, confidence_intervals, tol      
 
-    def preserve_vlines(self):
-        if self.blits_data.has_data():
-            mins, maxs = self.blits_data.series_extremes()
-            x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-                              maxs.loc[:, self.current_xaxis].max())
-            x_limits = cp.deepcopy(x_outer_limits)
-            self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
-            if self.canvas.has_vertical_lines():
-                x_limits = (self.canvas.vline0.get_x(), 
-                            self.canvas.vline1.get_x())
-                self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
-            self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
-            self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
-        else:
-            self.axes_limits = None        
+#     def preserve_vlines(self):
+#         if self.blits_data.has_data():
+#             mins, maxs = self.blits_data.series_extremes()
+#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+#                               maxs.loc[:, self.current_xaxis].max())
+#             x_limits = cp.deepcopy(x_outer_limits)
+#             self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
+#             if self.canvas.has_vertical_lines():
+#                 x_limits = (self.canvas.vline0.get_x(), 
+#                             self.canvas.vline1.get_x())
+#                 self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
+#             self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
+#             self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
+#         else:
+#             self.axes_limits = None        
             
     def set_axis_selector(self):
         self.axis_selector_buttons = {}
         self.clearLayout(self.axis_layout)
         if self.blits_data.has_data():
             self.axis_layout.addStretch()
-            for name in self.blits_data.independent_names:
+            for name in self.blits_data.get_axes_names():
                 btn = widgets.QRadioButton()
                 btn.setText(name)
                 btn.toggled.connect(self.on_xaxis_state_changed)
@@ -482,22 +421,8 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.axis_selector_buttons[btn.text()] = btn
             self.axis_layout.addStretch()  
             if not self.current_xaxis is None:
-                self.axis_selector_buttons[self.current_xaxis].setChecked(True)
-            
-    def set_current_function_ui(self):        
-        if self.current_state in (self.DATA_ONLY, self.START, ): # there is no self.current_functions
-            self.parameters_model = None
-            self.tbl_params.setModel(None)
-        else:
-            indx_pars = np.array([]) #np.array(['All'])
-            cols_pars = np.array([]) #np.array(['Colour', 'Include']) 
-            if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-                cols_pars = np.concatenate((cols_pars, self.blits_data.series_names), axis=0)
-                indx_pars = np.concatenate((indx_pars, self.current_function.parameters), axis=0)
-            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
-            self.set_params_view(df_pars)                   
-            self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
-            self.txt_description.setText(self.current_function.long_description)
+                if self.current_xaxis in self.axis_selector_buttons:
+                    self.axis_selector_buttons[self.current_xaxis].setChecked(True)
                 
     def set_fitted_curves(self, params, n_points):
         mins, maxs = self.blits_data.series_extremes()
@@ -525,7 +450,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
         self.blits_fitted.series_dict = series_dict
                        
-    def set_params_view(self, df_pars, checkable=None):
+    def set_parameters_table(self, df_pars, checkable=None):
         self.tbl_params.setModel(None)
         if checkable is None:
             checkable = list(range(len(df_pars.columns)))
@@ -534,10 +459,9 @@ class Main(QMainWindow, Ui_MainWindow):
         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
     def set_residuals(self, params):
-        self.preserve_vlines()
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
-        axes = self.blits_data.independent_names
+        axes = self.blits_data.get_axes_names()
         series_dict = {}
         for series_name, series_params, i in zip(series_names, params, range(len(series_names))):
             x = data[i][:-1]
@@ -553,6 +477,56 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_residuals.series_names = np.array(series_names)
         self.blits_residuals.independent_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
+
+    def set_fitspec_ui(self):        
+        if self.current_state in (self.START, self.DATA_ONLY, ): # there is no self.current_function or self.blits_data is empty
+            self.parameters_model = None
+            self.tbl_params.setModel(None)
+            self.linkage_matrix = None
+            self.tbl_series_links.clearContents()
+            self.df_parameter_values = pd.DataFrame()
+        else:
+            if self.current_state in (self.FUNCTION_ONLY): # a function has been selected
+                self.df_parameter_values = pd.DataFrame(index=self.current_function.get_parameter_names()) # self.blits_data has data 
+            elif self.current_state in (self.DATA_ONLY):
+                self.df_parameter_values = pd.DataFrame(columns=self.blits_data.get_series_names())
+            elif self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+                self.df_parameter_values.columns = self.blits_data.get_series_names()
+                self.df_parameter_values.index = self.current_function.get_parameter_names()
+                self.create_linkage_containers(self.current_function.get_parameter_names(), self.blits_data.get_series_names())
+
+            # old code - still in function - DO NOT DELETE
+            indx_pars = np.array([]) #np.array(['All'])
+            cols_pars = np.array([]) #np.array(['Colour', 'Include']) 
+            if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+                cols_pars = np.concatenate((cols_pars, self.blits_data.series_names), axis=0)
+                indx_pars = np.concatenate((indx_pars, self.current_function.parameters), axis=0)
+            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
+            self.set_parameters_table(df_pars)  
+                             
+            self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
+            self.txt_description.setText(self.current_function.long_description)
+            
+    def create_linkage_containers(self, parameter_names, series_names):
+        self.df_groups = pd.DataFrame(index=parameter_names, columns=series_names)
+        self.df_group_combos = pd.DataFrame(index=parameter_names, columns=series_names)
+        cbox_values = cp.deepcopy(series_names) # copying probably not necessary
+        for sname in series_names:
+            for pname in parameter_names: ### HERE
+                pass
+#                 linked_name = self.df_groups.loc[sname, pname]
+#                 cbox = widgets.QCheckBox()
+#                 cbox.setCheckState(qt.Qt.Unchecked)
+#                 cbox.setText("")
+#                 cbox.stateChanged.connect(self.on_chk_all)
+#                 self.sr_checks.loc[pname] = cbox
+#                 dbox = widgets.QComboBox()
+#                 dbox.addItems(self.series_names)
+#                 dbox.setEditable(False)
+#                 dbox.setCurrentText(linked_name)
+#                 dbox.currentIndexChanged.connect(self.on_table_item_changed)
+#                 self.df_combos.loc[sname, pname] = dbox
+            
             
     def update_ui(self):
         if self.current_state == self.START:
@@ -565,11 +539,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
+            self.btn_remove_links.setEnabled(False)            
             self.action_quit.setEnabled(True)
-            self.chk_subsection.setEnabled(False)   
-            self.chk_global.setEnabled(False) 
-            self.chk_subsection.setChecked(False)
-            self.chk_global.setChecked(False) 
         elif self.current_state == self.DATA_ONLY:
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
@@ -580,10 +551,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
+            self.btn_remove_links.setEnabled(False)            
             self.action_quit.setEnabled(True) 
-            self.chk_subsection.setEnabled(False)   
-            self.chk_global.setEnabled(False)  
-            self.chk_global.setChecked(False) 
         elif self.current_state == self.FUNCTION_ONLY:
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(True)
@@ -594,11 +563,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
-            self.action_quit.setEnabled(True)     
-            self.chk_subsection.setEnabled(False)   
-            self.chk_global.setEnabled(False)  
-            self.chk_subsection.setChecked(False)
-            self.chk_global.setChecked(False) 
+            self.btn_remove_links.setEnabled(False)            
+            self.action_quit.setEnabled(True) 
         elif self.current_state == self.READY_FOR_FITTING:
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
@@ -609,9 +575,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(True)
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
-            self.action_quit.setEnabled(True)     
-            self.chk_subsection.setEnabled(True)   
-            self.chk_global.setEnabled(True)  
+            self.btn_remove_links.setEnabled(True)            
+            self.action_quit.setEnabled(True) 
         elif self.current_state == self.FITTED:
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
@@ -622,9 +587,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(True)
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
+            self.btn_remove_links.setEnabled(True)            
             self.action_quit.setEnabled(True)     
-            self.chk_subsection.setEnabled(True)   
-            self.chk_global.setEnabled(True)  
         else:
             print('Illegal state')
                                           
@@ -636,6 +600,7 @@ class Main(QMainWindow, Ui_MainWindow):
 
 
 # Standard main loop code
+
 if __name__ == '__main__':
     import sys
 #    sys.tracbacklimit = 10

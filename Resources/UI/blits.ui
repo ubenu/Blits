@@ -43,7 +43,7 @@
        <attribute name="title">
         <string>The Crux</string>
        </attribute>
-       <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1">
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0">
         <item>
          <widget class="QFrame" name="params_window">
           <property name="sizePolicy">
@@ -122,29 +122,37 @@
                </property>
               </widget>
              </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="font">
+              <font>
+               <family>Calibri</family>
+               <pointsize>14</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Shared parameters</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTableWidget" name="tbl_series_links">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
              <item>
-              <widget class="QCheckBox" name="chk_subsection">
-               <property name="font">
-                <font>
-                 <family>Calibri</family>
-                 <pointsize>14</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Subsection</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="chk_global">
-               <property name="font">
-                <font>
-                 <family>Calibri</family>
-                 <pointsize>14</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Global</string>
+              <widget class="QDialogButtonBox" name="bbox_link">
+               <property name="standardButtons">
+                <set>QDialogButtonBox::NoButton</set>
                </property>
               </widget>
              </item>
@@ -216,19 +224,14 @@
     </property>
     <addaction name="action_select_function"/>
     <addaction name="action_estimate"/>
+    <addaction name="separator"/>
     <addaction name="action_apply"/>
     <addaction name="action_analyze"/>
-    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
     <property name="title">
      <string>Settings</string>
     </property>
-    <addaction name="separator"/>
-    <addaction name="separator"/>
    </widget>
    <addaction name="menu_File"/>
    <addaction name="menu_Analysis"/>
@@ -253,11 +256,9 @@
    <addaction name="separator"/>
    <addaction name="action_close"/>
    <addaction name="separator"/>
-   <addaction name="separator"/>
    <addaction name="action_select_function"/>
    <addaction name="separator"/>
    <addaction name="action_analyze"/>
-   <addaction name="separator"/>
    <addaction name="separator"/>
    <addaction name="action_save"/>
    <addaction name="separator"/>
@@ -310,7 +311,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Fit data</string>
+    <string>Perform fit</string>
    </property>
   </action>
   <action name="action_close">
@@ -325,15 +326,17 @@
   </action>
   <action name="action_apply">
    <property name="text">
-    <string>Apply current</string>
+    <string>Apply current parameters</string>
    </property>
   </action>
-  <action name="action_global">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
+  <action name="action_global_fit">
    <property name="text">
-    <string>Global fitting</string>
+    <string>Link parameters for global fit</string>
+   </property>
+  </action>
+  <action name="action_subsection">
+   <property name="text">
+    <string>Fit subsection</string>
    </property>
   </action>
  </widget>

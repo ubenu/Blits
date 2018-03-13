@@ -5,7 +5,7 @@ Created on 24 May 2017
 '''
 
 import sys
-import numpy as np, pandas as pd
+import numpy as np, pandas as pd, copy as cp
 from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
@@ -20,8 +20,8 @@ class LibraryFunction():
                  find_root=None,
                  obs_dependent_name='', 
                  calc_dependent_name='', 
-                 independent_names='', 
-                 parameter_names='', 
+                 independent_names=None, 
+                 parameter_names=None, 
                  first_estimates=None
                  ):
         self.fn_id = fn_id
@@ -48,6 +48,9 @@ class LibraryFunction():
     def set_parameters(self, parameter_names=''):
         self.parameter_strings = [p.strip() for p in parameter_names.split(sep=',')]
         self.parameter_values = np.empty_like(self.parameter_strings, dtype=float)
+        
+    def get_parameter_names(self):
+        return cp.deepcopy(self.get_parameter_strings)
         
     def test_fn(self):
         print(self.fn_def)

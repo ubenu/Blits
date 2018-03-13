@@ -7,7 +7,7 @@ Created on 9 Jan 2018
 from PyQt5 import QtCore as qt
 from PyQt5 import QtWidgets as widgets
 
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np, copy as cp
 
 import functions.function_defs as fdefs
 
@@ -88,10 +88,29 @@ class ModellingFunction(object):
         self.obs_dependent_name = ""
         self.calc_dependent_name = ""
         self.independents = "" 
-        self.parameters = ""
+        self.parameters = None
         self.first_estimates = ""
         self.func = None 
-        self.p0 = None       
+        self.p0 = None  
+        
+    def get_parameter_names(self):
+        if self.parameters is not None:
+            return cp.deepcopy(self.parameters)  
+        return None 
+    
+    def get_axes_names(self):
+        if self.independents is not None:
+            return cp.deepcopy(self.independents)
+        return None
+    
+    def get_uid(self):
+        return cp.deepcopy(self.uid)  
+
+    def get_description(self):
+        return self.description  
+
+    def get_long_description(self):
+        return self.long_description  
 
  
 class FunctionLibraryTableModel(qt.QAbstractTableModel):
