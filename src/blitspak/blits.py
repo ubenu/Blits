@@ -42,8 +42,19 @@ Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 class Main(QMainWindow, Ui_MainWindow):
     
-    NSTATES = 6
-    START, DATA_ONLY, FUNCTION_ONLY, READY_FOR_FITTING, FITTED, REJECT = range(NSTATES)
+    N_STATES = 6
+    START, DATA_ONLY, FUNCTION_ONLY, READY_FOR_FITTING, FITTED, REJECT = range(N_STATES)
+    
+    N_PS_SPECTYPES = 5
+    PS_VALUES, PS_VALUES_FIXED, PS_ITEMS, PS_GROUPS, PS_COMBOS = range(N_PS_SPECTYPES)
+    N_P_SPECTYPES = 4
+    P_ALL_FIXED, P_FIX_CBOXES, P_ALL_LINKED, P_LINK_CBOXES = range(N_P_SPECTYPES)
+    N_S_SPECTYPES = 2
+    S_INCLUDED, S_INCLUDE_CBOXES = range(N_S_SPECTYPES)
+    
+    ps_types = ['param_values', 'param_values_fixed', 'param_table_items', 'series_groups', 'series_combos']
+    s_types = ['included', 'included_cboxes']
+    p_types = ['all_fixed', 'all_fixed_cboxes', 'all_linked', 'all_linked_cboxes']
 
     def __init__(self, ):
         super(Main, self).__init__()
@@ -76,9 +87,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
         self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
 
-        self.btn_remove_links = widgets.QPushButton("Unlink all")
-        self.btn_remove_links.setFont(ft)
-        self.bbox_link.addButton(self.btn_remove_links, widgets.QDialogButtonBox.ActionRole)
         
         self.action_open.triggered.connect(self.on_open)
         self.action_create.triggered.connect(self.on_create)
@@ -89,17 +97,18 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_quit.triggered.connect(self.close) 
         self.action_apply.triggered.connect(self.on_apply_current) 
         self.action_estimate.triggered.connect(self.on_estimate) 
-        self.btn_remove_links.clicked.connect(self.on_reset_links)
 
         self.btn_est.clicked.connect(self.on_estimate)
         self.btn_apply.clicked.connect(self.on_apply_current)
         self.btn_fit.clicked.connect(self.on_analyze)
-
         
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
         self.blits_residuals = BlitsData()
-        self.linkage_matrix = None
+        
+        self.pn_fit_spec = None
+        self.df_params_spec = None
+        self.df_series_spec = None
 
         self.file_name = ""
         self.file_path = ""
@@ -109,7 +118,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.axes_limits = None
         
         self.current_state = self.START        
-        self.update_ui()
+        self.update_controls()
         
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
@@ -124,7 +133,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.draw_current_data_set()
             self.write_param_values_to_table(fitted_params)
             self.current_state = self.FITTED
-            self.update_ui()
+            self.update_controls()
         pass
             
     def on_apply_current(self):
@@ -149,8 +158,9 @@ class Main(QMainWindow, Ui_MainWindow):
             else:
                 self.current_state = self.FUNCTION_ONLY
                 
-            self.set_fitspec_ui()
-            self.update_ui()
+            self.init_fit_spec()
+            self.init_ui()
+            self.update_controls()
         pass
             
     def on_create(self):  
@@ -163,7 +173,9 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.current_state = self.READY_FOR_FITTING
                 self.current_xaxis = self.blits_data.get_axes_names()[0]
                 self.set_axis_selector()
-                self.update_ui()
+                self.init_fit_spec()
+                self.init_ui()
+                self.update_controls()
                 
     def on_estimate(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
@@ -194,12 +206,10 @@ class Main(QMainWindow, Ui_MainWindow):
                         self.current_state = self.DATA_ONLY
                         
                 self.set_axis_selector()
-                self.set_fitspec_ui()
-                self.update_ui()
-    
-    def on_reset_links(self):
-        pass
-                
+                self.init_fit_spec()
+                self.init_ui()
+                self.update_controls()
+                    
     def on_save(self):
         file_path = ""
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, ):
@@ -213,7 +223,7 @@ class Main(QMainWindow, Ui_MainWindow):
             pass
             
     def on_select_function(self):
-        if self.current_state in range(self.NSTATES):  # should work from all states
+        if self.current_state in range(self.N_STATES):  # should work from all states
             name, n_axes = "", np.inf
             if not self.current_state in (self.START, self.DATA_ONLY):  # a current function exists
                 name = self.current_function.name
@@ -228,9 +238,10 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
-                self.draw_current_data_set()
-                self.set_fitspec_ui()
-                self.update_ui()    
+                self.draw_current_data_set() # is this necessary?
+                self.init_fit_spec()
+                self.init_ui()
+                self.update_controls()
     
     def on_xaxis_state_changed(self, checked):
         btn = self.sender()
@@ -355,7 +366,6 @@ class Main(QMainWindow, Ui_MainWindow):
         return icon  
     
     def perform_fit(self):
-#        self.preserve_vlines()
         func = self.current_function.func
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
@@ -392,22 +402,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 n += 1
         return fitted_params, sigmas, confidence_intervals, tol      
 
-#     def preserve_vlines(self):
-#         if self.blits_data.has_data():
-#             mins, maxs = self.blits_data.series_extremes()
-#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-#                               maxs.loc[:, self.current_xaxis].max())
-#             x_limits = cp.deepcopy(x_outer_limits)
-#             self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
-#             if self.canvas.has_vertical_lines():
-#                 x_limits = (self.canvas.vline0.get_x(), 
-#                             self.canvas.vline1.get_x())
-#                 self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
-#             self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
-#             self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
-#         else:
-#             self.axes_limits = None        
-            
     def set_axis_selector(self):
         self.axis_selector_buttons = {}
         self.clearLayout(self.axis_layout)
@@ -426,7 +420,6 @@ class Main(QMainWindow, Ui_MainWindow):
                 
     def set_fitted_curves(self, params, n_points):
         mins, maxs = self.blits_data.series_extremes()
-        # mins, maxs: index: series names, columns: independent names + y (dependent)
         series_names = mins.index
         axes_names = mins.columns
         min_xs, max_xs = mins.iloc[:, :-1].as_matrix(), maxs.iloc[:, :-1].as_matrix()
@@ -451,12 +444,13 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_fitted.series_dict = series_dict
                        
     def set_parameters_table(self, df_pars, checkable=None):
-        self.tbl_params.setModel(None)
-        if checkable is None:
-            checkable = list(range(len(df_pars.columns)))
-        self.parameters_model = CruxTableModel(df_pars, checkable)
-        self.tbl_params.setModel(self.parameters_model)
-        self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
+        pass
+#         self.tbl_params.setModel(None)
+#         if checkable is None:
+#             checkable = list(range(len(df_pars.columns)))
+#         self.parameters_model = CruxTableModel(df_pars, checkable)
+#         self.tbl_params.setModel(self.parameters_model)
+#         self.tbl_params.setSizeAdjustPolicy(widgets.QAbstractScrollArea.AdjustToContents)
                 
     def set_residuals(self, params):
         series_names = self.get_selected_series_names()
@@ -477,58 +471,287 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_residuals.series_names = np.array(series_names)
         self.blits_residuals.independent_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
+        
+    def on_linkage_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            param = ""
+            for pname, row in self.linkage_combos.iterrows():
+                for sname, box, in row.iteritems():
+                    if self.sender() is box:
+                        param = pname
+                        self.linkage_groups.loc[pname, sname] = box.currentText()
+            self.rationalise_groups(param)
+            self.update_linkage_table()
+            
+    def update_linkage_table(self):
+        """
+        Sets combo-boxes in linkage_combos to the current values in linkage_groups        
+        """
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            for sname in self.linkage_groups.columns.values:
+                for pname in self.linkage_groups.index.values:
+                    sgrp = self.linkage_groups.loc[pname, sname]
+                    dbox = self.linkage_combos.loc[pname, sname]
+                    if dbox.currentText() != sgrp:
+                        dbox.currentIndexChanged.disconnect()
+                        dbox.setCurrentText(sgrp)
+                        dbox.currentIndexChanged.connect(self.on_all_linked_changed)
+    
+    def rationalise_groups(self, parameter):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ) and parameter != '':
+            row = self.linkage_groups.loc[parameter]
+            x = row.index
+            df_wf = pd.DataFrame(np.zeros((len(x), len(x))), index=x, columns=x, dtype=bool) # set up the matrix
+            for series, val in row.iteritems():
+                df_wf.loc[series, series] = True # make the matrix reflexive
+                if series != val:
+                    df_wf.loc[series, val] = True
+                    df_wf.loc[val, series] = True # make the matrix symmetrical
+            # make matrix transitive (Warshall-Floyd)
+            for k in range(len(x)):
+                for i in range(len(x)):
+                    for j in range(len(x)):
+                        df_wf.iloc[i, j] = df_wf.iloc[i, j] or (df_wf.iloc[i, k] == 1 and df_wf.iloc[k, j] == 1)
+            # Find the equivalence classes for this parameter 
+            seen = []
+            sr_equiv_clss = pd.Series(index=x)          
+            for series0, row in df_wf.iterrows():
+                for series1, val in row.iteritems():
+                    if val:
+                        if series1 not in seen:
+                            sr_equiv_clss.loc[series1] = series0
+                            seen.append(series1)
+            self.linkage_groups.loc[parameter] = sr_equiv_clss
+            
+            
+    def on_all_linked_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            pname = ""
+            for p, cbox in self.linkage_cboxes.iteritems():
+                if cbox is self.sender():
+                    pname = p
+            for sname in self.linkage_groups.columns.values:
+                if self.sender().checkState() == qt.Qt.Checked: # set all the name of the first series
+                    self.linkage_groups.loc[pname, sname] = self.linkage_groups.columns.values[0]
+                else:
+                    self.linkage_groups.loc[pname, sname] = sname # set all to the original names
+            self.set_table()
+            
+    def on_all_fixed_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            pass
+#             param = ""
+#             for pname in self.param_fix_all.index.values:
+#                 if self.param_fix_all.loc[pname] is self.sender():
+#                     param = pname
+#             if pname != "":
+#                 print("Fixing the value of " + param + " in all series")
+#                 self.param_isfixed.loc[param] = self.sender.checkState()
+#             self.update_param_vals_table()
+            
+    def update_params_vals_table(self):
+        # Make this more specific (with row and col as arguments, default = '', then iterate all)
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            for pname in self.param_values.index.values:
+                for sname in self.param_values.columns.values:
+                    w = self.param_widgets.loc[pname, sname]
+                    w.setCheckState(self.param_isfixed.loc[pname, sname])
+                    w.setText("{:.3g}".format(self.param_values.loc[pname, sname]))
+                
+    def reset_links(self):
+        """
+        Sets the combo-boxes to the original values (via linkage_groups)
+        and unchecks the parameter check-boxes
+        """
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            for pname in self.linkage_cboxes.index.values:
+                cbox = self.linkage_cboxes.loc[pname]
+                cbox.disconnect()
+                cbox.setCheckState(qt.Qt.Unchecked)
+                cbox.stateChanged.connect(self.on_all_linked_changed)
+            for sname in self.linkage_groups.columns.values:
+                for pname in self.linkage_groups.index.values:
+                    self.linkage_groups.loc[pname, sname] = sname
+            self.set_table()
 
-    def set_fitspec_ui(self):        
-        if self.current_state in (self.START, self.DATA_ONLY, ): # there is no self.current_function or self.blits_data is empty
-            self.parameters_model = None
-            self.tbl_params.setModel(None)
-            self.linkage_matrix = None
-            self.tbl_series_links.clearContents()
-            self.df_parameter_values = pd.DataFrame()
-        else:
-            if self.current_state in (self.FUNCTION_ONLY): # a function has been selected
-                self.df_parameter_values = pd.DataFrame(index=self.current_function.get_parameter_names()) # self.blits_data has data 
-            elif self.current_state in (self.DATA_ONLY):
-                self.df_parameter_values = pd.DataFrame(columns=self.blits_data.get_series_names())
-            elif self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-                self.df_parameter_values.columns = self.blits_data.get_series_names()
-                self.df_parameter_values.index = self.current_function.get_parameter_names()
-                self.create_linkage_containers(self.current_function.get_parameter_names(), self.blits_data.get_series_names())
+    def init_fit_spec(self):        
+        self.pn_fit_spec = None
+        self.df_series_spec = None
+        self.df_params_spec = None
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            series_names = self.blits_data.get_series_names()
+            param_names = self.current_function.get_parameter_names()
 
-            # old code - still in function - DO NOT DELETE
-            indx_pars = np.array([]) #np.array(['All'])
-            cols_pars = np.array([]) #np.array(['Colour', 'Include']) 
-            if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-                cols_pars = np.concatenate((cols_pars, self.blits_data.series_names), axis=0)
-                indx_pars = np.concatenate((indx_pars, self.current_function.parameters), axis=0)
-            df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
-            self.set_parameters_table(df_pars)  
-                             
+            self.pn_fit_spec = pd.Panel(major_axis=param_names, minor_axis=series_names, items=self.ps_types)
+            self.df_series_spec = pd.DataFrame(index=series_names, columns=self.s_types)
+            self.df_params_spec = pd.DataFrame(index=param_names, columns=self.p_types)
+                        
+            self.linkage_groups = pd.DataFrame(index=param_names, columns=series_names)
+            self.linkage_combos = pd.DataFrame(index=param_names, columns=series_names)
+            self.linkage_cboxes = pd.Series(index=param_names)
+             
+            self.param_values = pd.DataFrame(np.zeros((len(param_names), len(series_names)), dtype=float)
+                                             , index=param_names, columns=series_names)
+            self.param_isfixed = pd.DataFrame(np.zeros((len(param_names), len(series_names)), dtype=bool)
+                                             , index=param_names, columns=series_names)
+            self.param_widgets = pd.DataFrame(index=param_names, columns=series_names)
+            self.param_selected = pd.Series(index=series_names)
+            self.param_fix_all = pd.Series(index=param_names)
+            
+            for sname in series_names:
+                cbx = widgets.QCheckBox()
+                cbx.setCheckState(qt.Qt.Checked)
+                cbx.setText("")
+                cbx.setToolTip("Check to include")
+                self.param_selected.loc[sname] = cbx # to remove
+                self.df_series_spec.loc[sname, 'included'] = cbx.checkState()
+                self.df_series_spec.loc[sname, 'included_cboxes'] = cbx            
+            for pname in param_names:
+                cb_lnk = widgets.QCheckBox()
+                cb_lnk.setCheckState(qt.Qt.Unchecked)
+                cb_lnk.setText("")
+                cb_lnk.setToolTip("Tick to link " + pname + " across all series")
+                cb_lnk.stateChanged.connect(self.on_all_linked_changed)
+                
+                cb_fix = widgets.QCheckBox()
+                cb_fix.setCheckState(qt.Qt.Unchecked)
+                cb_fix.setText("")
+                cb_fix.setToolTip("Tick to fix " + pname + " for all series")
+                cb_fix.stateChanged.connect(self.on_all_fixed_changed)
+                
+                self.df_params_spec.loc[pname, 'all_linked'] = cb_lnk.checkState()
+                self.df_params_spec.loc[pname, 'all_linked_cboxes'] = cb_lnk
+                self.df_params_spec.loc[pname, 'all_fixed'] = cb_fix.checkState()
+                self.df_params_spec.loc[pname, 'all_fixed_cboxes'] = cb_fix
+                
+                for sname in series_names:
+                    twi = widgets.QTableWidgetItem()
+                    twi.setCheckState(qt.Qt.Unchecked)
+                    twi.setText("{:.3g}".format(self.param_values.loc[pname, sname]))
+                    
+                    combo = widgets.QComboBox()
+                    combo.addItems(series_names)
+                    combo.setEditable(False)
+                    combo.setCurrentText(sname)
+                    combo.currentIndexChanged.connect(self.on_all_linked_changed)
+
+                    self.param_isfixed.loc[pname, sname] = False  # to remove
+                    self.param_widgets.loc[pname, sname] = twi  # to remove
+                    self.linkage_groups.loc[pname, sname] = sname  # to remove
+                    self.linkage_combos.loc[pname, sname] = combo  # to remove
+                    
+                    sp_vals = [twi.text(), twi.checkState(), twi, combo.currentText(), combo]
+                    for sp, val in zip(self.sp_types, sp_vals):
+                        self.pn_fit_spec.loc[sp, pname, sname] = val
+                    
+        else:  
+
+            self.linkage_groups = None
+            self.linkage_combos = None
+            self.linkage_cboxes = None
+             
+            self.param_values = None
+            self.param_isfixed = None
+            self.param_widgets = None
+            self.param_selected = None
+            self.param_fix_all = None
+
+    def init_ui(self):
+        if self.current_state not in (self.START, self.DATA_ONLY,): # there is a current function
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
             self.txt_description.setText(self.current_function.long_description)
+        else:
+            self.lbl_fn_name.setText("Selected function: None")
+            self.txt_description.setText("")
+        if self.current_state not in (self.READY_FOR_FITTING, self.FITTED, ):
+            self.tbl_series_links.clear()
+            self.tbl_param_values.clear()
+        else:
+            if self.pn_fit_spec is not None:
+                params = self.pn_fit_spec.major_axis.values
+                series = self.pn_fit_spec.minor_axis.values
+                
+                ptbl_vheader = ["Fix all"]
+                ptbl_vheader.extend(series)
+                ptbl_hheader = ["Include"]
+                ptbl_hheader.extend(params)
+                ltbl_vheader = ["Link all"]
+                ltbl_vheader.extend(series)
+                ltbl_hheader = []
+                ltbl_hheader.extend(params)
+                
+                self.tbl_param_values.setRowCount(len(ptbl_vheader))
+                self.tbl_param_values.setColumnCount(len(ptbl_hheader))
+                self.tbl_series_links.setRowCount(len(ltbl_vheader))
+                self.tbl_series_links.setColumnCount(len(ltbl_hheader))            
+
+                self.tbl_param_values.setHorizontalHeaderLabels(ptbl_hheader)
+                self.tbl_param_values.setVerticalHeaderLabels(ptbl_vheader)  
+                self.tbl_series_links.setHorizontalHeaderLabels(ltbl_hheader)
+                self.tbl_series_links.setVerticalHeaderLabels(ltbl_vheader) 
+                                
+                # create the parameter values table
+                vrange = range(len(ptbl_vheader)-len(series), len(ptbl_vheader))
+                hrange = range((len(ptbl_hheader)-len(params)), len(ptbl_hheader))
+                for sname, row in zip(series, vrange):
+                    w = self.centred_tablewidget(self.df_series_spec.loc[sname, 'included_cboxes'])
+                    self.tbl_param_values.setCellWidget(row, 0, w)
+                for pname, col in zip(params, hrange):
+                    w = self.centred_tablewidget(self.df_params_spec.loc[pname, 'all_fixed_cboxes'])
+                    self.tbl_param_values.setCellWidget(0, col, w)
+                for sname, row in zip(series, vrange):
+                    for pname, col in zip(params, hrange):
+                        self.tbl_param_values.setItem(row, col, self.pn_fit_spec.loc['param_table_items', pname, sname])
+                        
+                # create the linkage table
+                vrange = range(len(ltbl_vheader)-len(series), len(ltbl_vheader))
+                hrange = range((len(ltbl_hheader)-len(params)), len(ltbl_hheader))
+                for pname, col in zip(params, hrange):
+                    w = self.centred_tablewidget(self.df_params_spec.loc[pname, 'all_linked_cboxes'])
+                    self.tbl_series_links.setCellWidget(0, col, w)
+                for sname, row in zip(series, vrange):
+                    for pname, col in zip(params, hrange):
+                        self.tbl_series_links.setCellWidget(row, col, self.pn_fit_spec.loc['series_combos', pname, sname])
+                
+
+                self.tbl_param_values.resizeRowsToContents()
+#                self.tbl_param_values.resizeColumnsToContents()
+                self.tbl_series_links.resizeRowsToContents()
+#                self.tbl_series_links.resizeColumnsToContents()
+                
+        
             
-    def create_linkage_containers(self, parameter_names, series_names):
-        self.df_groups = pd.DataFrame(index=parameter_names, columns=series_names)
-        self.df_group_combos = pd.DataFrame(index=parameter_names, columns=series_names)
-        cbox_values = cp.deepcopy(series_names) # copying probably not necessary
-        for sname in series_names:
-            for pname in parameter_names: ### HERE
-                pass
-#                 linked_name = self.df_groups.loc[sname, pname]
-#                 cbox = widgets.QCheckBox()
-#                 cbox.setCheckState(qt.Qt.Unchecked)
-#                 cbox.setText("")
-#                 cbox.stateChanged.connect(self.on_chk_all)
-#                 self.sr_checks.loc[pname] = cbox
-#                 dbox = widgets.QComboBox()
-#                 dbox.addItems(self.series_names)
-#                 dbox.setEditable(False)
-#                 dbox.setCurrentText(linked_name)
-#                 dbox.currentIndexChanged.connect(self.on_table_item_changed)
-#                 self.df_combos.loc[sname, pname] = dbox
+    def centred_tablewidget(self, qtwidget):
+        wid = widgets.QWidget()
+        hlo = widgets.QVBoxLayout()
+        hlo.setAlignment(qt.Qt.AlignCenter)
+        wid.setLayout(hlo)
+        hlo.addWidget(qtwidget)
+        return wid
+        
+    
+    
+    
+    
+
+
+#             # old code - still in function - DO NOT DELETE
+#             if ...
+#             self.parameters_model = None
+#             self.tbl_params.setModel(None)
+#             else ...
+#             indx_pars = np.array([]) #np.array(['All'])
+#             cols_pars = np.array([]) #np.array(['Colour', 'Include']) 
+#             if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+#                 cols_pars = np.concatenate((cols_pars, self.blits_data.series_names), axis=0)
+#                 indx_pars = np.concatenate((indx_pars, self.current_function.parameters), axis=0)
+#             df_pars = pd.DataFrame(np.ones((len(indx_pars), len(cols_pars)), dtype=float), index=indx_pars, columns=cols_pars) 
+#             self.set_parameters_table(df_pars)  
+#                              
+#             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
+#             self.txt_description.setText(self.current_function.long_description)            
             
-            
-    def update_ui(self):
+    def update_controls(self):
         if self.current_state == self.START:
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(False)
@@ -539,7 +762,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
-            self.btn_remove_links.setEnabled(False)            
             self.action_quit.setEnabled(True)
         elif self.current_state == self.DATA_ONLY:
             self.action_open.setEnabled(False)
@@ -551,7 +773,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
-            self.btn_remove_links.setEnabled(False)            
             self.action_quit.setEnabled(True) 
         elif self.current_state == self.FUNCTION_ONLY:
             self.action_open.setEnabled(True)
@@ -563,7 +784,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(False)
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
-            self.btn_remove_links.setEnabled(False)            
             self.action_quit.setEnabled(True) 
         elif self.current_state == self.READY_FOR_FITTING:
             self.action_open.setEnabled(False)
@@ -575,7 +795,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(True)
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
-            self.btn_remove_links.setEnabled(True)            
             self.action_quit.setEnabled(True) 
         elif self.current_state == self.FITTED:
             self.action_open.setEnabled(False)
@@ -587,7 +806,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_apply.setEnabled(True)
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
-            self.btn_remove_links.setEnabled(True)            
             self.action_quit.setEnabled(True)     
         else:
             print('Illegal state')
@@ -603,7 +821,6 @@ class Main(QMainWindow, Ui_MainWindow):
 
 if __name__ == '__main__':
     import sys
-#    sys.tracbacklimit = 10
     app = widgets.QApplication(sys.argv)
     main = Main()
     main.show()
@@ -641,6 +858,22 @@ if __name__ == '__main__':
 #             self.canvas.set_vlines(x_limits, x_outer_limits)
 
 
+#     def preserve_vlines(self):
+#         if self.blits_data.has_data():
+#             mins, maxs = self.blits_data.series_extremes()
+#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+#                               maxs.loc[:, self.current_xaxis].max())
+#             x_limits = cp.deepcopy(x_outer_limits)
+#             self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
+#             if self.canvas.has_vertical_lines():
+#                 x_limits = (self.canvas.vline0.get_x(), 
+#                             self.canvas.vline1.get_x())
+#                 self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
+#             self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
+#             self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
+#         else:
+#             self.axes_limits = None        
+            
 
 
 
