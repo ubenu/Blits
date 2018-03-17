@@ -472,37 +472,28 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_residuals.independent_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
         
-    def on_linkage_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-            param = ""
-            for pname, row in self.linkage_combos.iterrows():
-                for sname, box, in row.iteritems():
-                    if self.sender() is box:
-                        param = pname
-                        self.linkage_groups.loc[pname, sname] = box.currentText()
-            self.rationalise_groups(param)
-            self.update_linkage_table()
-            
     def update_linkage_table(self):
         """
         Sets combo-boxes in linkage_combos to the current values in linkage_groups        
         """
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-            for sname in self.linkage_groups.columns.values:
-                for pname in self.linkage_groups.index.values:
-                    sgrp = self.linkage_groups.loc[pname, sname]
-                    dbox = self.linkage_combos.loc[pname, sname]
-                    if dbox.currentText() != sgrp:
-                        dbox.currentIndexChanged.disconnect()
-                        dbox.setCurrentText(sgrp)
-                        dbox.currentIndexChanged.connect(self.on_all_linked_changed)
-    
+            combos = self.pn_fit_spec.loc[self.ps_types[self.PS_COMBOS]]
+            vals = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS]]
+            for i, row in vals.iterrows():
+                for j, val in row.iteritems():
+                    box = combos.loc[i, j]
+                    if box.currentText() != val:
+                        box.currentIndexChanged.disconnect()
+                        box.setCurrentText(val)
+                        box.currentIndexChanged.connect(self.on_linkage_changed)
+                        
     def rationalise_groups(self, parameter):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ) and parameter != '':
-            row = self.linkage_groups.loc[parameter]
-            x = row.index
+            prow = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], parameter]
+            #row = self.linkage_groups.loc[parameter]
+            x = prow.index
             df_wf = pd.DataFrame(np.zeros((len(x), len(x))), index=x, columns=x, dtype=bool) # set up the matrix
-            for series, val in row.iteritems():
+            for series, val in prow.iteritems():
                 df_wf.loc[series, series] = True # make the matrix reflexive
                 if series != val:
                     df_wf.loc[series, val] = True
@@ -521,33 +512,11 @@ class Main(QMainWindow, Ui_MainWindow):
                         if series1 not in seen:
                             sr_equiv_clss.loc[series1] = series0
                             seen.append(series1)
-            self.linkage_groups.loc[parameter] = sr_equiv_clss
-            
-            
-    def on_all_linked_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-            pname = ""
-            for p, cbox in self.linkage_cboxes.iteritems():
-                if cbox is self.sender():
-                    pname = p
-            for sname in self.linkage_groups.columns.values:
-                if self.sender().checkState() == qt.Qt.Checked: # set all the name of the first series
-                    self.linkage_groups.loc[pname, sname] = self.linkage_groups.columns.values[0]
-                else:
-                    self.linkage_groups.loc[pname, sname] = sname # set all to the original names
-            self.set_table()
-            
-    def on_all_fixed_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-            pass
-#             param = ""
-#             for pname in self.param_fix_all.index.values:
-#                 if self.param_fix_all.loc[pname] is self.sender():
-#                     param = pname
-#             if pname != "":
-#                 print("Fixing the value of " + param + " in all series")
-#                 self.param_isfixed.loc[param] = self.sender.checkState()
-#             self.update_param_vals_table()
+            for series in x:
+                self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], parameter, series] = sr_equiv_clss.loc[series]
+            #self.linkage_groups.loc[parameter] = sr_equiv_clss
+        pass
+ 
             
     def update_params_vals_table(self):
         # Make this more specific (with row and col as arguments, default = '', then iterate all)
@@ -602,21 +571,23 @@ class Main(QMainWindow, Ui_MainWindow):
                 cbx = widgets.QCheckBox()
                 cbx.setCheckState(qt.Qt.Checked)
                 cbx.setText("")
-                cbx.setToolTip("Check to include")
+                cbx.setToolTip("Uncheck to exclude from analysis")
+                cbx.stateChanged.connect(self.on_select_series_changed)
                 self.param_selected.loc[sname] = cbx # to remove
                 self.df_series_spec.loc[sname, 'included'] = cbx.checkState()
-                self.df_series_spec.loc[sname, 'included_cboxes'] = cbx            
+                self.df_series_spec.loc[sname, 'included_cboxes'] = cbx 
+                           
             for pname in param_names:
                 cb_lnk = widgets.QCheckBox()
                 cb_lnk.setCheckState(qt.Qt.Unchecked)
                 cb_lnk.setText("")
-                cb_lnk.setToolTip("Tick to link " + pname + " across all series")
+                cb_lnk.setToolTip("Check to link " + pname + " across all series")
                 cb_lnk.stateChanged.connect(self.on_all_linked_changed)
                 
                 cb_fix = widgets.QCheckBox()
                 cb_fix.setCheckState(qt.Qt.Unchecked)
                 cb_fix.setText("")
-                cb_fix.setToolTip("Tick to fix " + pname + " for all series")
+                cb_fix.setToolTip("Check to fix " + pname + " for all series")
                 cb_fix.stateChanged.connect(self.on_all_fixed_changed)
                 
                 self.df_params_spec.loc[pname, 'all_linked'] = cb_lnk.checkState()
@@ -624,6 +595,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.df_params_spec.loc[pname, 'all_fixed'] = cb_fix.checkState()
                 self.df_params_spec.loc[pname, 'all_fixed_cboxes'] = cb_fix
                 
+            for pname in param_names:      
                 for sname in series_names:
                     twi = widgets.QTableWidgetItem()
                     twi.setCheckState(qt.Qt.Unchecked)
@@ -633,7 +605,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     combo.addItems(series_names)
                     combo.setEditable(False)
                     combo.setCurrentText(sname)
-                    combo.currentIndexChanged.connect(self.on_all_linked_changed)
+                    combo.currentIndexChanged.connect(self.on_linkage_changed)
 
                     self.param_isfixed.loc[pname, sname] = False  # to remove
                     self.param_widgets.loc[pname, sname] = twi  # to remove
@@ -641,7 +613,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.linkage_combos.loc[pname, sname] = combo  # to remove
                     
                     sp_vals = [twi.text(), twi.checkState(), twi, combo.currentText(), combo]
-                    for sp, val in zip(self.sp_types, sp_vals):
+                    for sp, val in zip(self.ps_types, sp_vals):
                         self.pn_fit_spec.loc[sp, pname, sname] = val
                     
         else:  
@@ -655,6 +627,55 @@ class Main(QMainWindow, Ui_MainWindow):
             self.param_widgets = None
             self.param_selected = None
             self.param_fix_all = None
+
+    def on_select_series_changed(self):
+        pass
+    
+    def find_sender_index(self, dataframe):
+        sender_i, sender_j = None, None
+        for i, row, in dataframe.iterrows():
+            for j, item in row.iteritems():
+                if item is self.sender():
+                    sender_i = i
+                    sender_j = j
+        return sender_i, sender_j
+    
+    def on_linkage_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            df = self.pn_fit_spec.loc[self.ps_types[self.PS_COMBOS]]
+            param, series = self.find_sender_index(df)
+            if param is not None and series is not None:
+                link = df.loc[param, series].currentText()
+                self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], param, series] = link
+                self.rationalise_groups(param)
+                self.update_linkage_table()
+            
+           
+            
+    def on_all_linked_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            pname = ""
+            for p, cbox in self.linkage_cboxes.iteritems():
+                if cbox is self.sender():
+                    pname = p
+            for sname in self.linkage_groups.columns.values:
+                if self.sender().checkState() == qt.Qt.Checked: # set all the name of the first series
+                    self.linkage_groups.loc[pname, sname] = self.linkage_groups.columns.values[0]
+                else:
+                    self.linkage_groups.loc[pname, sname] = sname # set all to the original names
+            self.set_table()
+            
+    def on_all_fixed_changed(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            pass
+#             param = ""
+#             for pname in self.param_fix_all.index.values:
+#                 if self.param_fix_all.loc[pname] is self.sender():
+#                     param = pname
+#             if pname != "":
+#                 print("Fixing the value of " + param + " in all series")
+#                 self.param_isfixed.loc[param] = self.sender.checkState()
+#             self.update_param_vals_table()
 
     def init_ui(self):
         if self.current_state not in (self.START, self.DATA_ONLY,): # there is a current function
