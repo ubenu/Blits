@@ -654,16 +654,24 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_all_linked_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
-            pname = ""
-            for p, cbox in self.linkage_cboxes.iteritems():
-                if cbox is self.sender():
-                    pname = p
-            for sname in self.linkage_groups.columns.values:
-                if self.sender().checkState() == qt.Qt.Checked: # set all the name of the first series
-                    self.linkage_groups.loc[pname, sname] = self.linkage_groups.columns.values[0]
-                else:
-                    self.linkage_groups.loc[pname, sname] = sname # set all to the original names
-            self.set_table()
+            param, col = self.find_sender_index(self.df_params_spec)
+#             pname = ""
+#             for p, cbox in self.linkage_cboxes.iteritems():
+#                 if cbox is self.sender():
+#                     pname = p
+            if param is not None:
+                linkto = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], param].iloc[0]
+                for series in self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], param].index:
+                    if self.df_params_spec.loc[param, col].checkState() == qt.Qt.Unchecked: 
+                        linkto = series
+                    self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], param, series] = linkto
+                self.update_linkage_table()
+#             for sname in self.linkage_groups.columns.values:
+#                 if self.sender().checkState() == qt.Qt.Checked: # set all the name of the first series
+#                     self.linkage_groups.loc[pname, sname] = self.linkage_groups.columns.values[0]
+#                 else:
+#                     self.linkage_groups.loc[pname, sname] = sname # set all to the original names
+#             self.set_table()
             
     def on_all_fixed_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
