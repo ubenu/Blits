@@ -5,7 +5,8 @@ Created on 23 May 2017
 """
 #from PyQt5 import QtGui as gui
 #from PyQt5 import QtCore as qt
-import numpy as np
+import numpy as np, copy as cp
+import math
 from PyQt5 import QtWidgets as widgets
 
 from matplotlib.figure import Figure
@@ -43,9 +44,8 @@ class MplCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, widgets.QSizePolicy.Preferred, widgets.QSizePolicy.Preferred)
         FigureCanvas.updateGeometry(self) 
         
-#         self.dplot_xlims, self.dplot_ylims = None, None
         self.curve_colours = {}
-        self.remove_vlines() # sets the vertical lines to None
+        self.vline0, self.vline1 = None, None
         
     def on_move(self):
         pass
@@ -72,14 +72,20 @@ class MplCanvas(FigureCanvas):
     def has_vertical_lines(self):
         return self.vline0 is not None and self.vline1 is not None
     
+    def get_vline_positions(self):
+        if self.has_vertical_lines():
+            x0 = self.vline0.get_x()
+            x1 = self.vline1.get_x()
+            return np.array([x0, x1])
+        return None
+            
     def clear_plots(self):
         self.data_plot.cla()
         self.data_res_plot.cla()
         self.set_fig_annotations()
-#         self.dplot_xlims, self.dplot_ylims = None, None
         self.fig.canvas.draw()
     
-    def draw_series(self, series_name, x, y, kind):
+    def draw_series(self, series_name, x, y, kind, ):
         """
         Draw a single curve.
         @series_name: series id (string, must be unique)
@@ -101,34 +107,30 @@ class MplCanvas(FigureCanvas):
             self.curve_colours[series_name] = self.colour_seq[i]
         if kind in ('primary', 'calculated'):
             self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
-#             if kind == 'primary':
-#                 self.dplot_xlims, self.dplot_ylims = self.data_plot.get_xlim(), self.data_plot.get_ylim()
-#             if self.dplot_xlims is not None:
-#                 self.data_plot.set_xlim(self.dplot_xlims)
-#             if self.dplot_ylims is not None:
-#                 self.data_plot.set_ylim(self.dplot_ylims)                
         if kind == 'residuals':
             self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
         self.data_plot.ticklabel_format(style='sci', scilimits=(-3,3), axis='both')                     
         self.fig.canvas.draw()
                
- 
-    def set_vlines(self, x_limits, x_outer_limits):
+    def set_vlines(self, x_limits=None):
+        x_outer_limits = self.data_plot.get_xlim()
+        if x_limits is None:
+            x_limits = cp.deepcopy(x_outer_limits)
+        if math.isclose(x_limits[0], x_limits[1]):
+            dx = abs((x_outer_limits[0] - x_limits[0]) / 2.0)
+            x_limits[0] = x_limits[0] - dx
+            x_limits[1] = x_limits[1] + dx
         self.vline0 = DraggableLine(self.data_plot.axvline(x_limits[0],
                                                            lw=1, 
                                                            ls='--', 
-                                                           color='k'), 
-                                    x_outer_limits)
+                                                           color='k'), x_outer_limits)
         self.vline1 = DraggableLine(self.data_plot.axvline(x_limits[1],
                                                            lw=1, 
                                                            ls='--', 
-                                                           color='k'), 
-                                    x_outer_limits)           
-
-    def remove_vlines(self):
-        self.vline0 = None
-        self.vline1 = None
+                                                           color='k'), x_outer_limits)  
+        self.fig.canvas.draw()         
         
+
 class NavigationToolbar(NavigationToolbar2QT):
                         
     def __init__(self, canvas_, parent_):

@@ -87,9 +87,9 @@
            <item>
             <widget class="QTextEdit" name="txt_description">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
+               <verstretch>1</verstretch>
               </sizepolicy>
              </property>
              <property name="sizeAdjustPolicy">
@@ -124,7 +124,7 @@
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
+               <verstretch>3</verstretch>
               </sizepolicy>
              </property>
             </widget>
@@ -153,7 +153,7 @@
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
                <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
+               <verstretch>3</verstretch>
               </sizepolicy>
              </property>
             </widget>
@@ -162,11 +162,34 @@
             <layout class="QHBoxLayout" name="horizontalLayout_3">
              <item>
               <widget class="QDialogButtonBox" name="bbox_fit">
-               <property name="layoutDirection">
-                <enum>Qt::RightToLeft</enum>
-               </property>
                <property name="standardButtons">
                 <set>QDialogButtonBox::NoButton</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="chk_global">
+               <property name="font">
+                <font>
+                 <family>Calibri</family>
+                 <pointsize>14</pointsize>
+                </font>
+               </property>
+               <property name="text">
+                <string>Global fit</string>
                </property>
               </widget>
              </item>

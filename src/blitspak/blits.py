@@ -14,18 +14,14 @@ from PyQt5 import QtWidgets as widgets
 from PyQt5 import QtGui as gui
 
 import pandas as pd, numpy as np, copy as cp
-import math
 
 
 from blitspak.blits_mpl import MplCanvas, NavigationToolbar
 from blitspak.blits_data import BlitsData
 from blitspak.function_dialog import FunctionSelectionDialog
 from blitspak.data_creation_dialog import DataCreationDialog
-#from blitspak.series_linkage_dialog import SeriesLinkageDialog
-from blitspak.crux_table_model import CruxTableModel
 from functions.framework import FunctionsFramework
 
-#import blitspak.blits_ui as ui
 from PyQt5.uic import loadUiType
 Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
@@ -81,13 +77,12 @@ class Main(QMainWindow, Ui_MainWindow):
         self.btn_est.setFont(ft)
         self.btn_apply = widgets.QPushButton("Apply")
         self.btn_apply.setFont(ft)
-        self.btn_fit = widgets.QPushButton("Fit selected series")
+        self.btn_fit = widgets.QPushButton("Fit")
         self.btn_fit.setFont(ft)
-        self.bbox_fit.addButton(self.btn_fit, widgets.QDialogButtonBox.ActionRole)
         self.bbox_fit.addButton(self.btn_apply, widgets.QDialogButtonBox.ActionRole)
         self.bbox_fit.addButton(self.btn_est, widgets.QDialogButtonBox.ActionRole)
+        self.bbox_fit.addButton(self.btn_fit, widgets.QDialogButtonBox.ActionRole)
 
-        
         self.action_open.triggered.connect(self.on_open)
         self.action_create.triggered.connect(self.on_create)
         self.action_close.triggered.connect(self.on_close_data)
@@ -102,6 +97,8 @@ class Main(QMainWindow, Ui_MainWindow):
         self.btn_apply.clicked.connect(self.on_apply_current)
         self.btn_fit.clicked.connect(self.on_analyze)
         
+        self.chk_global.stateChanged.connect(self.on_global_changed)
+        
         self.blits_data = BlitsData()
         self.blits_fitted = BlitsData()
         self.blits_residuals = BlitsData()
@@ -109,27 +106,33 @@ class Main(QMainWindow, Ui_MainWindow):
         self.pn_fit_spec = None
         self.df_params_spec = None
         self.df_series_spec = None
+        self.df_xlimits = None
 
-        self.file_name = ""
-        self.file_path = ""
         self.current_xaxis = None
         self.axis_selector_buttons = None
         self.current_function = None
-        self.axes_limits = None
         
         self.current_state = self.START        
         self.update_controls()
         
-    def init_fit_spec(self):        
+    def init_fit_spec(self):      
+        self.df_xlimits = None  
         self.pn_fit_spec = None
         self.df_series_spec = None 
         self.df_params_spec = None
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
             series_names = self.blits_data.get_series_names()
             param_names = self.current_function.get_parameter_names()
+            axis_names = self.blits_data.get_axes_names()
+            
+            self.df_xlimits = pd.DataFrame(columns=['min', 'max'], index=axis_names)
+            mins, maxs = self.blits_data.series_extremes()
+            xmins, xmaxs = mins.iloc[:, :-1].min(axis=0), maxs.iloc[:, :-1].max(axis=0)
+            self.df_xlimits.loc[:, 'min'] = xmins
+            self.df_xlimits.loc[:, 'max'] = xmaxs
 
             self.pn_fit_spec = pd.Panel(major_axis=param_names, minor_axis=series_names, items=self.ps_types)
-            self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]] = 0.0
+            self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]] = 1.0
             self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED]] = qt.Qt.Unchecked
             
             self.df_series_spec = pd.DataFrame(index=series_names, columns=self.s_types)
@@ -142,9 +145,10 @@ class Main(QMainWindow, Ui_MainWindow):
                 cbx = widgets.QCheckBox()
                 cbx.setText("")
                 cbx.setToolTip("Uncheck to exclude from analysis")
-                cbx.setCheckState(int(self.df_series_spec.loc[sname, self.s_types[self.S_INCLUDED]])) # int() is necessary for the checkbox to recognise the type as valid (int64 isn't)
+                cbx.setCheckState(int(self.df_series_spec.loc[sname, self.s_types[self.S_INCLUDED]])) 
+                # int() is necessary for the checkbox to recognise the type as valid (int64 isn't)
                 self.df_series_spec.loc[sname, self.s_types[self.S_INCLUDE_CBOXES]] = cbx 
-                cbx.stateChanged.connect(self.on_select_series_changed)
+                cbx.stateChanged.connect(self.on_series_selected_changed)
                            
             for pname in param_names:
                 cb_lnk = widgets.QCheckBox()
@@ -159,10 +163,10 @@ class Main(QMainWindow, Ui_MainWindow):
                 cb_fix.setToolTip("Check to keep " + pname + " constant for all series")
                 cb_fix.stateChanged.connect(self.on_all_fixed_changed)
                 
-                self.df_params_spec.loc[pname, 'all_linked'] = cb_lnk.checkState()
-                self.df_params_spec.loc[pname, 'all_linked_cboxes'] = cb_lnk
-                self.df_params_spec.loc[pname, 'all_fixed'] = cb_fix.checkState()
-                self.df_params_spec.loc[pname, 'all_fixed_cboxes'] = cb_fix
+                self.df_params_spec.loc[pname, self.p_types[self.P_ALL_LINKED]] = int(cb_lnk.checkState())
+                self.df_params_spec.loc[pname, self.p_types[self.P_LINK_CBOXES]] = cb_lnk
+                self.df_params_spec.loc[pname, self.p_types[self.P_ALL_FIXED]] = int(cb_fix.checkState())
+                self.df_params_spec.loc[pname, self.p_types[self.P_FIX_CBOXES]] = cb_fix
                 
             for pname in param_names:      
                 for sname in series_names:
@@ -180,54 +184,67 @@ class Main(QMainWindow, Ui_MainWindow):
                     combo.setEditable(False)
                     combo.setCurrentText(sname)
                     combo.currentIndexChanged.connect(self.on_linkage_changed)
-
-                    sp_vals = [edt.text(), edt, cbx.checkState(), cbx, combo.currentText(), combo]
-                    for sp, val in zip(self.ps_types, sp_vals):
-                        self.pn_fit_spec.loc[sp, pname, sname] = val
+                    try:
+                        sp_vals = [float(edt.text()), edt, cbx.checkState(), cbx, combo.currentText(), combo]
+                        for sp, val in zip(self.ps_types, sp_vals):
+                            self.pn_fit_spec.loc[sp, pname, sname] = val
+                    except Exception as e:
+                        print(e)
                     
-
     def init_ui(self):
+        self.tbl_series_links.clear()
+        self.tbl_series_links.setRowCount(0)
+        self.tbl_series_links.setColumnCount(0)
+        self.tbl_param_values.clear()
+        self.tbl_param_values.setRowCount(0)
+        self.tbl_param_values.setColumnCount(0)
         if self.current_state not in (self.START, self.DATA_ONLY,): # there is a current function
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
             self.txt_description.setText(self.current_function.long_description)
         else:
             self.lbl_fn_name.setText("Selected function: None")
             self.txt_description.setText("")
-        if self.current_state not in (self.READY_FOR_FITTING, self.FITTED, ):
-            self.tbl_series_links.clear()
-            self.tbl_param_values.clear()
-        else:
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
             if self.pn_fit_spec is not None:
                 params = self.pn_fit_spec.major_axis.values
                 series = self.pn_fit_spec.minor_axis.values
+                colours = self.canvas.curve_colours
                 
-                ptbl_vheader = ["Fix all"]
-                ptbl_vheader.extend(series)
+                ptbl_vheader = [widgets.QTableWidgetItem("All")]
+                for sname in series:
+                    i = widgets.QTableWidgetItem(sname)
+                    i.setIcon(self.line_icon(colours[sname]))
+                    ptbl_vheader.extend([i])
+                self.tbl_param_values.setRowCount(len(ptbl_vheader))
+                for i in range(len(ptbl_vheader)):
+                    self.tbl_param_values.setVerticalHeaderItem(i, ptbl_vheader[i])
                 ptbl_hheader = ["Include"]
                 ptbl_hheader.extend(params)
-                ltbl_vheader = ["Link all"]
-                ltbl_vheader.extend(series)
-                ltbl_hheader = []
-                ltbl_hheader.extend(params)
-                
-                self.tbl_param_values.setRowCount(len(ptbl_vheader))
                 self.tbl_param_values.setColumnCount(len(ptbl_hheader))
-                self.tbl_series_links.setRowCount(len(ltbl_vheader))
-                self.tbl_series_links.setColumnCount(len(ltbl_hheader))            
-
                 self.tbl_param_values.setHorizontalHeaderLabels(ptbl_hheader)
-                self.tbl_param_values.setVerticalHeaderLabels(ptbl_vheader)  
+
+
+                ltbl_vheader = [widgets.QTableWidgetItem("All")]
+                for sname in series:
+                    i = widgets.QTableWidgetItem(sname)
+                    i.setIcon(self.line_icon(colours[sname]))
+                    ltbl_vheader .extend([i])
+                self.tbl_series_links.setRowCount(len(ltbl_vheader))
+                for i in range(len(ltbl_vheader )):
+                    self.tbl_series_links.setVerticalHeaderItem(i, ltbl_vheader[i])
+                ltbl_hheader = []
+                ltbl_hheader.extend(params)              
+                self.tbl_series_links.setColumnCount(len(ltbl_hheader))            
                 self.tbl_series_links.setHorizontalHeaderLabels(ltbl_hheader)
-                self.tbl_series_links.setVerticalHeaderLabels(ltbl_vheader) 
                                 
                 # create the parameter values table
                 vrange = range(len(ptbl_vheader)-len(series), len(ptbl_vheader))
                 hrange = range((len(ptbl_hheader)-len(params)), len(ptbl_hheader))
                 for sname, row in zip(series, vrange):
-                    w = self.centred_tablewidget(self.df_series_spec.loc[sname, 'included_cboxes'])
+                    w = self.centred_tablewidget(self.df_series_spec.loc[sname, self.s_types[self.S_INCLUDE_CBOXES]])
                     self.tbl_param_values.setCellWidget(row, 0, w)
                 for pname, col in zip(params, hrange):
-                    w = self.centred_tablewidget(self.df_params_spec.loc[pname, 'all_fixed_cboxes'])
+                    w = self.centred_tablewidget(self.df_params_spec.loc[pname, self.p_types[self.P_FIX_CBOXES]])
                     self.tbl_param_values.setCellWidget(0, col, w)
                 for sname, row in zip(series, vrange):
                     for pname, col in zip(params, hrange):
@@ -248,12 +265,13 @@ class Main(QMainWindow, Ui_MainWindow):
                 
                 self.tbl_param_values.resizeRowsToContents()
                 self.tbl_series_links.resizeRowsToContents()
+                self.on_global_changed()
 
     def on_all_fixed_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
             param, col = self.find_sender_index(self.df_params_spec)
             if param is not None:
-                checkstate = self.df_params_spec.loc[param, col].checkState()
+                checkstate = int(self.df_params_spec.loc[param, col].checkState())
                 self.df_params_spec.loc[param, self.p_types[self.P_ALL_FIXED]] = checkstate # synchronise with logical representation
                 self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED], param] = checkstate
                 self.update_param_vals_table()
@@ -273,24 +291,34 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_analyze(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-            fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
-            print(pd.DataFrame(fitted_params))
-            print(pd.DataFrame(sigmas))
-            print(pd.DataFrame(confidence_intervals))
-            print("Tolerance: " + str(tol))
-            
-            self.set_fitted_curves(fitted_params, 100)
-            self.set_residuals(fitted_params)
-            self.draw_current_data_set()
-            self.write_param_values_to_table(fitted_params)
-            self.current_state = self.FITTED
-            self.update_controls()
+            try:
+                params = self.current_function.parameters
+                series = self.get_selected_series_names()
+                fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
+                print(pd.DataFrame(fitted_params))
+                print(pd.DataFrame(sigmas))
+                print(pd.DataFrame(confidence_intervals))
+                print("Tolerance: " + str(tol))
+    
+                df_pars = pd.DataFrame(fitted_params.transpose(), index=params, columns=series)            
+                for pname, row in df_pars.iterrows():
+                    for sname, val in row.iteritems():
+                        self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
+                self.current_state = self.FITTED
+                self.on_apply_current()
+                self.update_controls()
+                self.update_param_vals_table()
+            except Exception as e:
+                print(e)
         pass
             
     def on_apply_current(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-            params = self.get_param_values_from_table(self.get_selected_series_names())
-            self.set_fitted_curves(params, 100)
+            selected_series = self.get_selected_series_names()
+            params = self.get_param_values_for_fitting(selected_series)
+            data = self.get_data_for_fitting(selected_series)
+            self.set_calculated_curves(data, params, 100)
+            self.set_residual_curves(data, params)
             self.draw_current_data_set()
         pass  
     
@@ -327,17 +355,34 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.init_fit_spec()
                 self.init_ui()
                 self.update_controls()
+            pass
+        pass
                 
     def on_estimate(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
             fn_p0 = self.current_function.p0
-            n_par = len(self.current_function.parameters)
-            data = self.get_data_for_fitting(self.get_selected_series_names())
+            params = self.current_function.parameters
+            series = self.get_selected_series_names()
+            n_par = len(params)
+            data = self.get_data_for_fitting(series)
             ffw = FunctionsFramework()
-            params = ffw.get_initial_param_estimates(data, fn_p0, n_par)
-            self.write_param_values_to_table(params)
-            self.draw_current_data_set()
+            values = ffw.get_initial_param_estimates(data, fn_p0, n_par).transpose()
+            df_pars = pd.DataFrame(values, index=params, columns=series)
+            try:
+                for pname, row in df_pars.iterrows():
+                    for sname, val in row.iteritems():
+                        self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
+            except Exception as e:
+                print(e)
+            self.update_param_vals_table()
+            self.on_apply_current()
         pass 
+    
+    def on_global_changed(self):
+        if self.chk_global.checkState() == qt.Qt.Checked:
+            self.tbl_series_links.setEnabled(True)
+        else:
+            self.tbl_series_links.setEnabled(False)
     
     def on_linkage_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
@@ -348,6 +393,8 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], param, series] = link
                 self.rationalise_groups(param)
                 self.update_linkage_table()
+            pass
+        pass
             
     def on_open(self):
         if self.current_state in (self.START, self.FUNCTION_ONLY, ):
@@ -378,7 +425,10 @@ class Main(QMainWindow, Ui_MainWindow):
             param, series = self.find_sender_index(df)
             if param is not None and series is not None:
                 param, series = self.find_sender_index(df)
-                self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED], param, series] = self.sender().checkState()
+                try:
+                    self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED], param, series] = int(self.sender().checkState())
+                except Exception as e:
+                    print(e)                
                     
     def on_param_val_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
@@ -387,16 +437,23 @@ class Main(QMainWindow, Ui_MainWindow):
             param, series = self.find_sender_index(df)
             if param is not None and series is not None:
                 param, series = self.find_sender_index(df)
-                self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], param, series] = self.sender().text()
+                try:
+                    self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], param, series] = float(self.sender().text())
+                except Exception as e:
+                    print(e)
         
-    def on_select_series_changed(self):
+    def on_series_selected_changed(self):
         if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
             series, col = None, None
             series, col = self.find_sender_index(self.df_series_spec)
             if series is not None:
-                checkstate = self.df_series_spec.loc[series, col].checkState()
-                self.df_params_spec.loc[series, self.s_types[self.S_INCLUDED]] = checkstate # synchronise with logical representation
-    
+                try:
+                    checkstate = self.df_series_spec.loc[series, col].checkState()
+                    self.df_series_spec.loc[series, self.s_types[self.S_INCLUDED]] = int(checkstate) 
+                    # synchronise with logical representation; int is necessary to make sure Qt recognises it (won't recognise int64 (??))
+                except Exception as e:
+                    print(e)
+                    
     def on_save(self):
         file_path = ""
         if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, ):
@@ -425,55 +482,64 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.current_state = self.FUNCTION_ONLY
                 else:
                     self.current_state = self.READY_FOR_FITTING
-                self.draw_current_data_set() # is this necessary?
                 self.init_fit_spec()
                 self.init_ui()
+                self.draw_current_data_set()
                 self.update_controls()
     
-    def on_xaxis_state_changed(self, checked):
-        btn = self.sender()
-        xaxis = btn.text()
-        if btn.isChecked():
-            self.current_xaxis = xaxis
-            self.draw_current_data_set()   
-            
+    def on_xaxis_changed(self, checked):
+        if self.current_state not in (self.START, self.FUNCTION_ONLY, ):
+            btn = self.sender()
+            xaxis = btn.text()
+            if btn.isChecked():
+                self.preserve_xlimits()
+                self.current_xaxis = xaxis
+                self.draw_current_data_set() 
+                
     def draw_current_data_set(self):
         self.canvas.clear_plots() 
-        if self.blits_data.has_data():
-            self.canvas.set_colours(self.blits_data.series_names.tolist())
-            for key in self.blits_data.series_names:
-                series = self.blits_data.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'primary')
-        if self.blits_fitted.has_data():
-            for key in self.blits_fitted.series_names:
-                series = self.blits_fitted.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'calculated')
-        if self.blits_residuals.has_data():
-            for key in self.blits_residuals.series_names:
-                series = self.blits_residuals.series_dict[key]
-                x = series[self.current_xaxis] 
-                y = series[key] 
-                self.canvas.draw_series(key, x, y, 'residuals')
+        if self.current_state not in (self.START, self.FUNCTION_ONLY, ):
+            if self.blits_data.has_data():
+                self.canvas.set_colours(self.blits_data.series_names.tolist())
+                for key in self.blits_data.series_names:
+                    series = self.blits_data.series_dict[key]
+                    x = series[self.current_xaxis] 
+                    y = series[key] 
+                    self.canvas.draw_series(key, x, y, 'primary')
+            if self.blits_fitted.has_data():
+                for key in self.blits_fitted.series_names:
+                    series = self.blits_fitted.series_dict[key]
+                    x = series[self.current_xaxis] 
+                    y = series[key] 
+                    self.canvas.draw_series(key, x, y, 'calculated')
+            if self.blits_residuals.has_data():
+                for key in self.blits_residuals.series_names:
+                    series = self.blits_residuals.series_dict[key]
+                    x = series[self.current_xaxis] 
+                    y = series[key] 
+                    self.canvas.draw_series(key, x, y, 'residuals')
+            if self.df_xlimits is not None:
+                self.canvas.set_vlines(self.df_xlimits.loc[self.current_xaxis].as_matrix())
+                
             
-    def get_constant_params_from_table(self, series_names):
+    def get_constant_params_for_fitting(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array of Boolean values 
         (with rows and columns parallel to self.series_names and self.current_function.parameters, 
         respectively) with values for each parameter for each series); if True, 
         parameter values is constant, if False, parameter value is variable.
         """
-        return cp.deepcopy(self.parameters_model.df_checks)[series_names].as_matrix().transpose()
+        selected = (self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED], :, series_names] == qt.Qt.Checked).transpose()
+        return selected.as_matrix()
         
     def get_data_for_fitting(self, series_names):
         data = []
-        mins, maxs = self.blits_data.series_extremes()
-        x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-                          maxs.loc[:, self.current_xaxis].max())
-        start, stop = x_outer_limits
+        self.preserve_xlimits()
+        start, stop = self.df_xlimits.loc[self.current_xaxis].as_matrix() # self.canvas.get_vline_positions()
+#         mins, maxs = self.blits_data.series_extremes()
+#         x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
+#                           maxs.loc[:, self.current_xaxis].max())
+#         start, stop = x_outer_limits
         for s in series_names:
             series = self.blits_data.series_dict[s] # the full data set
             indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
@@ -484,22 +550,26 @@ class Main(QMainWindow, Ui_MainWindow):
                 data.append(selection)
         return data
         
-    def get_param_values_from_table(self, series_names):
+    def get_param_values_for_fitting(self, series_names):
         """
         Returns an (n_curves, n_params)-shaped array (with rows and columns 
         parallel to self.series_names and self.current_function.parameters, 
         respectively) with values for each parameter for each series).  
         """
-        return cp.deepcopy(self.parameters_model.df_data)[series_names].as_matrix().transpose()
+        selected = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], :, series_names]
+        params = selected.as_matrix().transpose()
+        return params
 
     def get_selected_series_names(self):
-        cols = cp.deepcopy(self.parameters_model.df_data.columns)
-        return cols.tolist()
-
-    def get_linked_params_from_table(self, series_names):
         """
-        STILL TO BE IMPLEMENTED
-        
+        Returns a numpy array of the selected series names
+        """
+        selected = self.df_series_spec.loc[:, self.s_types[self.S_INCLUDED]] == qt.Qt.Checked
+        all_series = self.df_series_spec.index.values
+        return all_series[selected]
+
+    def get_series_linkage_for_fitting(self, series_names):
+        """
         Returns an (n_curves, n_params)-shaped array (with rows and columns parallel to 
         self.series_names and self.current_function.parameters, respectively)
         of integers, in which linked parameters are grouped by their values.
@@ -514,46 +584,36 @@ class Main(QMainWindow, Ui_MainWindow):
         and that the value for p1 is the same in all curves, whereas
         the value of p2 is different for all curves. 
         """
-        shape = self.parameters_model.df_data.shape
-        
-        links_array = np.arange(shape[0] * shape[1]).reshape((shape[0], shape[1])).transpose()
-        return links_array
+        selected = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], :, series_names].transpose()
+        links_array = cp.deepcopy(selected)
+        for series, row in selected.iterrows():
+            for param, txt in row.iteritems():
+                links_array.loc[series, param] = param + "_" + txt
+        return links_array.as_matrix()
          
-    def is_number(self, s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False  
-        
-    def line_icon(self, color):
-        pixmap = gui.QPixmap(50,10)
-        pixmap.fill(gui.QColor(color))
-        icon = gui.QIcon(pixmap)
-        return icon  
-    
     def perform_fit(self):
+        # Collect the required information
         func = self.current_function.func
-        series_names = self.get_selected_series_names()
+        series_names = self.get_selected_series_names()  
         data = self.get_data_for_fitting(series_names)
-        param_values = self.get_param_values_from_table(series_names)
-        const_params = self.get_constant_params_from_table(series_names)             
-        links = self.get_linked_params_from_table(series_names)
+        param_values = self.get_param_values_for_fitting(series_names)
+        const_params = self.get_constant_params_for_fitting(series_names)  
+        links = self.get_series_linkage_for_fitting(series_names)
+        # set up for the fitting procedure
         fitted_params = cp.deepcopy(param_values)
         sigmas = np.empty_like(fitted_params)
         confidence_intervals = np.empty_like(fitted_params)
         tol = None
         results = None  
         ffw = FunctionsFramework()
-        self.globalfit = False
-        if self.globalfit == True: #self.chk_global.checkState() == qt.Qt.Checked:
-            links = self.series_linkage_dialog.get_unique_params_matrix().as_matrix()
+        # Do the fit
+        if self.chk_global.checkState() == qt.Qt.Checked: # Global
             results = ffw.perform_global_curve_fit(data, func, param_values, const_params, links)
             fitted_params = results[0]
             sigmas = results[1]
             confidence_intervals = results[2]
             tol = results[3]
-        else:
+        else: # not global)
             tol = []
             n = 0
             for d, p, c, l in zip(data, param_values, const_params, links):
@@ -569,6 +629,13 @@ class Main(QMainWindow, Ui_MainWindow):
                 n += 1
         return fitted_params, sigmas, confidence_intervals, tol      
 
+    def preserve_xlimits(self):
+        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+            if self.df_xlimits is not None: # its shouldn't be, but just to be sure
+                self.df_xlimits.loc[self.current_xaxis] = self.canvas.get_vline_positions() 
+        else:
+            self.df_xlimits = None     # probably superfluous as well   
+            
     def set_axis_selector(self):
         self.axis_selector_buttons = {}
         self.clearLayout(self.axis_layout)
@@ -577,7 +644,7 @@ class Main(QMainWindow, Ui_MainWindow):
             for name in self.blits_data.get_axes_names():
                 btn = widgets.QRadioButton()
                 btn.setText(name)
-                btn.toggled.connect(self.on_xaxis_state_changed)
+                btn.toggled.connect(self.on_xaxis_changed)
                 self.axis_layout.addWidget(btn)
                 self.axis_selector_buttons[btn.text()] = btn
             self.axis_layout.addStretch()  
@@ -585,7 +652,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 if self.current_xaxis in self.axis_selector_buttons:
                     self.axis_selector_buttons[self.current_xaxis].setChecked(True)
                 
-    def set_fitted_curves(self, params, n_points):
+    def set_calculated_curves(self, data, params, n_points):
         mins, maxs = self.blits_data.series_extremes()
         series_names = mins.index
         axes_names = mins.columns
@@ -610,7 +677,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
         self.blits_fitted.series_dict = series_dict
                 
-    def set_residuals(self, params):
+    def set_residual_curves(self, data, params):
         series_names = self.get_selected_series_names()
         data = self.get_data_for_fitting(series_names)
         axes = self.blits_data.get_axes_names()
@@ -745,24 +812,28 @@ class Main(QMainWindow, Ui_MainWindow):
             cbxs = self.pn_fit_spec.loc[self.ps_types[self.PS_FIX_CBOXES]]
             vals = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]]
             chks = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUE_FIXED]]
-            for i, row in vals.iterrows():
-                for j, val in row.iteritems():
-                    edt = edts.loc[i, j]
-                    cbx = cbxs.loc[i, j]
-                    checkstate = chks.loc[i, j]
-                    if edt.text() != val:
-                        edt.textChanged.disconnect()
-                        edt.setText(val)
-                        edt.textChanged.connect(self.on_param_val_changed)
-                    if  cbx.checkState() != checkstate:
-                        cbx.stateChanged.disconnect()
-                        cbx.setCheckState(qt.Qt.Unchecked)
-                        if checkstate == qt.Qt.Checked:
-                            cbx.setCheckState(qt.Qt.Checked)
-                        cbx.stateChanged.connect(self.on_param_fix_changed)
-                        
+            try:
+                for i, row in vals.iterrows():
+                    for j, val in row.iteritems():
+                        edt = edts.loc[i, j]
+                        cbx = cbxs.loc[i, j]
+                        checkstate = chks.loc[i, j]
+                        if float(edt.text()) != val:
+                            edt.textChanged.disconnect()
+                            edt.setText('{:.3g}'.format(val))
+                            edt.textChanged.connect(self.on_param_val_changed)
+                        if  cbx.checkState() != checkstate:
+                            cbx.stateChanged.disconnect()
+                            cbx.setCheckState(qt.Qt.Unchecked)
+                            if checkstate == qt.Qt.Checked:
+                                cbx.setCheckState(qt.Qt.Checked)
+                            cbx.stateChanged.connect(self.on_param_fix_changed)
+            except Exception as e:
+                print(e)
+                
     def write_param_values_to_table(self, param_values):
-        self.parameters_model.change_content(param_values.transpose())
+        pass
+        #self.parameters_model.change_content(param_values.transpose())
         #self.parameters_model.df_data[:] = param_values.transpose()
         #self.tbl_params.resizeColumnsToContents() # This redraws the table (necessary)
 
@@ -797,22 +868,38 @@ class Main(QMainWindow, Ui_MainWindow):
                     sender_j = j
         return sender_i, sender_j
     
+    def centred_tablewidget(self, qtwidget):
+        wid = widgets.QWidget()
+        hlo = widgets.QVBoxLayout()
+        hlo.setContentsMargins(12, 0, 12, 0)
+        hlo.setAlignment(qt.Qt.AlignCenter)
+        wid.setLayout(hlo)
+        hlo.addWidget(qtwidget)
+        return wid            
+
     def checkable_edit_widget(self, checkbox, textbox):
         wid = widgets.QWidget()
         hlo = widgets.QHBoxLayout()
+        hlo.setContentsMargins(12, 0, 12, 0)
         wid.setLayout(hlo)
         hlo.addWidget(textbox)
         hlo.addStretch()
         hlo.addWidget(checkbox)
         return wid
             
-    def centred_tablewidget(self, qtwidget):
-        wid = widgets.QWidget()
-        hlo = widgets.QVBoxLayout()
-        hlo.setAlignment(qt.Qt.AlignCenter)
-        wid.setLayout(hlo)
-        hlo.addWidget(qtwidget)
-        return wid            
+    def is_number(self, s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False  
+        
+    def line_icon(self, color):
+        pixmap = gui.QPixmap(50,10)
+        pixmap.fill(gui.QColor(color))
+        icon = gui.QIcon(pixmap)
+        return icon  
+    
 
 
 # Standard main loop code
@@ -855,22 +942,7 @@ if __name__ == '__main__':
 #                 x_limits = (xmax, xmin)
 #             self.canvas.set_vlines(x_limits, x_outer_limits)
 
-
-#     def preserve_vlines(self):
-#         if self.blits_data.has_data():
-#             mins, maxs = self.blits_data.series_extremes()
-#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-#                               maxs.loc[:, self.current_xaxis].max())
-#             x_limits = cp.deepcopy(x_outer_limits)
-#             self.axes_limits.loc[self.current_xaxis, 'subsection'] = False
-#             if self.canvas.has_vertical_lines():
-#                 x_limits = (self.canvas.vline0.get_x(), 
-#                             self.canvas.vline1.get_x())
-#                 self.axes_limits.loc[self.current_xaxis, 'subsection'] = True
-#             self.axes_limits.loc[self.current_xaxis, 'inner'] = x_limits
-#             self.axes_limits.loc[self.current_xaxis, 'outer'] = x_outer_limits
-#         else:
-#             self.axes_limits = None        
+    
             
 
 
