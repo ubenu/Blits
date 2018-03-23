@@ -38,8 +38,8 @@ Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
 
 class Main(QMainWindow, Ui_MainWindow):
     
-    N_STATES = 6
-    START, DATA_ONLY, FUNCTION_ONLY, READY_FOR_FITTING, FITTED, REJECT = range(N_STATES)
+    N_STATES = 5
+    ST_START, ST_DATA_ONLY, FUNCTION_ONLY, ST_READY, REJECT = range(N_STATES)
     
     N_PS_SPECTYPES = 6
     PS_VALUES, PS_LEDITS, PS_VALUE_FIXED, PS_FIX_CBOXES, PS_GROUPS, PS_COMBOS = range(N_PS_SPECTYPES)
@@ -75,7 +75,7 @@ class Main(QMainWindow, Ui_MainWindow):
         ft = gui.QFont('Calibri', 14)
         self.btn_est = widgets.QPushButton("Estimate")
         self.btn_est.setFont(ft)
-        self.btn_apply = widgets.QPushButton("Apply")
+        self.btn_apply = widgets.QPushButton("Calculate")
         self.btn_apply.setFont(ft)
         self.btn_fit = widgets.QPushButton("Fit")
         self.btn_fit.setFont(ft)
@@ -90,11 +90,11 @@ class Main(QMainWindow, Ui_MainWindow):
         self.action_select_function.triggered.connect(self.on_select_function)
         self.action_analyze.triggered.connect(self.on_analyze)
         self.action_quit.triggered.connect(self.close) 
-        self.action_apply.triggered.connect(self.on_apply_current) 
+        self.action_apply.triggered.connect(self.on_calculate) 
         self.action_estimate.triggered.connect(self.on_estimate) 
 
         self.btn_est.clicked.connect(self.on_estimate)
-        self.btn_apply.clicked.connect(self.on_apply_current)
+        self.btn_apply.clicked.connect(self.on_calculate)
         self.btn_fit.clicked.connect(self.on_analyze)
         
         self.chk_global.stateChanged.connect(self.on_global_changed)
@@ -112,7 +112,10 @@ class Main(QMainWindow, Ui_MainWindow):
         self.axis_selector_buttons = None
         self.current_function = None
         
-        self.current_state = self.START        
+        self.nfitted_points = 100
+        self.npoints_max = 1000
+        
+        self.current_state = self.ST_START        
         self.update_controls()
         
     def init_fit_spec(self):      
@@ -120,7 +123,7 @@ class Main(QMainWindow, Ui_MainWindow):
         self.pn_fit_spec = None
         self.df_series_spec = None 
         self.df_params_spec = None
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             series_names = self.blits_data.get_series_names()
             param_names = self.current_function.get_parameter_names()
             axis_names = self.blits_data.get_axes_names()
@@ -198,13 +201,13 @@ class Main(QMainWindow, Ui_MainWindow):
         self.tbl_param_values.clear()
         self.tbl_param_values.setRowCount(0)
         self.tbl_param_values.setColumnCount(0)
-        if self.current_state not in (self.START, self.DATA_ONLY,): # there is a current function
+        if self.current_state not in (self.ST_START, self.ST_DATA_ONLY,): # there is a current function
             self.lbl_fn_name.setText("Selected function: " + self.current_function.name)
             self.txt_description.setText(self.current_function.long_description)
         else:
             self.lbl_fn_name.setText("Selected function: None")
             self.txt_description.setText("")
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             if self.pn_fit_spec is not None:
                 params = self.pn_fit_spec.major_axis.values
                 series = self.pn_fit_spec.minor_axis.values
@@ -268,7 +271,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.on_global_changed()
 
     def on_all_fixed_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             param, col = self.find_sender_index(self.df_params_spec)
             if param is not None:
                 checkstate = int(self.df_params_spec.loc[param, col].checkState())
@@ -277,7 +280,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.update_param_vals_table()
 
     def on_all_linked_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             param, col = self.find_sender_index(self.df_params_spec)
             if param is not None:
                 checkstate = self.df_params_spec.loc[param, col].checkState()
@@ -290,7 +293,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.update_linkage_table()
             
     def on_analyze(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+        if self.current_state in (self.ST_READY, ):
             try:
                 params = self.current_function.parameters
                 series = self.get_selected_series_names()
@@ -304,26 +307,23 @@ class Main(QMainWindow, Ui_MainWindow):
                 for pname, row in df_pars.iterrows():
                     for sname, val in row.iteritems():
                         self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
-                self.current_state = self.FITTED
-                self.on_apply_current()
+                self.current_state = self.ST_READY # remains the same
+                self.on_calculate()
                 self.update_controls()
                 self.update_param_vals_table()
             except Exception as e:
                 print(e)
         pass
             
-    def on_apply_current(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
-            selected_series = self.get_selected_series_names()
-            params = self.get_param_values_for_fitting(selected_series)
-            data = self.get_data_for_fitting(selected_series)
-            self.set_calculated_curves(data, params, 100)
-            self.set_residual_curves(data, params)
+    def on_calculate(self):
+        if self.current_state in (self.ST_READY, ):
+            self.set_calculated_curves()
+            self.set_residual_curves()
             self.draw_current_data_set()
         pass  
     
     def on_close_data(self):
-        if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_DATA_ONLY, self.ST_READY, ):
             self.current_xaxis = None
             self.set_axis_selector()
             self.canvas.clear_plots()
@@ -332,8 +332,8 @@ class Main(QMainWindow, Ui_MainWindow):
             self.blits_fitted = BlitsData()
             self.blits_residuals = BlitsData()
             
-            if self.current_state == self.DATA_ONLY:
-                self.current_state = self.START
+            if self.current_state == self.ST_DATA_ONLY:
+                self.current_state = self.ST_START
             else:
                 self.current_state = self.FUNCTION_ONLY
                 
@@ -349,7 +349,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 template = self.create_data_set_dialog.template
                 self.set_parameters_table(template[1])
                 self.blits_data.create_working_data_from_template(template)
-                self.current_state = self.READY_FOR_FITTING
+                self.current_state = self.ST_READY
                 self.current_xaxis = self.blits_data.get_axes_names()[0]
                 self.set_axis_selector()
                 self.init_fit_spec()
@@ -359,14 +359,14 @@ class Main(QMainWindow, Ui_MainWindow):
         pass
                 
     def on_estimate(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED):
+        if self.current_state in (self.ST_READY, ):
             fn_p0 = self.current_function.p0
             params = self.current_function.parameters
             series = self.get_selected_series_names()
-            n_par = len(params)
             data = self.get_data_for_fitting(series)
             ffw = FunctionsFramework()
-            values = ffw.get_initial_param_estimates(data, fn_p0, n_par).transpose()
+#             n_par = len(params)
+            values = ffw.get_initial_param_estimates(data, fn_p0, len(params)).transpose()
             df_pars = pd.DataFrame(values, index=params, columns=series)
             try:
                 for pname, row in df_pars.iterrows():
@@ -375,7 +375,7 @@ class Main(QMainWindow, Ui_MainWindow):
             except Exception as e:
                 print(e)
             self.update_param_vals_table()
-            self.on_apply_current()
+            self.on_calculate()
         pass 
     
     def on_global_changed(self):
@@ -385,7 +385,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.tbl_series_links.setEnabled(False)
     
     def on_linkage_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             df = self.pn_fit_spec.loc[self.ps_types[self.PS_COMBOS]]
             param, series = self.find_sender_index(df)
             if param is not None and series is not None:
@@ -397,29 +397,30 @@ class Main(QMainWindow, Ui_MainWindow):
         pass
             
     def on_open(self):
-        if self.current_state in (self.START, self.FUNCTION_ONLY, ):
+        if self.current_state in (self.ST_START, self.FUNCTION_ONLY, ):
             file_path = widgets.QFileDialog.getOpenFileName(self, 
             "Open Data File", "", "CSV data files (*.csv);;All files (*.*)")[0]
             if file_path:
                 self.blits_data.import_data(file_path)
                 axes = self.blits_data.get_axes_names() #cp.deepcopy(self.blits_data.get_axes_names())
                 self.current_xaxis = axes[0] #self.blits_data.get_axes_names()[0]
-                if self.current_state == self.START:
-                    self.current_state = self.DATA_ONLY
+                if self.current_state == self.ST_START:
+                    self.current_state = self.ST_DATA_ONLY
                 else:
                     if len(self.current_function.independents) <= len(axes):
-                        self.current_state = self.READY_FOR_FITTING
+                        self.current_state = self.ST_READY
                     else:
                         self.current_function = None
-                        self.current_state = self.DATA_ONLY
+                        self.current_state = self.ST_DATA_ONLY
                         
                 self.set_axis_selector()
                 self.init_fit_spec()
                 self.init_ui()
                 self.update_controls()
+                self.on_select_function()
                     
     def on_param_fix_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             param, series = None, None
             df = self.pn_fit_spec.loc[self.ps_types[self.PS_FIX_CBOXES]]
             param, series = self.find_sender_index(df)
@@ -431,7 +432,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     print(e)                
                     
     def on_param_val_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             param, series = None, None
             df = self.pn_fit_spec.loc[self.ps_types[self.PS_LEDITS]]
             param, series = self.find_sender_index(df)
@@ -443,7 +444,7 @@ class Main(QMainWindow, Ui_MainWindow):
                     print(e)
         
     def on_series_selected_changed(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             series, col = None, None
             series, col = self.find_sender_index(self.df_series_spec)
             if series is not None:
@@ -456,12 +457,9 @@ class Main(QMainWindow, Ui_MainWindow):
                     
     def on_save(self):
         file_path = ""
-        if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, ):
+        if self.current_state in (self.ST_READY, ):
             file_path = widgets.QFileDialog.getSaveFileName(self, 
-            "Save data", "", "CSV data files (*.csv);;All files (*.*)")[0]
-        if self.current_state in (self.FITTED, ):
-            file_path = widgets.QFileDialog.getSaveFileName(self, 
-            "Save results", "", "CSV data files (*.csv);;All files (*.*)")[0]
+            "Save all", "", "CSV data files (*.csv);;All files (*.*)")[0]
         if file_path:
 #             self.blits_data.export_results(file_path)
             pass
@@ -469,26 +467,26 @@ class Main(QMainWindow, Ui_MainWindow):
     def on_select_function(self):
         if self.current_state in range(self.N_STATES):  # should work from all states
             name, n_axes = "", np.inf
-            if not self.current_state in (self.START, self.DATA_ONLY):  # a current function exists
+            if not self.current_state in (self.ST_START, self.ST_DATA_ONLY):  # a current function exists
                 name = self.current_function.name
-            if self.current_state in (self.DATA_ONLY, self.READY_FOR_FITTING, self.FITTED):
+            if self.current_state in (self.ST_DATA_ONLY, self.ST_READY, ):
                 n_axes = len(self.blits_data.get_axes_names())
             self.function_dialog = FunctionSelectionDialog(self, n_axes=n_axes, selected_fn_name=name)
             if self.function_dialog.exec() == widgets.QDialog.Accepted:
                 self.current_function = self.function_dialog.get_selected_function()
                 self.blits_fitted = BlitsData()
                 self.blits_residuals = BlitsData()
-                if self.current_state in (self.START, self.FUNCTION_ONLY):
+                if self.current_state in (self.ST_START, self.FUNCTION_ONLY):
                     self.current_state = self.FUNCTION_ONLY
                 else:
-                    self.current_state = self.READY_FOR_FITTING
+                    self.current_state = self.ST_READY
                 self.init_fit_spec()
                 self.init_ui()
                 self.draw_current_data_set()
                 self.update_controls()
     
     def on_xaxis_changed(self, checked):
-        if self.current_state not in (self.START, self.FUNCTION_ONLY, ):
+        if self.current_state not in (self.ST_START, self.FUNCTION_ONLY, ):
             btn = self.sender()
             xaxis = btn.text()
             if btn.isChecked():
@@ -498,7 +496,7 @@ class Main(QMainWindow, Ui_MainWindow):
                 
     def draw_current_data_set(self):
         self.canvas.clear_plots() 
-        if self.current_state not in (self.START, self.FUNCTION_ONLY, ):
+        if self.current_state not in (self.ST_START, self.FUNCTION_ONLY, ):
             if self.blits_data.has_data():
                 self.canvas.set_colours(self.blits_data.series_names.tolist())
                 for key in self.blits_data.series_names:
@@ -536,13 +534,10 @@ class Main(QMainWindow, Ui_MainWindow):
         data = []
         self.preserve_xlimits()
         start, stop = self.df_xlimits.loc[self.current_xaxis].as_matrix() # self.canvas.get_vline_positions()
-#         mins, maxs = self.blits_data.series_extremes()
-#         x_outer_limits = (mins.loc[:, self.current_xaxis].min(), 
-#                           maxs.loc[:, self.current_xaxis].max())
-#         start, stop = x_outer_limits
         for s in series_names:
             series = self.blits_data.series_dict[s] # the full data set
-            indmin, indmax = np.searchsorted(series[self.current_xaxis],(start, stop))
+            indmin = series[self.current_xaxis].searchsorted(start, side='left')[0]
+            indmax = series[self.current_xaxis].searchsorted(stop, side='right')[0]
             selection = cp.deepcopy(series[indmin:indmax]).as_matrix().transpose()
             if len(data) == 0:
                 data = [selection]
@@ -630,7 +625,7 @@ class Main(QMainWindow, Ui_MainWindow):
         return fitted_params, sigmas, confidence_intervals, tol      
 
     def preserve_xlimits(self):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             if self.df_xlimits is not None: # its shouldn't be, but just to be sure
                 self.df_xlimits.loc[self.current_xaxis] = self.canvas.get_vline_positions() 
         else:
@@ -652,37 +647,56 @@ class Main(QMainWindow, Ui_MainWindow):
                 if self.current_xaxis in self.axis_selector_buttons:
                     self.axis_selector_buttons[self.current_xaxis].setChecked(True)
                 
-    def set_calculated_curves(self, data, params, n_points):
-        mins, maxs = self.blits_data.series_extremes()
-        series_names = mins.index
-        axes_names = mins.columns
-        min_xs, max_xs = mins.iloc[:, :-1].as_matrix(), maxs.iloc[:, :-1].as_matrix()
-        series_dict = {}
-        for series_name, xmin, xmax, series_params in zip(series_names, min_xs, max_xs, params):
-            df_data = pd.DataFrame(index=[], columns=range(n_points))
-            # create values for the independent axes (shape (n_independents, n_points))
-            for v_start, v_end in zip(xmin, xmax):
-                x = pd.DataFrame(np.linspace(v_start, v_end, n_points)).transpose()
-                df_data = pd.concat((df_data, x))
-            x = df_data.as_matrix()
-            # create the y values and put them in a DataFrame, transpose for easy concatenation
-            y = pd.DataFrame(self.current_function.func(x, series_params)).transpose()
-            df_data = pd.concat((df_data, y))
-            l_axes_names = axes_names.tolist()[:-1]
-            l_axes_names.append(series_name)
-            df_data.index = l_axes_names
-            series_dict[series_name] = df_data.transpose()
-        self.blits_fitted = BlitsData()
-        self.blits_fitted.series_names = np.array(series_names.tolist())
-        self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
-        self.blits_fitted.series_dict = series_dict
-                
-    def set_residual_curves(self, data, params):
-        series_names = self.get_selected_series_names()
-        data = self.get_data_for_fitting(series_names)
+    def set_calculated_curves(self):
+        selected_series = self.get_selected_series_names()
+        params = self.get_param_values_for_fitting(selected_series)
+        data = self.get_data_for_fitting(selected_series)
         axes = self.blits_data.get_axes_names()
+
         series_dict = {}
-        for series_name, series_params, i in zip(series_names, params, range(len(series_names))):
+        for series_name, series_params, i in zip(selected_series, params, range(len(selected_series))):
+            x = data[i][:-1]
+#             y_obs = data[i][-1]
+            y_fit = np.atleast_2d(self.current_function.func(x, series_params))
+#            y_res = np.atleast_2d(y_obs - y_fit)
+            # create the y values and put them in a DataFrame, transpose for easy concatenation
+            df_x = pd.DataFrame(x, index=axes)
+            df_y = pd.DataFrame(y_fit, index=[series_name])
+            df_data = pd.concat((df_x, df_y)).transpose()
+            series_dict[series_name] = df_data
+        self.blits_fitted = BlitsData()
+        self.blits_fitted.series_names= np.array(selected_series)
+        self.blits_fitted.axis_names = cp.deepcopy(axes)
+        self.blits_fitted.series_dict = series_dict
+
+        
+#         for series_name, xmin, xmax, series_params in zip(selected_series, min_xs, max_xs, params):
+#             df_data = pd.DataFrame(index=[], columns=range(n_points))
+#             # create values for the independent axes (shape (n_independents, n_points))
+#             for v_start, v_end in zip(xmin, xmax):
+#                 x = pd.DataFrame(np.linspace(v_start, v_end, n_points)).transpose()
+#                 df_data = pd.concat((df_data, x))
+#             x = df_data.as_matrix()
+#             # create the y values and put them in a DataFrame, transpose for easy concatenation
+#             y = pd.DataFrame(self.current_function.func(x, series_params)).transpose()
+#             df_data = pd.concat((df_data, y))
+#             l_axes_names = axes_names.tolist()[:-1]
+#             l_axes_names.append(series_name)
+#             df_data.index = l_axes_names
+#             series_dict[series_name] = df_data.transpose()
+#         self.blits_fitted = BlitsData()
+#         self.blits_fitted.selected_series = np.array(selected_series.tolist())
+#         self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
+#         self.blits_fitted.series_dict = series_dict
+                
+    def set_residual_curves(self):
+        selected_series = self.get_selected_series_names()
+        params = self.get_param_values_for_fitting(selected_series)
+        data = self.get_data_for_fitting(selected_series)
+        axes = self.blits_data.get_axes_names()
+        
+        series_dict = {}
+        for series_name, series_params, i in zip(selected_series, params, range(len(selected_series))):
             x = data[i][:-1]
             y_obs = data[i][-1]
             y_fit = self.current_function.func(x, series_params)
@@ -693,12 +707,12 @@ class Main(QMainWindow, Ui_MainWindow):
             df_data = pd.concat((df_x, df_y)).transpose()
             series_dict[series_name] = df_data
         self.blits_residuals = BlitsData()
-        self.blits_residuals.series_names = np.array(series_names)
-        self.blits_residuals.independent_names = cp.deepcopy(axes)
+        self.blits_residuals.series_names = np.array(selected_series)
+        self.blits_residuals.axis_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
         
     def rationalise_groups(self, parameter):
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ) and parameter != '':
+        if self.current_state in (self.ST_READY, ) and parameter != '':
             prow = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], parameter]
             x = prow.index
             df_wf = pd.DataFrame(np.zeros((len(x), len(x))), index=x, columns=x, dtype=bool) # set up the matrix
@@ -729,7 +743,7 @@ class Main(QMainWindow, Ui_MainWindow):
         """
         Enables and disables controls for each state
         """
-        if self.current_state == self.START:
+        if self.current_state == self.ST_START:
             self.action_open.setEnabled(True)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(False)
@@ -740,7 +754,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True)
-        elif self.current_state == self.DATA_ONLY:
+        elif self.current_state == self.ST_DATA_ONLY:
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -762,7 +776,7 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(False)
             self.btn_est.setEnabled(False)
             self.action_quit.setEnabled(True) 
-        elif self.current_state == self.READY_FOR_FITTING:
+        elif self.current_state == self.ST_READY:
             self.action_open.setEnabled(False)
             self.action_create.setEnabled(False)
             self.action_close.setEnabled(True)
@@ -773,17 +787,6 @@ class Main(QMainWindow, Ui_MainWindow):
             self.btn_fit.setEnabled(True)
             self.btn_est.setEnabled(True)
             self.action_quit.setEnabled(True) 
-        elif self.current_state == self.FITTED:
-            self.action_open.setEnabled(False)
-            self.action_create.setEnabled(False)
-            self.action_close.setEnabled(True)
-            self.action_save.setEnabled(True)
-            self.action_select_function.setEnabled(True)
-            self.action_analyze.setEnabled(True)
-            self.btn_apply.setEnabled(True)
-            self.btn_fit.setEnabled(True)
-            self.btn_est.setEnabled(True)
-            self.action_quit.setEnabled(True)     
         else:
             print('Illegal state')
                                           
@@ -791,23 +794,26 @@ class Main(QMainWindow, Ui_MainWindow):
         """
         Sets combo-boxes in linkage_combos to the current values in linkage_groups        
         """
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             combos = self.pn_fit_spec.loc[self.ps_types[self.PS_COMBOS]]
             vals = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS]]
-            for i, row in vals.iterrows():
-                for j, val in row.iteritems():
-                    box = combos.loc[i, j]
-                    if box.currentText() != val:
-                        box.currentIndexChanged.disconnect()
-                        box.setCurrentText(val)
-                        box.currentIndexChanged.connect(self.on_linkage_changed)
+            try:
+                for i, row in vals.iterrows():
+                    for j, val in row.iteritems():
+                        box = combos.loc[i, j]
+                        if box.currentText() != val:
+                            box.currentIndexChanged.disconnect()
+                            box.setCurrentText(val)
+                            box.currentIndexChanged.connect(self.on_linkage_changed)
+            except Exception as e:
+                print(e)
                         
     def update_param_vals_table(self):
         """
         Sets text and checkstate of values table items to their corresponding 
         logical values in pn_fit_spec        
         """
-        if self.current_state in (self.READY_FOR_FITTING, self.FITTED, ):
+        if self.current_state in (self.ST_READY, ):
             edts = self.pn_fit_spec.loc[self.ps_types[self.PS_LEDITS]]
             cbxs = self.pn_fit_spec.loc[self.ps_types[self.PS_FIX_CBOXES]]
             vals = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]]
@@ -899,8 +905,6 @@ class Main(QMainWindow, Ui_MainWindow):
         pixmap.fill(gui.QColor(color))
         icon = gui.QIcon(pixmap)
         return icon  
-    
-
 
 # Standard main loop code
 

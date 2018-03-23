@@ -76,6 +76,8 @@ class MplCanvas(FigureCanvas):
         if self.has_vertical_lines():
             x0 = self.vline0.get_x()
             x1 = self.vline1.get_x()
+            if x1 < x0:
+                return np.array([x1, x0])
             return np.array([x0, x1])
         return None
             

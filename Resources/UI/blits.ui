@@ -130,13 +130,18 @@
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="label">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QDialogButtonBox" name="bbox_fit">
+               <property name="standardButtons">
+                <set>QDialogButtonBox::NoButton</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_global">
              <property name="font">
               <font>
                <family>Calibri</family>
@@ -144,7 +149,7 @@
               </font>
              </property>
              <property name="text">
-              <string>Parameter sharing</string>
+              <string>Share parameters between curves (perform global fit)</string>
              </property>
             </widget>
            </item>
@@ -157,43 +162,6 @@
               </sizepolicy>
              </property>
             </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_3">
-             <item>
-              <widget class="QDialogButtonBox" name="bbox_fit">
-               <property name="standardButtons">
-                <set>QDialogButtonBox::NoButton</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QCheckBox" name="chk_global">
-               <property name="font">
-                <font>
-                 <family>Calibri</family>
-                 <pointsize>14</pointsize>
-                </font>
-               </property>
-               <property name="text">
-                <string>Global fit</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
            </item>
           </layout>
          </widget>
@@ -247,8 +215,8 @@
      <string>&amp;Analysis</string>
     </property>
     <addaction name="action_select_function"/>
-    <addaction name="action_estimate"/>
     <addaction name="separator"/>
+    <addaction name="action_estimate"/>
     <addaction name="action_apply"/>
     <addaction name="action_analyze"/>
    </widget>
@@ -275,13 +243,13 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_open"/>
-   <addaction name="separator"/>
    <addaction name="action_create"/>
-   <addaction name="separator"/>
    <addaction name="action_close"/>
    <addaction name="separator"/>
    <addaction name="action_select_function"/>
    <addaction name="separator"/>
+   <addaction name="action_apply"/>
+   <addaction name="action_estimate"/>
    <addaction name="action_analyze"/>
    <addaction name="separator"/>
    <addaction name="action_save"/>
@@ -345,22 +313,12 @@
   </action>
   <action name="action_estimate">
    <property name="text">
-    <string>Set estimates</string>
+    <string>Estimate</string>
    </property>
   </action>
   <action name="action_apply">
    <property name="text">
-    <string>Apply current parameters</string>
-   </property>
-  </action>
-  <action name="action_global_fit">
-   <property name="text">
-    <string>Link parameters for global fit</string>
-   </property>
-  </action>
-  <action name="action_subsection">
-   <property name="text">
-    <string>Fit subsection</string>
+    <string>Calculate</string>
    </property>
   </action>
  </widget>

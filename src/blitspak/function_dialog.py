@@ -211,7 +211,10 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
                 fn_id += 1
             ids.append(fn_id)
         self.raw_data.uid = ids
-        unique_ids = np.unique(np.array(self.raw_data.uid.tolist()), return_index=True, return_inverse=True, return_counts=True)
+        unique_ids = np.unique(np.array(self.raw_data.uid.tolist()), 
+                               return_index=True, 
+                               return_inverse=True, 
+                               return_counts=True)
         
         for i in unique_ids[0]: # the actual unique fn_ids
             info = self.raw_data.loc[self.raw_data['uid']==i]
@@ -244,7 +247,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             modfunc.first_estimates = est
             modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
             modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
-            if len(modfunc.independents) <= n_axes:
+            if len(modfunc.independents) == n_axes:
                 self.modfuncs.append(modfunc)
                 self.funcion_dictionary[modfunc.name] = modfunc
             
@@ -285,9 +288,17 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             if column == self.FNAME:
                 return qt.QVariant(modfunc.name)
             elif column == self.INDEPENDENTS:
-                return qt.QVariant(modfunc.independents)
+                str = modfunc.independents[0]
+                for i in modfunc.independents[1:]:
+                    str += ', '
+                    str += i
+                return qt.QVariant(str)
             elif column == self.PARAMS:
-                return qt.QVariant(modfunc.parameters)
+                str = modfunc.parameters[0]
+                for i in modfunc.parameters[1:]:
+                    str += ', '
+                    str += i
+                return qt.QVariant(str)
             elif column == self.DESCRIPTION:
                 return qt.QVariant(modfunc.description)
             elif column == self.DEFINITION:
