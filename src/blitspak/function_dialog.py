@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
 class FunctionSelectionDialog(widgets.QDialog):
     
-    def __init__(self, parent, n_axes=np.inf, selected_fn_name=""):
+    def __init__(self, parent, n_axes=0, selected_fn_name=""):
         super(FunctionSelectionDialog, self).__init__(parent)
         self.setModal(False)
                 
@@ -247,7 +247,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             modfunc.first_estimates = est
             modfunc.func = self.fn_dictionary[modfunc.name][self.M_FUNC]
             modfunc.p0 = self.fn_dictionary[modfunc.name][self.M_P0]
-            if len(modfunc.independents) == n_axes:
+            if len(modfunc.independents) == n_axes or n_axes == 0:
                 self.modfuncs.append(modfunc)
                 self.funcion_dictionary[modfunc.name] = modfunc
             

@@ -110,13 +110,24 @@ class DataCreationDialog(widgets.QDialog):
         except Exception as e:
             print(e)
             
-    def create_template(self):
-        df_all_series = pd.DataFrame()
+    def get_parameters(self):
         df_all_parameters = pd.DataFrame()
         for name in self.all_series_names:
             df_p = self.series_params[name].df_data # parameters for this series
-            df_all_parameters = pd.concat([df_all_parameters, df_p], axis=1) # add to all parameters
-            
+            df_all_parameters = pd.concat([df_all_parameters, df_p], axis=1) # add to all parameters            
+        return cp.deepcopy(df_all_parameters)
+    
+    def get_series_names(self):
+        return np.array(self.all_series_names)
+    
+    def get_axes(self):
+        return np.array(self.function.independents)
+    
+    def get_series_dict(self):
+        df_all_series = pd.DataFrame()
+        series_dict = {}
+        for name in self.all_series_names:
+            df_p = self.series_params[name].df_data # parameters for this series
             df_si = self.series_axes_info[name][0].df_data # axes start, stop, and std on data
             n = int(self.series_axes_info[name][1].text()) # number of points in series
             std = float(self.series_axes_info[name][2].text())
@@ -131,14 +142,40 @@ class DataCreationDialog(widgets.QDialog):
             if std > 0:
                 y = norm.rvs(loc=y, scale=std)
             vals[name] = y
-            
             df_s = pd.concat([df_s, vals], axis=1)
             df_all_series = pd.concat([df_all_series, df_s], axis=1)
+            series_dict[name] = df_s
+        return cp.deepcopy(series_dict) # f_all_series
             
-        return (df_all_series, df_all_parameters, self.function)
+#     def create_template(self):
+#         df_all_series = pd.DataFrame()
+#         df_all_parameters = pd.DataFrame()
+#         for name in self.all_series_names:
+#             df_p = self.series_params[name].df_data # parameters for this series
+#             df_all_parameters = pd.concat([df_all_parameters, df_p], axis=1) # add to all parameters
+#             
+#             df_si = self.series_axes_info[name][0].df_data # axes start, stop, and std on data
+#             n = int(self.series_axes_info[name][1].text()) # number of points in series
+#             std = float(self.series_axes_info[name][2].text())
+#             cols = df_si.index # independent axes names
+#             df_s = pd.DataFrame([], index=range(n), columns=cols) # dataframe for axes values
+#             for col in cols:
+#                 df_s[col] = np.linspace(df_si.iloc[:,0][col], df_si.iloc[:,1][col], n)
+#             x = cp.deepcopy(df_s).as_matrix().transpose() # copy axes values and transpose for use in self.function
+#             params = cp.deepcopy(df_p).as_matrix()
+#             vals = pd.DataFrame([], index=range(n), columns=[name]) # dataframe for dependent values
+#             y = self.function.func(x, params)
+#             if std > 0:
+#                 y = norm.rvs(loc=y, scale=std)
+#             vals[name] = y
+#             
+#             df_s = pd.concat([df_s, vals], axis=1)
+#             df_all_series = pd.concat([df_all_series, df_s], axis=1)
+#             
+#         return (df_all_series, df_all_parameters, self.function)
         
     def accept(self):
-        self.template = self.create_template()
+#        self.template = self.create_template()
         widgets.QDialog.accept(self)
         
     def reject(self):

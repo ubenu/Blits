@@ -193,7 +193,9 @@ class Main(QMainWindow, Ui_MainWindow):
                             self.pn_fit_spec.loc[sp, pname, sname] = val
                     except Exception as e:
                         print(e)
-                    
+            x=1
+        pass
+                
     def init_ui(self):
         self.tbl_series_links.clear()
         self.tbl_series_links.setRowCount(0)
@@ -343,17 +345,54 @@ class Main(QMainWindow, Ui_MainWindow):
         pass
             
     def on_create(self):  
+        """
+        @template:     
+        template for series construction, consisting of two pandas DataFrames, 
+        with template[0] containing the series axes values and a column for the calculated dependent,
+        template[1] containing the parameter values for each axis, and
+        template[2] the modelling function  
+        PS: this is for the chop!      
+        n_axes = len(template[2].independents)
+        splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
+        all_series = np.split(template[0], splits, axis=1)
+        self.series_names = []
+        self.axis_names = []
+        for s in all_series:
+            name = s.columns[-1]
+            self.series_names.append(name)
+            axes_names = s.columns[:-1]
+            self.axis_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
+            s_new = cp.deepcopy(s).dropna()
+            self.series_dict[name] = s_new
+        self.series_names = np.array(self.series_names)
+        """
+            
         if self.current_state in (self.FUNCTION_ONLY, ):
             self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
-                template = self.create_data_set_dialog.template
-                self.set_parameters_table(template[1])
-                self.blits_data.create_working_data_from_template(template)
+                self.blits_data = BlitsData()
+                self.blits_data.series_names = self.create_data_set_dialog.get_series_names()
+                self.blits_data.axis_names = self.create_data_set_dialog.get_axes()
+                self.blits_data.series_dict = self.create_data_set_dialog.get_series_dict()
+                df_pars = self.create_data_set_dialog.get_parameters()
+                print(df_pars)
+
+#             try:
+#                 for pname, row in df_pars.iterrows():
+#                     for sname, val in row.iteritems():
+#                         self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
+                                
                 self.current_state = self.ST_READY
                 self.current_xaxis = self.blits_data.get_axes_names()[0]
-                self.set_axis_selector()
-                self.init_fit_spec()
-                self.init_ui()
+                print(self.current_xaxis)
+                try:
+                    self.draw_current_data_set()
+                    self.set_axis_selector()
+                    self.init_fit_spec()
+                    print(self.pn_fit_spec.loc[self.PS_VALUES])
+                    self.init_ui()
+                except Exception as e:
+                    print(e)
                 self.update_controls()
             pass
         pass
@@ -365,7 +404,6 @@ class Main(QMainWindow, Ui_MainWindow):
             series = self.get_selected_series_names()
             data = self.get_data_for_fitting(series)
             ffw = FunctionsFramework()
-#             n_par = len(params)
             values = ffw.get_initial_param_estimates(data, fn_p0, len(params)).transpose()
             df_pars = pd.DataFrame(values, index=params, columns=series)
             try:
@@ -466,7 +504,7 @@ class Main(QMainWindow, Ui_MainWindow):
             
     def on_select_function(self):
         if self.current_state in range(self.N_STATES):  # should work from all states
-            name, n_axes = "", np.inf
+            name, n_axes = "", 0
             if not self.current_state in (self.ST_START, self.ST_DATA_ONLY):  # a current function exists
                 name = self.current_function.name
             if self.current_state in (self.ST_DATA_ONLY, self.ST_READY, ):
@@ -655,10 +693,12 @@ class Main(QMainWindow, Ui_MainWindow):
 
         series_dict = {}
         for series_name, series_params, i in zip(selected_series, params, range(len(selected_series))):
-            x = data[i][:-1]
-#             y_obs = data[i][-1]
+            x_all = data[i][:-1]
+            x = np.zeros((x_all.shape[0], self.nfitted_points))
+            for i in range(x_all.shape[0]):
+                start, stop = x_all[i][0], x_all[i][-1]
+                x[i] = np.linspace(start, stop, self.nfitted_points)                
             y_fit = np.atleast_2d(self.current_function.func(x, series_params))
-#            y_res = np.atleast_2d(y_obs - y_fit)
             # create the y values and put them in a DataFrame, transpose for easy concatenation
             df_x = pd.DataFrame(x, index=axes)
             df_y = pd.DataFrame(y_fit, index=[series_name])
@@ -668,26 +708,6 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_fitted.series_names= np.array(selected_series)
         self.blits_fitted.axis_names = cp.deepcopy(axes)
         self.blits_fitted.series_dict = series_dict
-
-        
-#         for series_name, xmin, xmax, series_params in zip(selected_series, min_xs, max_xs, params):
-#             df_data = pd.DataFrame(index=[], columns=range(n_points))
-#             # create values for the independent axes (shape (n_independents, n_points))
-#             for v_start, v_end in zip(xmin, xmax):
-#                 x = pd.DataFrame(np.linspace(v_start, v_end, n_points)).transpose()
-#                 df_data = pd.concat((df_data, x))
-#             x = df_data.as_matrix()
-#             # create the y values and put them in a DataFrame, transpose for easy concatenation
-#             y = pd.DataFrame(self.current_function.func(x, series_params)).transpose()
-#             df_data = pd.concat((df_data, y))
-#             l_axes_names = axes_names.tolist()[:-1]
-#             l_axes_names.append(series_name)
-#             df_data.index = l_axes_names
-#             series_dict[series_name] = df_data.transpose()
-#         self.blits_fitted = BlitsData()
-#         self.blits_fitted.selected_series = np.array(selected_series.tolist())
-#         self.blits_fitted.independent_names = np.array(l_axes_names)[:-1]
-#         self.blits_fitted.series_dict = series_dict
                 
     def set_residual_curves(self):
         selected_series = self.get_selected_series_names()

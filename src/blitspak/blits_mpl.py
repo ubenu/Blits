@@ -110,7 +110,7 @@ class MplCanvas(FigureCanvas):
         if kind in ('primary', 'calculated'):
             self.data_plot.plot(x, y, marker, color=self.curve_colours[series_name])
         if kind == 'residuals':
-            self.data_res_plot.plot(x, y, color=self.curve_colours[series_name])
+            self.data_res_plot.plot(x, y, marker, color=self.curve_colours[series_name])
         self.data_plot.ticklabel_format(style='sci', scilimits=(-3,3), axis='both')                     
         self.fig.canvas.draw()
                
