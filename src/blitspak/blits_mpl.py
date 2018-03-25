@@ -119,9 +119,10 @@ class MplCanvas(FigureCanvas):
         if x_limits is None:
             x_limits = cp.deepcopy(x_outer_limits)
         if math.isclose(x_limits[0], x_limits[1]):
-            dx = abs((x_outer_limits[0] - x_limits[0]) / 2.0)
-            x_limits[0] = x_limits[0] - dx
-            x_limits[1] = x_limits[1] + dx
+            x_limits = cp.deepcopy(x_outer_limits)
+#             dx = abs((x_outer_limits[0] - x_limits[0]) / 100.0)
+#             x_limits[0] = x_limits[0] - dx
+#             x_limits[1] = x_limits[1] + dx
         self.vline0 = DraggableLine(self.data_plot.axvline(x_limits[0],
                                                            lw=1, 
                                                            ls='--', 

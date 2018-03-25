@@ -345,28 +345,6 @@ class Main(QMainWindow, Ui_MainWindow):
         pass
             
     def on_create(self):  
-        """
-        @template:     
-        template for series construction, consisting of two pandas DataFrames, 
-        with template[0] containing the series axes values and a column for the calculated dependent,
-        template[1] containing the parameter values for each axis, and
-        template[2] the modelling function  
-        PS: this is for the chop!      
-        n_axes = len(template[2].independents)
-        splits = np.arange(1, len(template[0].columns)//(n_axes+1)) * (n_axes+1)
-        all_series = np.split(template[0], splits, axis=1)
-        self.series_names = []
-        self.axis_names = []
-        for s in all_series:
-            name = s.columns[-1]
-            self.series_names.append(name)
-            axes_names = s.columns[:-1]
-            self.axis_names = cp.deepcopy(axes_names).tolist()  # not pretty: overwrites previous; no check is made
-            s_new = cp.deepcopy(s).dropna()
-            self.series_dict[name] = s_new
-        self.series_names = np.array(self.series_names)
-        """
-            
         if self.current_state in (self.FUNCTION_ONLY, ):
             self.create_data_set_dialog = DataCreationDialog(None, self.current_function)
             if self.create_data_set_dialog.exec() == widgets.QDialog.Accepted:
@@ -375,20 +353,16 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.blits_data.axis_names = self.create_data_set_dialog.get_axes()
                 self.blits_data.series_dict = self.create_data_set_dialog.get_series_dict()
                 df_pars = self.create_data_set_dialog.get_parameters()
-                print(df_pars)
-
-#             try:
-#                 for pname, row in df_pars.iterrows():
-#                     for sname, val in row.iteritems():
-#                         self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
-                                
                 self.current_state = self.ST_READY
                 self.current_xaxis = self.blits_data.get_axes_names()[0]
-                print(self.current_xaxis)
                 try:
-                    self.draw_current_data_set()
                     self.set_axis_selector()
+                    self.draw_current_data_set()
                     self.init_fit_spec()
+                    for pname, row in df_pars.iterrows():
+                        for sname, val in row.iteritems():
+                            self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
+                                 
                     print(self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]])
                     self.init_ui()
                 except Exception as e:
