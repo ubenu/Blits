@@ -60,18 +60,19 @@ class BlitsData():
         n_independents = n_cols_per_series - 1
         # Split data set in individual series
         self.series_dict = {}
-        self.axis_names = []
+        axis_names = []
         for s in range(0, n_cols , n_cols_per_series):
             df = pd.DataFrame(self.raw_data.iloc[:, s:s+n_cols_per_series]).dropna()
             s_name = df.columns.tolist()[0]
-            self.axis_names = ['x{}'.format(i) for i in range(n_independents)]
-            cols = cp.deepcopy(self.axis_names)
+            axis_names = ['x{}'.format(i) for i in range(n_independents)]
+            cols = cp.deepcopy(axis_names)
             cols.append(s_name)
             df.columns = cols
             df = df.sort_values(by='x0')
             ix = pd.Index(np.arange(len(df)))
             df.set_index(ix, inplace=True)
             self.series_dict[s_name] = df
+        self.axis_names = np.array(axis_names)
             
     def create_working_data_from_template(self, template):
         """
@@ -105,7 +106,8 @@ class BlitsData():
         """
         if self.series_names is not None:
             if self.axis_names is not None:
-                df_mins = pd.DataFrame(index=cp.deepcopy(self.axis_names).append('y'))
+                index = np.concatenate((self.get_axes_names(), ['y']))
+                df_mins = pd.DataFrame(index=index)
                 # last index is called y because the dependents have different names in different series
                 df_maxs = cp.deepcopy(df_mins)
                 for s in self.series_names:
