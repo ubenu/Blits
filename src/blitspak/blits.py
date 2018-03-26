@@ -193,8 +193,6 @@ class Main(QMainWindow, Ui_MainWindow):
                             self.pn_fit_spec.loc[sp, pname, sname] = val
                     except Exception as e:
                         print(e)
-            x=1
-        pass
                 
     def init_ui(self):
         self.tbl_series_links.clear()
@@ -361,13 +359,12 @@ class Main(QMainWindow, Ui_MainWindow):
                     self.init_fit_spec()
                     for pname, row in df_pars.iterrows():
                         for sname, val in row.iteritems():
-                            self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
-                                 
-                    print(self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]])
+                            self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val                                 
                     self.init_ui()
                 except Exception as e:
                     print(e)
                 self.update_controls()
+                self.on_select_function()
             pass
         pass
                 
@@ -424,7 +421,6 @@ class Main(QMainWindow, Ui_MainWindow):
                     else:
                         self.current_function = None
                         self.current_state = self.ST_DATA_ONLY
-                        
                 self.set_axis_selector()
                 self.init_fit_spec()
                 self.init_ui()
