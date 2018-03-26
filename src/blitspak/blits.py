@@ -41,15 +41,15 @@ class Main(QMainWindow, Ui_MainWindow):
     N_STATES = 5
     ST_START, ST_DATA_ONLY, FUNCTION_ONLY, ST_READY, REJECT = range(N_STATES)
     
-    N_PS_SPECTYPES = 6
-    PS_VALUES, PS_LEDITS, PS_VALUE_FIXED, PS_FIX_CBOXES, PS_GROUPS, PS_COMBOS = range(N_PS_SPECTYPES)
+    N_PS_SPECTYPES = 7
+    PS_VALUES, PS_LEDITS, PS_VALUE_FIXED, PS_FIX_CBOXES, PS_GROUPS, PS_COMBOS, PS_SIGMAS = range(N_PS_SPECTYPES)
     N_P_SPECTYPES = 4
     P_ALL_FIXED, P_FIX_CBOXES, P_ALL_LINKED, P_LINK_CBOXES = range(N_P_SPECTYPES)
-    N_S_SPECTYPES = 2
-    S_INCLUDED, S_INCLUDE_CBOXES = range(N_S_SPECTYPES)
+    N_S_SPECTYPES = 3
+    S_INCLUDED, S_INCLUDE_CBOXES, S_FTOL = range(N_S_SPECTYPES)
     
-    ps_types = ['param_values', 'param_line_edits', 'param_values_fixed', 'param_fix_cboxes', 'series_groups', 'series_combos']
-    s_types = ['included', 'included_cboxes']
+    ps_types = ['param_values', 'param_line_edits', 'param_values_fixed', 'param_fix_cboxes', 'series_groups', 'series_combos', 'sigmas']
+    s_types = ['included', 'included_cboxes', 'ftol']
     p_types = ['all_fixed', 'all_fixed_cboxes', 'all_linked', 'all_linked_cboxes']
 
     def __init__(self, ):
@@ -297,20 +297,25 @@ class Main(QMainWindow, Ui_MainWindow):
             try:
                 params = self.current_function.parameters
                 series = self.get_selected_series_names()
+                
                 fitted_params, sigmas, confidence_intervals, tol = self.perform_fit()
-                print(pd.DataFrame(fitted_params))
-                print(pd.DataFrame(sigmas))
-                print(pd.DataFrame(confidence_intervals))
-                print("Tolerance: " + str(tol))
-    
-                df_pars = pd.DataFrame(fitted_params.transpose(), index=params, columns=series)            
+
+                df_pars = pd.DataFrame(fitted_params.transpose(), index=params, columns=series) 
+                df_sigm = pd.DataFrame(sigmas.transpose(), index=params, columns=series) 
+                sr_ftol = pd.Series(tol, index=series)          
                 for pname, row in df_pars.iterrows():
                     for sname, val in row.iteritems():
                         self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname] = val
-                self.current_state = self.ST_READY # remains the same
+                for pname, row in df_sigm.iterrows():
+                    for sname, val in row.iteritems():
+                        self.pn_fit_spec.loc[self.ps_types[self.PS_SIGMAS], pname, sname] = val
+                for sname, val in sr_ftol.iteritems():
+                    self.df_series_spec.loc[sname, self.s_types[self.S_FTOL]] = val
                 self.on_calculate()
                 self.update_controls()
                 self.update_param_vals_table()
+                self.show_blits_data()
+                self.show_fit_details()
             except Exception as e:
                 print(e)
         pass
@@ -638,6 +643,8 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.df_xlimits.loc[self.current_xaxis] = self.canvas.get_vline_positions() 
         else:
             self.df_xlimits = None     # probably superfluous as well   
+
+
             
     def set_axis_selector(self):
         self.axis_selector_buttons = {}
@@ -701,6 +708,69 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_residuals.axis_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
         
+    def show_blits_data(self):
+        if self.blits_residuals.has_data():
+            self.tab_data = widgets.QWidget()
+            self.tabWidget.addTab(self.tab_data, "Data")
+            lo = widgets.QVBoxLayout(self.tab_data)
+            data_table = widgets.QTableWidget()
+            lo.addWidget(data_table)
+            self.tab_data.setLayout(lo)
+            series_names = self.get_selected_series_names()
+            pnames = np.hstack((self.blits_residuals.get_axes_names(), 'y'))
+            print(pnames)
+            selection = self.get_data_for_fitting(series_names)
+            all_data = pd.concat([pd.DataFrame(selection[i], index=pnames).transpose() for i in range(len(selection))], 
+                                 axis=1, join='inner')
+            print(all_data)
+                
+            
+            
+            
+            
+            
+            
+
+    def show_fit_details(self):
+        self.tab_details = widgets.QWidget()
+        self.tabWidget.addTab(self.tab_details, "Parameters")
+
+        lo = widgets.QVBoxLayout(self.tab_details)
+        results_table = widgets.QTableWidget()
+        
+        lo.addWidget(results_table)
+        self.tab_details.setLayout(lo)
+        pnames = self.pn_fit_spec.major_axis.values
+        pheader = np.vstack((pnames, np.array(["Stderr\non " + pname for pname in pnames]))).transpose().ravel()
+        pheader = np.hstack((pheader, np.array(["ftol"])))
+        sheader = self.pn_fit_spec.minor_axis.values
+
+        results_table.setColumnCount(len(pheader))
+        results_table.setHorizontalHeaderLabels(pheader)
+        results_table.setRowCount(len(sheader))
+        results_table.setVerticalHeaderLabels(sheader)
+        
+        irow = -1
+        for sname in self.pn_fit_spec.minor_axis.values:
+            irow += 1
+            icol = -1
+            for pname in self.pn_fit_spec.major_axis.values:
+                pval = '{:.3g}'.format(self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname])
+                perr = '{:.2g}'.format(self.pn_fit_spec.loc[self.ps_types[self.PS_SIGMAS], pname, sname])
+                icol += 1
+                wi = widgets.QTableWidgetItem(pval)
+                results_table.setItem(irow, icol, wi)
+                icol += 1
+                wi = widgets.QTableWidgetItem(perr)
+                results_table.setItem(irow, icol, wi)
+            icol += 1
+            ftol = '{:.3g}'.format(self.df_series_spec.loc[sname, self.s_types[self.S_FTOL]])
+            wi = widgets.QTableWidgetItem(ftol)
+            results_table.setItem(irow, icol, wi)
+            
+        results_table.resizeRowsToContents()
+        
+
     def rationalise_groups(self, parameter):
         if self.current_state in (self.ST_READY, ) and parameter != '':
             prow = self.pn_fit_spec.loc[self.ps_types[self.PS_GROUPS], parameter]
@@ -913,36 +983,8 @@ if __name__ == '__main__':
     main.show()
     sys.exit(app.exec_())
 
-#     def create_results_tab(self, phase_id, model_string, results_table):
-#         new_tab = widgets.QWidget()
-#         lo = widgets.QVBoxLayout(new_tab)
-#         x = widgets.QLabel(model_string)
-#         lo.addWidget(x)
-#         lo.addWidget(results_table)
-#         new_tab.setLayout(lo)
-#         self.tabWidget.addTab(new_tab, phase_id)
 
-## SpanSelector stuff
 
-# from matplotlib.widgets import SpanSelector
-
-#         self.span = SpanSelector(self.canvas.data_plot, 
-#                                  self.on_select_span, 
-#                                  'horizontal', 
-#                                  useblit=True, 
-#                                  rectprops=dict(alpha=0.5, facecolor='red')
-#                                  )        
-
-#     def on_select_span(self, xmin, xmax):
-#         self.span.set_active(False)
-#         if xmin != xmax:
-#             mins, maxs = self.blits_data.series_extremes()
-#             # mins, maxs: index: series names, columns: independent names + y (dependent)  
-#             x_outer_limits = (mins.loc[:, self.current_xaxis].min(), maxs.loc[:, self.current_xaxis].max())
-#             x_limits = (xmin, xmax)                
-#             if xmin > xmax:
-#                 x_limits = (xmax, xmin)
-#             self.canvas.set_vlines(x_limits, x_outer_limits)
 
     
             

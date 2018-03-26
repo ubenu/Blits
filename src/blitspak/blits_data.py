@@ -12,13 +12,14 @@ import pandas as pd, numpy as np, copy as cp
 
 class BlitsData():
     
-    def __init__(self):
+    def __init__(self, max_points=1000):
         # attributes
         self.file_name = ""
         self.raw_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
         self.axis_names = None
-        self.series_dict = {}
+        self.series_dict = {}   
+        self.max_points = max_points
         
     def has_data(self):
         return len(self.series_dict) > 0

@@ -10,14 +10,14 @@ Parameters,m
 First estimates,m = 1.0
 ,
 Name,Straight line
-Short description,a.x + b
+Short description,Intercept + Slope * x
 Long description,Returns the parameters for the best fit of the observed  data (y) with a straight line 
-Function,y = a * x + b
+Function,y = Slope * x + Intercept
 Observed dependent,yobs
 Calculated dependent,y
 Independents,x
-Parameters,"a, b"
-First estimates,"a = 1.0, b = 1.0"
+Parameters,"Slope, Intercept"
+First estimates,"Slope = 1.0, Intercept = 0.0"
 ,
 Name,Single exponential decay
 Short description,y0 + A.exp(-x.k) 
