@@ -1,0 +1,91 @@
+Attribute,Value
+Name,Mean
+Short description,Mean of data in y
+Long description,Returns the mean of observed data (y)
+Function,y = m
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,m
+First estimates,m = 1.0
+,
+Name,Straight line
+Short description,Intercept + Slope * x
+Long description,Returns the parameters for the best fit of the observed  data (y) with a straight line 
+Function,y = Slope * x + Intercept
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,"Slope, Intercept"
+First estimates,"Slope = 1.0, Intercept = 0.0"
+,
+Name,Single exponential decay
+Short description,y0 + A.exp(-x.k) 
+Long description,Returns the parameters for the best fit of the observed  data (y) with a single exponential decay 
+Function,y = y0 + A * exp(-x * k)
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,"y0, A, k"
+First estimates,"y0 = last(yobs), A = first(yobs) - last(yobs), k = 0.1 * last(x)"
+,
+Name,Single exponential decay and straight line
+Short description,y0 + A.exp(-x.k) + slope.x
+Long description,Returns the parameters for the best fit of the observed  data (y) with a single exponential decay on top of a straight line
+Function,y = y0 + A * exp(-x * k) + slope * x
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,"y0, A, k, slope"
+First estimates,"y0 = last(yobs), A = first(yobs) - last(y), k = 0.1 * last(x), slope = 0.0"
+,
+Name,Double exponential decay
+Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2)
+Long description,Returns the parameters for the best fit of the observed  data (y) with a double exponential decay 
+Function,y = y0 + A1 * exp(-x * k1) + A2 * exp(-x * k2)
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,"y0, A1, k1, A2, k2"
+First estimates,"y0 = last(yobs), A1 = first(yobs) - last(yobs), k1 = 10.0 / last(x), A2 = first(yobs) - last(yobs), k2 = 1.0 / last(x)"
+,
+Name,Triple exponential decay
+Short description,y0 + A1.exp(-x.k1) + A2.exp(-x.k2) + A3.exp(-x.k3)
+Long description,Returns the parameters for the best fit of the observed  data (y) with a triple exponential decay 
+Function,y = y0 + A1 * exp(-x * k1) + A2 * exp(-x * k2)  + A3 * exp(-x * k3)
+Observed dependent,yobs
+Calculated dependent,y
+Independents,x
+Parameters,"y0, A1, k1, A2, k2, A3, k3"
+First estimates,"y0 = last(y), A1 = first(y) - last(y), k1 = 10.0 / last(x), A2 = first(y) - last(y), k2 = 1.0 / last(x), A3 =  first(y) - last(y), k3 = 0.1 / last(x)"
+,
+Name,Competitive 2-ligand binding (Absorbance/Fluorescence)
+Short description,"P + L <=> PL, P + N <=> PN"
+Long description,Returns the parameters that describe the competitive binding of two ligands to a protein (protein and ligand comcentration measured by absorbance or fluorescence)
+Function,"p = FindRoot(KdL, KdN, Pt, Lt, Nt), pl = Lt * p / (KdL * p), pn = Nt * p / (KdN * p), [L] = Lt - pn, n = Nt - pn, Calc_signal = eP*p + eL*[L] + eN*n + ePL*pl + ePN*pn"
+FindRoot,"p*p*p + (KdL+KdL+Lt+Nt-Pt)*p*p + (KdL*KdN+Lt*KdN+Nt*KdL-(KdL+KdN)*Pt)*p - KdL*KdN*Pt = 0, solve p within [0, Pt]"
+Observed dependent,Signal
+Calculated dependent,Calc_signal
+Independents,"Pt, Lt, Nt"
+Parameters,"KdL, KdN, eP, eL, eN, ePL, ePN"
+First estimates,"KdL = (max(Lt) + min(Lt))/2, KdN = (max(Nt) + min(Nt))/2, eP = 0.0, eL = max(signal) * Lt, eN = 0.0, ePL = max(signal) * Pt, ePN = 0.0"
+,
+Name,Michaelis-Menten model (initial rates)
+Short description,Vmax . x / (Km + x)
+Long description,Returns best-fit Vmax and Km for initial rate (v) as a function of substrate concentration.
+Function,v = Vmax * S / (Km + S)
+Observed dependent,vobs
+Calculated dependent,v
+Independents,S
+Parameters,"Vmax, Km"
+First estimates,"Km = max(S)/2, Vmax = max(vobs) "
+,
+Name,Competitive enzyme inhibition model (initial rates)
+Short description,Vmax . S / (Km . (1.0 + IC / Kic) + S)
+Long description,"Returns best-fit Vmax, Km and Ki for initial rate (v) as a function of substrate and competitive inhibitor concentrations."
+Function,v = Vmax * S / (Km + S * (1.0 + IC / Ki))
+Observed dependent,vobs
+Calculated dependent,v
+Independents,"S, IC"
+Parameters,"Vmax, Km, Ki"
+First estimates,"Km = max(S)/2, Vmax = max(vobs), Ki = max(S)/2"
