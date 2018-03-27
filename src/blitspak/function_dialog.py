@@ -147,11 +147,11 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             fdefs.fn_3exp, 
             fdefs.p0_fn_3exp,
             ),
-        "Michaelis-Menten model (initial rates)": (
+        "Michaelis-Menten kinetics": (
             fdefs.fn_mich_ment,
             fdefs.p0_fn_mich_ment,
             ),
-        "Competitive enzyme inhibition model (initial rates)": (
+        "Competitive enzyme inhibition": (
             fdefs.fn_comp_inhibition,
             fdefs.p0_fn_comp_inhibition,
             ), 
@@ -171,7 +171,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             fdefs.fn_hill,
             fdefs.p0_fn_hill,
             ),
-        "Competitive 2-ligand binding (Absorbance/Fluorescence)": (
+        "Two-ligand competition experiment": (
             fdefs.fn_comp_binding,
             fdefs.p0_fn_comp_binding,
             ),

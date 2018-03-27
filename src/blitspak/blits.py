@@ -314,8 +314,9 @@ class Main(QMainWindow, Ui_MainWindow):
                 self.on_calculate()
                 self.update_controls()
                 self.update_param_vals_table()
-                self.show_blits_data()
-                self.show_fit_details()
+                self.show_selected_data()
+                self.show_smooth_line()
+                self.show_fitted_params()
             except Exception as e:
                 print(e)
         pass
@@ -472,10 +473,21 @@ class Main(QMainWindow, Ui_MainWindow):
         file_path = ""
         if self.current_state in (self.ST_READY, ):
             file_path = widgets.QFileDialog.getSaveFileName(self, 
-            "Save all", "", "CSV data files (*.csv);;All files (*.*)")[0]
+            "Save all", "", "Excel files (*.xlsx);;All files (*.*)")[0]
         if file_path:
-#             self.blits_data.export_results(file_path)
-            pass
+            smooth_lines = self.get_xs_fitted_smooth_df()
+            obs_fit_res = self.get_xs_obs_fit_res_df()
+#            pd.concat((obs_fit_res, smooth_lines), axis=1)
+            params = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES]]
+            try:
+                writer = pd.ExcelWriter(file_path)
+                obs_fit_res.to_excel(writer,'Data')
+                smooth_lines.to_excel(writer, 'Fit')
+                params.to_excel(writer,'Parameters')
+                writer.save()
+                writer.close()
+            except Exception as e:
+                print(e)
             
     def on_select_function(self):
         if self.current_state in range(self.N_STATES):  # should work from all states
@@ -708,67 +720,125 @@ class Main(QMainWindow, Ui_MainWindow):
         self.blits_residuals.axis_names = cp.deepcopy(axes)
         self.blits_residuals.series_dict = series_dict
         
-    def show_blits_data(self):
-        if self.blits_residuals.has_data():
-            self.tab_data = widgets.QWidget()
-            self.tabWidget.addTab(self.tab_data, "Data")
-            lo = widgets.QVBoxLayout(self.tab_data)
-            data_table = widgets.QTableWidget()
-            lo.addWidget(data_table)
-            self.tab_data.setLayout(lo)
-            series_names = self.get_selected_series_names()
-            pnames = np.hstack((self.blits_residuals.get_axes_names(), 'y'))
-            print(pnames)
-            selection = self.get_data_for_fitting(series_names)
-            all_data = pd.concat([pd.DataFrame(selection[i], index=pnames).transpose() for i in range(len(selection))], 
-                                 axis=1, join='inner')
-            print(all_data)
-                
-            
-            
-            
-            
-            
-            
-
-    def show_fit_details(self):
-        self.tab_details = widgets.QWidget()
-        self.tabWidget.addTab(self.tab_details, "Parameters")
-
-        lo = widgets.QVBoxLayout(self.tab_details)
-        results_table = widgets.QTableWidget()
+    def get_xs_obs_fit_res_df(self):
+        selected_series = self.get_selected_series_names()
+        params = self.get_param_values_for_fitting(selected_series)
+        data = self.get_data_for_fitting(selected_series)
+        daxes = self.blits_data.get_axes_names()
+        faxes = self.current_function.independents
+        axes = np.array([f + "\n(" + a + ")"  for a, f in zip(daxes, faxes)])
+        df_data = None
+        for series_name, series_params, i in zip(selected_series, params, range(len(selected_series))):
+            x = data[i][:-1]
+            y_obs = np.atleast_2d(data[i][-1])
+            y_fit = np.atleast_2d(self.current_function.func(x, series_params))
+            y_res = np.atleast_2d(y_obs - y_fit)
+            df_x = pd.DataFrame(x, index=axes) # no series name, get confusing
+            df_y_obs = pd.DataFrame(y_obs, index=[' y-obs \n(' + series_name + ')' ])
+            df_y_fit = pd.DataFrame(y_fit, index=[' y-fit\n(' + series_name + ')'])
+            df_y_res = pd.DataFrame(y_res, index=[' y-res\n(' + series_name + ')'])
+            df_data = pd.concat((df_data, df_x, df_y_obs, df_y_fit, df_y_res))
+        return df_data.transpose()
+    
+    def get_xs_fitted_smooth_df(self):
+        selected_series = self.get_selected_series_names()
+        params = self.get_param_values_for_fitting(selected_series)
+        data = self.get_data_for_fitting(selected_series)
+        daxes = self.blits_data.get_axes_names()
+        faxes = self.current_function.independents
+        axes = np.array([f + "\n(" + a + ")"  for a, f in zip(daxes, faxes)])
+        df_data = None
+        for series_name, series_params, i in zip(selected_series, params, range(len(selected_series))):
+            x0 = data[i][:-1, 0]
+            x1 = data[i][:-1, -1]
+            x = np.empty((len(axes), self.nfitted_points))
+            for i, i0, i1 in zip(range(len(axes)), x0, x1):
+                x[i] = np.linspace(i0, i1, self.nfitted_points, dtype=float)
+            y_fit = np.atleast_2d(self.current_function.func(x, series_params))
+            df_x = pd.DataFrame(x, index=axes) # no series name, get confusing
+            df_y_fit = pd.DataFrame(y_fit, index=[' y-fit\n(' + series_name + ')'])
+            df_data = pd.concat((df_data, df_x, df_y_fit))
+        return df_data.transpose()
         
-        lo.addWidget(results_table)
-        self.tab_details.setLayout(lo)
+        
+    def show_selected_data(self):
+        self.tbl_fitted_data.clear()
+        self.tbl_fitted_data.setColumnCount(0)
+        self.tbl_fitted_data.setRowCount(0)
+        all_data = self.get_xs_obs_fit_res_df()
+        self.tbl_fitted_data.setRowCount(all_data.shape[0])
+        self.tbl_fitted_data.setColumnCount(all_data.shape[1])
+        self.tbl_fitted_data.setHorizontalHeaderLabels(all_data.columns.values)
+        for i in range(self.tbl_fitted_data.rowCount()):
+            for j in range(self.tbl_fitted_data.columnCount()):
+                w = widgets.QTableWidgetItem()
+                txt = ""
+                if not np.isnan(all_data.iloc[i, j]):
+                    txt = "{:8.3g}".format(all_data.iloc[i, j])
+                w.setText(txt)
+                self.tbl_fitted_data.setItem(i, j, w)
+        self.tbl_fitted_data.resizeColumnsToContents()  
+            
+    def show_smooth_line(self):
+        self.tbl_smooth_line.clear()
+        self.tbl_smooth_line.setColumnCount(0)
+        self.tbl_smooth_line.setRowCount(0)
+        all_data = self.get_xs_fitted_smooth_df()
+        self.tbl_smooth_line.setRowCount(all_data.shape[0])
+        self.tbl_smooth_line.setColumnCount(all_data.shape[1])
+        self.tbl_smooth_line.setHorizontalHeaderLabels(all_data.columns.values)
+        for i in range(self.tbl_smooth_line.rowCount()):
+            for j in range(self.tbl_smooth_line.columnCount()):
+                w = widgets.QTableWidgetItem()
+                txt = ""
+                if not np.isnan(all_data.iloc[i, j]):
+                    txt = "{:8.3g}".format(all_data.iloc[i, j])
+                w.setText(txt)
+                self.tbl_smooth_line.setItem(i, j, w)
+        self.tbl_smooth_line.resizeColumnsToContents()  
+
+    def show_fitted_params(self):
+        self.tbl_fitted_params.clear()
+        self.tbl_fitted_params.setColumnCount(0)
+        self.tbl_fitted_params.setRowCount(0)
+        
         pnames = self.pn_fit_spec.major_axis.values
         pheader = np.vstack((pnames, np.array(["Stderr\non " + pname for pname in pnames]))).transpose().ravel()
         pheader = np.hstack((pheader, np.array(["ftol"])))
         sheader = self.pn_fit_spec.minor_axis.values
 
-        results_table.setColumnCount(len(pheader))
-        results_table.setHorizontalHeaderLabels(pheader)
-        results_table.setRowCount(len(sheader))
-        results_table.setVerticalHeaderLabels(sheader)
+        self.tbl_fitted_params.setColumnCount(len(pheader))
+        self.tbl_fitted_params.setHorizontalHeaderLabels(pheader)
+        self.tbl_fitted_params.setRowCount(len(sheader))
+        self.tbl_fitted_params.setVerticalHeaderLabels(sheader)
         
         irow = -1
         for sname in self.pn_fit_spec.minor_axis.values:
             irow += 1
             icol = -1
             for pname in self.pn_fit_spec.major_axis.values:
-                pval = '{:.3g}'.format(self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname])
-                perr = '{:.2g}'.format(self.pn_fit_spec.loc[self.ps_types[self.PS_SIGMAS], pname, sname])
+                pval = self.pn_fit_spec.loc[self.ps_types[self.PS_VALUES], pname, sname]
+                perr = self.pn_fit_spec.loc[self.ps_types[self.PS_SIGMAS], pname, sname]
+                spval, sperr = "", ""
+                if not np.isnan(pval):
+                    spval = '{:8.3g}'.format(pval)
+                if not np.isnan(perr):
+                    sperr = '{:8.3g}'.format(perr)
                 icol += 1
-                wi = widgets.QTableWidgetItem(pval)
-                results_table.setItem(irow, icol, wi)
+                wi = widgets.QTableWidgetItem(spval)
+                self.tbl_fitted_params.setItem(irow, icol, wi)
                 icol += 1
-                wi = widgets.QTableWidgetItem(perr)
-                results_table.setItem(irow, icol, wi)
+                wi = widgets.QTableWidgetItem(sperr)
+                self.tbl_fitted_params.setItem(irow, icol, wi)
             icol += 1
-            ftol = '{:.3g}'.format(self.df_series_spec.loc[sname, self.s_types[self.S_FTOL]])
-            wi = widgets.QTableWidgetItem(ftol)
-            results_table.setItem(irow, icol, wi)
+            ftol = self.df_series_spec.loc[sname, self.s_types[self.S_FTOL]]
+            sftol = ""
+            if not np.isnan(ftol):
+                sftol = '{:8.3g}'.format(ftol)
+            wi = widgets.QTableWidgetItem(sftol)
+            self.tbl_fitted_params.setItem(irow, icol, wi)
             
-        results_table.resizeRowsToContents()
+        self.tbl_fitted_params.resizeColumnsToContents()  
         
 
     def rationalise_groups(self, parameter):

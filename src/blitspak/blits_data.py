@@ -18,8 +18,10 @@ class BlitsData():
         self.raw_data = None
         self.series_names = None # same as self.series_dict.keys, but in order of input
         self.axis_names = None
-        self.series_dict = {}   
+        self.series_dict = {}
         self.max_points = max_points
+        if max_points < 1:
+            self.max_points = np.inf
         
     def has_data(self):
         return len(self.series_dict) > 0
@@ -70,6 +72,11 @@ class BlitsData():
             cols.append(s_name)
             df.columns = cols
             df = df.sort_values(by='x0')
+            step = len(df) // self.max_points 
+            if step > 1:
+                r = np.arange(len(df))
+                filt = np.mod(r, step) == 0
+                df = df[filt]
             ix = pd.Index(np.arange(len(df)))
             df.set_index(ix, inplace=True)
             self.series_dict[s_name] = df
