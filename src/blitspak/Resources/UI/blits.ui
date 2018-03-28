@@ -17,6 +17,9 @@
    <iconset>
     <normaloff>analyze.png</normaloff>analyze.png</iconset>
   </property>
+  <property name="toolButtonStyle">
+   <enum>Qt::ToolButtonTextUnderIcon</enum>
+  </property>
   <property name=".\Resources" stdset="0">
    <string/>
   </property>
@@ -484,8 +487,6 @@
    </property>
   </action>
  </widget>
- <resources>
-  <include location="blits.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

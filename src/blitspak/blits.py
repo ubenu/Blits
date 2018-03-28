@@ -23,7 +23,7 @@ from blitspak.data_creation_dialog import DataCreationDialog
 from functions.framework import FunctionsFramework
 
 from PyQt5.uic import loadUiType
-Ui_MainWindow, QMainWindow = loadUiType('..\\..\\Resources\\UI\\blits.ui')
+Ui_MainWindow, QMainWindow = loadUiType('.\\Resources\\UI\\blits.ui')
 
 # Original:
 # To avoid using .ui file (from QtDesigner) and loadUIType, 

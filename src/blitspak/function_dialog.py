@@ -185,7 +185,7 @@ class FunctionLibraryTableModel(qt.QAbstractTableModel):
             ),
         }
         
-    def __init__(self, n_axes, filepath="..\\..\\Resources\\ModellingFunctions\\Functions.csv"):
+    def __init__(self, n_axes, filepath=".\\Resources\\ModellingFunctions\\Functions.csv"):
         super(FunctionLibraryTableModel, self).__init__()
         
         self.filepath = filepath

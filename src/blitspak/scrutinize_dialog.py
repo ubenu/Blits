@@ -23,7 +23,7 @@ import functions.function_defs as fdefs
 from PyQt5.uic import loadUiType
 #from PyQt5.Qt import QDialogButtonBox
 
-Ui_ScrutinizeDialog, QDialog = loadUiType('..\\..\\Resources\\UI\\scrutinize_dialog.ui')
+Ui_ScrutinizeDialog, QDialog = loadUiType('.\\Resources\\UI\\scrutinize_dialog.ui')
 
 class ScrutinizeDialog(widgets.QDialog, Ui_ScrutinizeDialog):
     
