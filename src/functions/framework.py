@@ -10,53 +10,53 @@ from scipy.optimize import curve_fit
 from scipy.stats import distributions # t
 import functions.function_defs as fdefs
   
-class LibraryFunction():
-    
-    def __init__(self, fn_id, 
-                 name='', 
-                 short_description='', 
-                 long_description='', 
-                 fn_def=None, 
-                 find_root=None,
-                 obs_dependent_name='', 
-                 calc_dependent_name='', 
-                 independent_names=None, 
-                 parameter_names=None, 
-                 first_estimates=None
-                 ):
-        self.fn_id = fn_id
-        self.name = name
-        self.short_description = short_description
-        self.long_description = long_description
-        self.fn_def = fn_def
-        self.find_root = find_root,
-        self.obs_dependent_name = obs_dependent_name
-        self.calc_dependent_name = calc_dependent_name
-        if not independent_names is None:
-            self.set_independents(independent_names)
-        if not parameter_names is None:
-            self.set_parameters(parameter_names)
-        self.first_estimates = first_estimates
-        self.independent_strings = []
-        self.parameter_strings = []
-        
-    def set_independents(self, independent_names=''):
-        if independent_names != '':
-            self.independent_names = [x.strip() for x in independent_names.split(sep=',')]
-            self.independents_df = pd.DataFrame(columns=self.independent_names)
-                         
-    def set_parameters(self, parameter_names=''):
-        self.parameter_strings = [p.strip() for p in parameter_names.split(sep=',')]
-        self.parameter_values = np.empty_like(self.parameter_strings, dtype=float)
-        
-    def get_parameter_names(self):
-        return cp.deepcopy(self.get_parameter_strings)
-        
-    def test_fn(self):
-        print(self.fn_def)
-        
-    def __str__(self):
-        return self.fn_def
+# class LibraryFunction():
+#     
+#     def __init__(self, fn_id, 
+#                  name='', 
+#                  short_description='', 
+#                  long_description='', 
+#                  fn_def=None, 
+#                  find_root=None,
+#                  obs_dependent_name='', 
+#                  calc_dependent_name='', 
+#                  independent_names=None, 
+#                  parameter_names=None, 
+#                  first_estimates=None
+#                  ):
+#         self.fn_id = fn_id
+#         self.name = name
+#         self.short_description = short_description
+#         self.long_description = long_description
+#         self.fn_def = fn_def
+#         self.find_root = find_root,
+#         self.obs_dependent_name = obs_dependent_name
+#         self.calc_dependent_name = calc_dependent_name
+#         if not independent_names is None:
+#             self.set_independents(independent_names)
+#         if not parameter_names is None:
+#             self.set_parameters(parameter_names)
+#         self.first_estimates = first_estimates
+#         self.independent_strings = []
+#         self.parameter_strings = []
+#         
+#     def set_independents(self, independent_names=''):
+#         if independent_names != '':
+#             self.independent_names = [x.strip() for x in independent_names.split(sep=',')]
+#             self.independents_df = pd.DataFrame(columns=self.independent_names)
+#                          
+#     def set_parameters(self, parameter_names=''):
+#         self.parameter_strings = [p.strip() for p in parameter_names.split(sep=',')]
+#         self.parameter_values = np.empty_like(self.parameter_strings, dtype=float)
+#         
+#     def get_parameter_names(self):
+#         return cp.deepcopy(self.get_parameter_strings)
+#         
+#     def test_fn(self):
+#         print(self.fn_def)
+#         
+#     def __str__(self):
+#         return self.fn_def
     
 
 class FunctionsFramework():     

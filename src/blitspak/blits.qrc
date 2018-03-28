@@ -1,9 +1,4 @@
 <RCC>
   <qresource>
-    <file>Images/mjs_create_data.png</file>
-    <file>Images/mjs-close-data.png</file>
-    <file>Images/mjs-open-data.png</file>
-    <file>Images/mjs-open-data2.png</file>
-    <file>Images/mjs-save-data.png</file>
   </qresource>
 </RCC>

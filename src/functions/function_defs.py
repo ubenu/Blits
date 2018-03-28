@@ -295,6 +295,7 @@ def p0_fn_hill(data, n_parameters):
     return None
 
 def fn_comp_binding(x, params):
+    # KdL, KdN, eP, eL, eN, ePL, ePN
     KdL, KdN, eP, eL, eN, ePL, ePN = params
     p0 = x[0]
     l0 = x[1]
